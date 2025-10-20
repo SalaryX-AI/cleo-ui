@@ -134,9 +134,6 @@ celerybeat.pid
 # SageMath parsed files
 *.sage.py
 
-# Code
-frontend/ 
-
 # Environments
 .env
 .envrc
@@ -152,6 +149,9 @@ venv.bak/
 # Spyder project settings
 .spyderproject
 .spyproject
+
+# Code
+frontend/ 
 
 # Rope project settings
 .ropeproject
