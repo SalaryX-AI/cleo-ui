@@ -1,4 +1,6 @@
-langchain==0.3.0
+langchain  # or latest compatible with langsmith>=0.3.45
+langsmith  # or higher
+#langchain==0.3.0
 langchain-openai==0.2.0
 langgraph==0.6.10
 python-dotenv==1.0.0
