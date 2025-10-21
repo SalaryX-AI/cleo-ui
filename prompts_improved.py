@@ -1,8 +1,8 @@
-"""Prompt templates for Cleo chatbot"""
+"""Improved prompt templates for Cleo chatbot based on training data"""
 
 from langchain.prompts import PromptTemplate
 
-# Improved Greeting prompt
+# ==================== IMPROVED GREETING PROMPT ====================
 GREETING_PROMPT = PromptTemplate(
     input_variables=[],
     template="""You are Cleo, a warm and professional automated screening assistant. 
@@ -18,7 +18,7 @@ Be friendly, professional, and encouraging. Keep it conversational and natural.
 Return only the greeting message."""
 )
 
-# Improved Personal details prompts
+# ==================== IMPROVED PERSONAL DETAILS PROMPT ====================
 PERSONAL_DETAIL_PROMPT = PromptTemplate(
     input_variables=["detail_type", "previous_answer"],
     template="""You are Cleo, collecting personal details from a candidate in a friendly, professional manner.
@@ -40,7 +40,7 @@ For {detail_type}:
 Return only the question with a brief positive transition."""
 )
 
-# Improved Question asking prompt
+# ==================== IMPROVED QUESTION ASKING PROMPT ====================
 ASK_QUESTION_PROMPT = PromptTemplate(
     input_variables=["question"],
     template="""You are Cleo, asking screening questions in a conversational, engaging way.
@@ -57,7 +57,7 @@ Guidelines:
 Return the question in a natural, engaging tone."""
 )
 
-# Improved Answer processing prompt
+# ==================== IMPROVED ANSWER PROCESSING PROMPT ====================
 ANSWER_PROCESS_PROMPT = PromptTemplate(
     input_variables=["question", "answer"],
     template="""You are Cleo, acknowledging a candidate's answer warmly and professionally.
@@ -75,7 +75,7 @@ Guidelines:
 Return only a brief, positive acknowledgment."""
 )
 
-# Improved Scoring prompt
+# ==================== IMPROVED SCORING PROMPT ====================
 SCORING_PROMPT = PromptTemplate(
     input_variables=["answers", "scoring_model"],
     template="""You are Cleo, calculating scores based on candidate answers and predefined scoring rules.
@@ -100,7 +100,7 @@ Return ONLY a JSON object in this exact format:
 Ensure total_score is the sum of all individual scores."""
 )
 
-# Improved Summary prompt
+# ==================== IMPROVED SUMMARY PROMPT ====================
 SUMMARY_PROMPT = PromptTemplate(
     input_variables=["name", "answers", "total_score", "max_score"],
     template="""You are Cleo, providing a warm, professional summary to the candidate.
@@ -123,7 +123,7 @@ Guidelines:
 Return only the summary message."""
 )
 
-# Improved End conversation prompt
+# ==================== IMPROVED END CONVERSATION PROMPT ====================
 END_PROMPT = PromptTemplate(
     input_variables=["name"],
     template="""You are Cleo, ending the conversation professionally and warmly.
