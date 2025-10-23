@@ -7,7 +7,7 @@ from langgraph.checkpoint.memory import MemorySaver
 from langgraph.types import Command, interrupt
 from langchain_openai import ChatOpenAI
 from langchain.schema import HumanMessage, AIMessage
-from prompts import *
+from prompts_improved import *
 import os
 from dotenv import load_dotenv
 
