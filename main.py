@@ -36,31 +36,32 @@ sessions = {}
 #     }
 # }
 
-# QUESTIONS_CONFIG = {
-#   "questions": [
-#     "Do you have interest in a part-time job role?",
-#     "Are you available for morning shifts?",
-#     "Can you start working from October 17, 2025?",
-#     "Can you confirm you are aged 18 and above?",
-#     "Can you consent for a background check to be conducted?",
-#     "Are you comfortable if a uniform is to be worn during work hours?",
-#     "Do you have a minimum of 4 years of experience in a field related to this job?"
-#   ],
-#   "scoring_model": {
-#     "Do you have interest in a part-time job role?": {"rule": "Yes -> 10, No -> 0"},
-#     "Are you available for morning shifts?": {"rule": "Yes -> 10, No -> 0"},
-#     "Can you start working from October 17, 2025?": {"rule": "Yes -> 10, No -> 0"},
-#     "Can you confirm you are aged 18 and above?": {"rule": "Yes -> 10, No -> 0"},
-#     "Can you consent for a background check to be conducted?": {"rule": "Yes -> 10, No -> 0"},
-#     "Are you comfortable if a uniform is to be worn during work hours?": {"rule": "Yes -> 10, No -> 0"},
-#     "Do you have a minimum of 4 years of experience in a field related to this job?": {"rule": "Yes -> 40, No -> 0"}
-#   }
-# }
+QUESTIONS_CONFIG = {
+  "questions": [
+    "Do you have interest in a part-time job role?",
+    "Are you available for morning shifts?",
+    "Can you start working from October 17, 2025?",
+    "Can you confirm you are aged 18 and above?",
+    "Can you consent for a background check to be conducted?",
+    "Are you comfortable if a uniform is to be worn during work hours?",
+    "Do you have a minimum of 4 years of experience in a field related to this job?"
+  ],
+  "scoring_model": {
+    "Do you have interest in a part-time job role?": {"rule": "Yes -> 10, No -> 0"},
+    "Are you available for morning shifts?": {"rule": "Yes -> 10, No -> 0"},
+    "Can you start working from October 17, 2025?": {"rule": "Yes -> 10, No -> 0"},
+    "Can you confirm you are aged 18 and above?": {"rule": "Yes -> 10, No -> 0"},
+    "Can you consent for a background check to be conducted?": {"rule": "Yes -> 10, No -> 0"},
+    "Are you comfortable if a uniform is to be worn during work hours?": {"rule": "Yes -> 10, No -> 0"},
+    "Do you have a minimum of 4 years of experience in a field related to this job?": {"rule": "Yes -> 40, No -> 0"}
+  }
+}
 
 
 
-QUESTIONS_CONFIG = get_job_details_by_id("ea24d345-206d-4656-936f-588aa0ecc0c2")
+# QUESTIONS_CONFIG = get_job_details_by_id("ea24d345-206d-4656-936f-588aa0ecc0c2")
 
+# QUESTIONS_CONFIG = {}
 
 @app.get("/")
 async def root():
@@ -78,6 +79,9 @@ async def start_session():
         "thread_id": thread_id,
         "active": True
     }
+
+    # global QUESTIONS_CONFIG 
+    # QUESTIONS_CONFIG = get_job_details_by_id("ea24d345-206d-4656-936f-588aa0ecc0c2")
     
     return {
         "session_id": session_id,
@@ -112,34 +116,56 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
             current_question_index=0,
             answers={},
             personal_details={},
-            ready_confirmed=False
+            ready_confirmed=False,
+            knockout_answers={},
+            current_knockout_question_index=0,
+            knockout_questions=["Good. Are you legally authorized to work in the U.S.?",
+                                "Got it. Do you have reliable transportation to and from work?"],
+
+            email_attempt_count=0,
+            phone_attempt_count=0,
+            email_validation_failed=False,
+            phone_validation_failed=False,
+            invalid_email_attempt="",
+            invalid_phone_attempt="",
+            acknowledgement_type=""                    
         )
         
-        # Start workflow
-        result = graph_app.invoke(initial_state, config=config)
-        
-        # Send first AI message
-        if result.get("messages"):
-            last_msg = result["messages"][-1]
-            if isinstance(last_msg, AIMessage):
-                await websocket.send_json({
-                    "type": "ai_message",
-                    "content": last_msg.content
-                })
+        # Start workflow with streaming
+        async for event in graph_app.astream(initial_state, config=config, stream_mode="updates"):
+            for node_name, node_data in event.items():
+                if node_data and "messages" in node_data:
+                    messages = node_data["messages"]
+                    
+                    msg = messages[-1]
+                    print(msg)
+                    if isinstance(msg, AIMessage):
+                        await websocket.send_json({
+                            "type": "ai_message",
+                            "content": msg.content
+                        
+                    })
         
         # Main conversation loop
         while True:
             # Check if workflow completed
+            # snapshot = graph_app.get_state(config)
+            # if not snapshot.next:
+            #     result = snapshot.values
+            #     await websocket.send_json({
+            #         "type": "workflow_complete",
+            #         "summary": {
+            #             "name": result.get("personal_details", {}).get("name", ""),
+            #             "total_score": result.get("total_score", 0),
+            #             "max_score": result.get("max_possible_score", 10)
+            #         }
+            #     })
+            #     break
+
+
+            # Check if workflow completed
             snapshot = graph_app.get_state(config)
             if not snapshot.next:
-                await websocket.send_json({
-                    "type": "workflow_complete",
-                    "summary": {
-                        "name": result.get("personal_details", {}).get("name", ""),
-                        "total_score": result.get("total_score", 0),
-                        "max_score": result.get("max_possible_score", 10)
-                    }
-                })
                 break
             
             # Wait for user message
@@ -162,17 +188,18 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                 {"messages": current_messages + [HumanMessage(content=user_input)]}
             )
             
-            # Resume workflow
-            result = graph_app.invoke(None, config=config)
-            
-            # Send AI response
-            if result.get("messages"):
-                last_msg = result["messages"][-1]
-                if isinstance(last_msg, AIMessage):
-                    await websocket.send_json({
-                        "type": "ai_message",
-                        "content": last_msg.content
-                    })
+            # Resume workflow with streaming
+            async for event in graph_app.astream(None, config=config, stream_mode="updates"):
+                for node_name, node_data in event.items():
+                    if node_data and "messages" in node_data:
+                        messages = node_data["messages"]
+                        msg = messages[-1]
+                        print(msg)
+                        if isinstance(msg, AIMessage):
+                            await websocket.send_json({
+                                "type": "ai_message",
+                                "content": msg.content
+                            })
     
     except WebSocketDisconnect:
         print(f"Client disconnected: {session_id}")
@@ -201,4 +228,5 @@ async def get_session_status(session_id: str):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    # uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

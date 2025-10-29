@@ -7,7 +7,7 @@ from langgraph.checkpoint.memory import MemorySaver
 from langgraph.types import Command, interrupt
 from langchain_openai import ChatOpenAI
 from langchain.schema import HumanMessage, AIMessage
-from prompts1 import *
+from prompts2 import *
 import os
 from dotenv import load_dotenv
 from langchain.prompts import ChatPromptTemplate
@@ -56,7 +56,7 @@ class ChatbotState(MessagesState):
     total_score: float = 0
     max_possible_score: float = 0
 
-    acknowledgement: str = ""
+    acknowledgement_type: str = ""
 
     # Validation tracking
     email_validation_failed: bool = False
@@ -64,17 +64,41 @@ class ChatbotState(MessagesState):
     invalid_email_attempt: str = ""
     invalid_phone_attempt: str = ""
 
+    email_attempt_count: int = 0
+    phone_attempt_count: int = 0
+
 
 # ==================== Acknowledgement ====================
 def acknowledge_node(state: ChatbotState) -> ChatbotState:
     """Send acknowledgment message"""
-    print("acknowledge_node called")
+    print(f"acknowledge_node called (type: {state['acknowledgement_type']})")
 
-    acknowledgement = state["acknowledgement"]
+    ack_messages = {
+        "ready": "Ok! I'll guide you through each step. You can stop or come back anytime. Let's start!",
+        "questions": "Thanks! For sharing your contact details with us. Now we are moving on next stage. Let's start!",
+        "default": "Let's continue!"
+    }
+
+    ack_type = state.get("acknowledgement_type", "default")
+    message = ack_messages.get(ack_type)
+
+    state["messages"].append(AIMessage(content=message))
     
-    state["messages"].append(AIMessage(content=acknowledgement))
     
     return state
+
+
+def post_acknowledgement_router(state: ChatbotState) -> Literal["ask_knockout_question", "ask_question"]:
+    """Decide where to go after acknowledgement"""
+    
+    # If we're done with personal details, start questions
+    if state.get("acknowledgement_type") == "questions":
+        return "ask_question"
+    
+    # Otherwise, start knockout questions
+    return "ask_knockout_question"
+
+
 
 # ==================== START & READY FLOW ====================
 
@@ -88,9 +112,6 @@ def start_node(state: ChatbotState) -> ChatbotState:
     # Use the chat template
     messages = chat_template.format_messages(user_input=prompt)
     response = llm.invoke(messages)
-
-    # response = llm.invoke(prompt)
-    # print(response.content)
     
     state["messages"].append(AIMessage(content=response.content))
     
@@ -107,13 +128,10 @@ def check_ready_node(state: ChatbotState) -> ChatbotState:
     
     if isinstance(last_message, HumanMessage):
         user_input = last_message.content.lower().strip()
+        
         if "yes" in user_input or "accept" in user_input or "ready" in user_input:
             state["ready_confirmed"] = True
-            
-            state["acknowledgement"] = (
-                "Great! I'll guide you through each step. You can stop or come back anytime.\n"
-                "Lets Start!"
-                )
+            state["acknowledgement_type"] = "ready"
     
     return state
 
@@ -133,8 +151,6 @@ def ask_knockout_question_node(state: ChatbotState) -> ChatbotState:
     """Ask knockout questions"""
     
     print("ask_knockout_question_node called")
-
-    # Add acknowledgment first
     
     idx = state["current_knockout_question_index"]
     knockout_questions = state["knockout_questions"]
@@ -150,9 +166,7 @@ def ask_knockout_question_node(state: ChatbotState) -> ChatbotState:
         # Use the chat template
         messages = chat_template.format_messages(user_input=prompt)
         response = llm.invoke(messages)
-        
-        # response = llm.invoke(prompt)
-        
+            
         state["messages"].append(AIMessage(content=response.content))
     
     return state
@@ -193,14 +207,6 @@ def ask_name_node(state: ChatbotState) -> ChatbotState:
     """Ask for name"""
     
     print("ask_name_node called")
-    
-    # prompt = PERSONAL_DETAIL_PROMPT.format(
-    #     detail_type="name",
-    #     previous_question="None",
-    #     previous_answer="None",
-    #     validation_failed=False,
-    #     invalid_attempt="" 
-    # )
 
     prompt = PERSONAL_DETAIL_ASK_PROMPT.format(
         detail_type="name",
@@ -211,9 +217,7 @@ def ask_name_node(state: ChatbotState) -> ChatbotState:
     # Use the chat template
     messages = chat_template.format_messages(user_input=prompt)
     response = llm.invoke(messages)
-    
-    # response = llm.invoke(prompt)
-    
+        
     state["messages"].append(AIMessage(content=response.content))
     
     return state
@@ -239,21 +243,25 @@ def ask_email_node(state: ChatbotState) -> ChatbotState:
     
     print("ask_email_node called")
     
-    # prompt = PERSONAL_DETAIL_PROMPT.format(
-    #     detail_type="email",
-    #     previous_question="What is your full name?",
-    #     previous_answer=state["personal_details"].get("name", ""),
-    #     validation_failed=str(state.get("email_validation_failed", False)),
-    #     invalid_attempt=state.get("invalid_email_attempt", "")
-    # )
-    
      # Check if validation failed
     if state.get("email_validation_failed"):
-        # Use re-ask prompt
-        prompt = PERSONAL_DETAIL_REASK_PROMPT.format(
-            detail_type="email",
-            invalid_attempt=state.get("invalid_email_attempt")
-        )
+        
+        # Check attempt count
+        if state.get("email_attempt_count", 0) >= 3:
+            
+            # After 3 attempts, show example
+            prompt = PERSONAL_DETAIL_REASK_WITH_EXAMPLE_PROMPT.format(
+                detail_type="email",
+                invalid_attempt=state.get("invalid_email_attempt"),
+                example="john.doe@example.com"
+            )
+        else:
+            
+            # Normal re-ask (no example)
+            prompt = PERSONAL_DETAIL_REASK_PROMPT.format(
+                detail_type="email",
+                invalid_attempt=state.get("invalid_email_attempt")
+            )
     else:
         # Use normal ask prompt
         prompt = PERSONAL_DETAIL_ASK_PROMPT.format(
@@ -264,10 +272,7 @@ def ask_email_node(state: ChatbotState) -> ChatbotState:
     
     # Use the chat template
     messages = chat_template.format_messages(user_input=prompt)
-    response = llm.invoke(messages)
-    
-    # response = llm.invoke(prompt)
-    
+    response = llm.invoke(messages)    
     
     state["messages"].append(AIMessage(content=response.content))
     
@@ -291,13 +296,16 @@ def store_email_node(state: ChatbotState) -> ChatbotState:
             state["personal_details"]["email"] = email
             state["email_validation_failed"] = False
             state["invalid_email_attempt"] = ""
+
+            state["email_attempt_count"] = 0  # Reset counter
             
             print("Valid email stored:", email)
         else:
             # Invalid - set flag to re-ask
             state["email_validation_failed"] = True
             state["invalid_email_attempt"] = email
-            # Don't store the invalid email
+
+            state["email_attempt_count"] += 1  # Increment counter
             
             print("Invalid email detected:", email)
     
@@ -320,22 +328,24 @@ def ask_phone_node(state: ChatbotState) -> ChatbotState:
     """Ask for phone (or re-ask if validation failed)"""
     
     print("ask_phone_node called")
-    
-    # prompt = PERSONAL_DETAIL_PROMPT.format(
-    #     detail_type="phone",
-    #     previous_question="What is your email address?",
-    #     previous_answer=state["personal_details"].get("email", ""),
-    #     validation_failed=str(state.get("phone_validation_failed", False)),
-    #     invalid_attempt=state.get("invalid_phone_attempt", "")
-    # )
 
     # Check if validation failed
     if state.get("phone_validation_failed"):
-        # Use re-ask prompt
-        prompt = PERSONAL_DETAIL_REASK_PROMPT.format(
-            detail_type="phone number",
-            invalid_attempt=state.get("invalid_phone_attempt")
-        )
+         
+        # Check attempt count
+        if state.get("phone_attempt_count", 0) >= 3:
+            # After 3 attempts, show example
+            prompt = PERSONAL_DETAIL_REASK_WITH_EXAMPLE_PROMPT.format(
+                detail_type="phone number",
+                invalid_attempt=state.get("invalid_phone_attempt"),
+                example="+1-234-567-8900 or 2345678900"
+            )
+        else:
+            # Normal re-ask (no example)
+            prompt = PERSONAL_DETAIL_REASK_PROMPT.format(
+                detail_type="phone number",
+                invalid_attempt=state.get("invalid_phone_attempt")
+            )
     else:
         # Use normal ask prompt
         prompt = PERSONAL_DETAIL_ASK_PROMPT.format(
@@ -347,8 +357,6 @@ def ask_phone_node(state: ChatbotState) -> ChatbotState:
     # Use the chat template
     messages = chat_template.format_messages(user_input=prompt)
     response = llm.invoke(messages)
-
-    # response = llm.invoke(prompt)
     
     state["messages"].append(AIMessage(content=response.content))
     
@@ -372,23 +380,30 @@ def store_phone_node(state: ChatbotState) -> ChatbotState:
             state["personal_details"]["phone"] = phone
             state["phone_validation_failed"] = False
             state["invalid_phone_attempt"] = ""
+
+            state["phone_attempt_count"] = 0  # Reset counter
+
+            state["acknowledgement_type"] = "questions"
+
         else:
             # Invalid - set flag to re-ask
             state["phone_validation_failed"] = True
             state["invalid_phone_attempt"] = phone
-            # Don't store the invalid phone
+
+            state["phone_attempt_count"] += 1  # Increment counter
     
     return state
 
 
-def phone_router(state: ChatbotState) -> Literal["ask_phone", "ask_question"]:
+def phone_router(state: ChatbotState) -> Literal["ask_phone", "acknowledgement"]:
     """Check if phone is valid, re-ask or continue"""
     
     print("phone_router called")
     
     if state.get("phone_validation_failed", False):
         return "ask_phone"  # Re-ask for phone
-    return "ask_question"  # Continue to questions
+    
+    return "acknowledgement"  # Continue to questions
 
 
 # ==================== QUESTIONS LOOP ====================
@@ -543,13 +558,14 @@ def build_graph():
     
     # Set entry point
     workflow.set_entry_point("start")
+    # workflow.set_entry_point("ask_question")  # For testing only
     
     # Build flow
     workflow.add_edge("start", "check_ready")
     workflow.add_conditional_edges("check_ready", ready_router)
 
     # Knockout Questions loop
-    workflow.add_edge("acknowledgement", "ask_knockout_question")
+    workflow.add_conditional_edges("acknowledgement", post_acknowledgement_router)
     workflow.add_edge("ask_knockout_question", "store_kq_answer")
     workflow.add_conditional_edges("store_kq_answer", knockout_question_router)
     
@@ -569,7 +585,6 @@ def build_graph():
     # Scoring and end
     workflow.add_edge("score", "end")
     workflow.add_edge("end", END)
-    # workflow.add_edge("end", END)
     
     # Compile with memory
     memory = MemorySaver()
