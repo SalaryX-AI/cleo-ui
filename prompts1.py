@@ -30,6 +30,25 @@ GREETING_PROMPT = PromptTemplate(
     """
 )
 
+CONSENT_EVALUATION_PROMPT = PromptTemplate(
+    input_variables=["user_response"],
+    template="""
+    Question: Hi there! I'm Cleo. I'll ask a few quick questions for your screening. Are you ready to start?
+    The candidate response: "{user_response}"
+    
+    Question: Are they willing to proceed with screening?
+    
+    Consider:
+    - Positive intent (agreement, willingness, readiness) = Yes
+    - Negative intent (refusal, postponement, disinterest) = No
+    - Neutral/unclear intent (confusion, questions, vague) = Yes
+    
+    Think: What is their underlying intent?
+    
+    CRITICAL: Return ONLY one word - either Yes or No. Nothing else.
+    """
+)
+
 
 # KNOCKOUT_QUESTION asking prompt
 ASK_KNOCKOUT_QUESTION_PROMPT = PromptTemplate(

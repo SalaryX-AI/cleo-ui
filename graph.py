@@ -128,22 +128,34 @@ def check_ready_node(state: ChatbotState) -> ChatbotState:
     
     if isinstance(last_message, HumanMessage):
         user_input = last_message.content.lower().strip()
+
+        prompt = CONSENT_EVALUATION_PROMPT.format(user_response=user_input)
+        response = llm.invoke(prompt)
         
-        if "yes" in user_input or "accept" in user_input or "ready" in user_input:
+        # Get LLM's decision (should be "Yes" or "No")
+        llm_decision = response.content.strip()
+        
+        print(f"User said: '{user_input}' | LLM decision: '{llm_decision}'")
+        
+        if llm_decision.lower() == "yes":
             state["ready_confirmed"] = True
             state["acknowledgement_type"] = "ready"
+        else:
+            # Send decline message
+            decline_message = "No problem at all! Thanks for stopping by. Feel free to reach out anytime. Take care!"
+            state["messages"].append(AIMessage(content=decline_message))    
     
     return state
 
 
-def ready_router(state: ChatbotState) -> Literal["acknowledgement", "end"]:
+def ready_router(state: ChatbotState) -> Literal["acknowledgement", "__end__"]:
     """Route based on ready confirmation"""
     
     print("ready_router called")
     
     if state["ready_confirmed"]:
         return "acknowledgement"
-    return "end"
+    return "__end__" # go directly to END
 
 # ==================== knockout questions ============================
 
