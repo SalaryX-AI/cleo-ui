@@ -122,6 +122,7 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
             knockout_questions=["Good. Are you legally authorized to work in the U.S.?",
                                 "Got it. Do you have reliable transportation to and from work?"],
 
+            knockout_passed=False,
             email_attempt_count=0,
             phone_attempt_count=0,
             email_validation_failed=False,

@@ -70,6 +70,36 @@ ASK_KNOCKOUT_QUESTION_PROMPT = PromptTemplate(
     """
     )
 
+# Knockout questions evaluation prompt
+KNOCKOUT_EVALUATION_PROMPT = PromptTemplate(
+    input_variables=["knockout_questions", "knockout_answers"],
+    template="""
+    Task: Evaluate if the candidate passed all knockout screening questions.
+    
+    Knockout Questions and Answers:
+    {knockout_questions}
+    {knockout_answers}
+    
+    Evaluation Rules:
+    - These are CRITICAL eligibility questions
+    - If candidate answered "no", "not authorized", "don't have", or similar negative responses to ANY question → FAIL
+    - If candidate answered "yes", "authorized", "have", or similar positive responses to ALL questions → PASS
+    - Be strict: any single failure = overall FAIL
+    
+    Examples:
+    Q: "Are you legally authorized to work in the U.S.?" A: "no" → FAIL
+    Q: "Do you have reliable transportation?" A: "no" → FAIL
+    Q: "Are you legally authorized to work in the U.S.?" A: "yes" + Q: "Do you have reliable transportation?" A: "yes" → PASS
+    
+    CRITICAL: Return ONLY one word - either "PASS" or "FAIL". Nothing else.
+    
+    Decision:
+    """
+)
+
+# ==========================================================================================================
+
+
 # Prompt for FIRST time asking (no validation failure)
 PERSONAL_DETAIL_ASK_PROMPT = PromptTemplate(
     input_variables=["detail_type", "previous_question", "previous_answer"],

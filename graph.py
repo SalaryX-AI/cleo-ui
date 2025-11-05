@@ -7,7 +7,7 @@ from langgraph.checkpoint.memory import MemorySaver
 from langgraph.types import Command, interrupt
 from langchain_openai import ChatOpenAI
 from langchain.schema import HumanMessage, AIMessage
-from prompts2 import *
+from prompts1 import *
 import os
 from dotenv import load_dotenv
 from langchain.prompts import ChatPromptTemplate
@@ -48,6 +48,7 @@ class ChatbotState(MessagesState):
     current_knockout_question_index: int = 0
     knockout_questions: List[str] = []
     knockout_answers: Dict[str, str] = {}
+    knockout_passed: bool = False
     
     scoring_model: Dict[str, Dict] = {}
     personal_details: Dict[str, str] = {}
@@ -202,14 +203,70 @@ def store_kq_answer_node(state: ChatbotState) -> ChatbotState:
     return state
 
 
-def knockout_question_router(state: ChatbotState) -> Literal["ask_knockout_question", "ask_name"]:
-    """Route to next knockout_question or ask_name"""
+def knockout_question_router(state: ChatbotState) -> Literal["ask_knockout_question", "evaluate_knockout"]:
+    """Route to next knockout_question or evaluation"""
     
     print("knockout_question_router called")
     
     if state["current_knockout_question_index"] < len(state["knockout_questions"]):
         return "ask_knockout_question"
-    return "ask_name"
+    return "evaluate_knockout"
+
+
+# ==================== KNOCKOUT EVALUATION ====================
+
+def evaluate_knockout_node(state: ChatbotState) -> ChatbotState:
+    """Evaluate knockout answers using LLM"""
+    
+    print("evaluate_knockout_node called")
+    
+    knockout_questions = state["knockout_questions"]
+    knockout_answers = state["knockout_answers"]
+    
+    # Format questions and answers for prompt
+    qa_pairs = []
+    for question in knockout_questions:
+        answer = knockout_answers.get(question, "No answer")
+        qa_pairs.append(f"Q: {question}\nA: {answer}")
+    
+    qa_text = "\n\n".join(qa_pairs)
+    
+    # Evaluate using LLM
+    prompt = KNOCKOUT_EVALUATION_PROMPT.format(
+        knockout_questions="",
+        knockout_answers=qa_text
+    )
+    
+    # Use chat template
+    messages = chat_template.format_messages(user_input=prompt)
+    response = llm.invoke(messages)
+    
+    # Get decision (should be "PASS" or "FAIL")
+    decision = response.content.strip().upper()
+    
+    print(f"Knockout evaluation: {decision}")
+    
+    if decision == "PASS":
+        state["knockout_passed"] = True
+    else:
+        state["knockout_passed"] = False
+        failure_messages = "Thank you for your interest! Unfortunately, based on your responses, you don't meet our basic requirements at this time. We appreciate you taking the time to chat with us. Best of luck in your job search!"
+        
+        # Add failure message to conversation
+        state["messages"].append(AIMessage(content=failure_messages))
+    
+    return state
+
+
+def knockout_evaluation_router(state: ChatbotState) -> Literal["ask_name", "__end__"]:
+    """Route based on knockout evaluation"""
+    
+    print("knockout_evaluation_router called")
+    
+    if state.get("knockout_passed"):
+        return "ask_name"  # Continue to personal details
+    return "__end__"       # go directly to END
+
 
 
 
@@ -426,9 +483,7 @@ def ask_question_node(state: ChatbotState) -> ChatbotState:
     print("ask_question_node called")
     
     idx = state["current_question_index"]
-    questions = state["questions"]
-
-    
+    questions = state["questions"] 
     
     if idx < len(questions):
         question = questions[idx]        
@@ -556,6 +611,7 @@ def build_graph():
     workflow.add_node("acknowledgement", acknowledge_node)
     workflow.add_node("ask_knockout_question", ask_knockout_question_node)
     workflow.add_node("store_kq_answer", store_kq_answer_node)
+    workflow.add_node("evaluate_knockout", evaluate_knockout_node)
     workflow.add_node("ask_name", ask_name_node)
     workflow.add_node("store_name", store_name_node)
     workflow.add_node("ask_email", ask_email_node)
@@ -580,6 +636,9 @@ def build_graph():
     workflow.add_conditional_edges("acknowledgement", post_acknowledgement_router)
     workflow.add_edge("ask_knockout_question", "store_kq_answer")
     workflow.add_conditional_edges("store_kq_answer", knockout_question_router)
+
+    #  knockout evaluation flow
+    workflow.add_conditional_edges("evaluate_knockout", knockout_evaluation_router)
     
     # Personal details flow with validation
     workflow.add_edge("ask_name", "store_name")
