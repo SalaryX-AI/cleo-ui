@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Job Application</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            padding: 40px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+
+        .back-link {
+            display: inline-block;
+            color: #667eea;
+            text-decoration: none;
+            margin-bottom: 20px;
+            font-weight: 600;
+            transition: color 0.3s;
+        }
+
+        .back-link:hover {
+            color: #764ba2;
+        }
+
+        h1 {
+            color: #333;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-transform: capitalize;
+        }
+
+        .job-meta {
+            color: #666;
+            font-size: 1.1em;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        .job-description {
+            margin-bottom: 30px;
+        }
+
+        .job-description h2 {
+            color: #333;
+            font-size: 1.5em;
+            margin-bottom: 15px;
+        }
+
+        .job-description p {
+            color: #555;
+            line-height: 1.8;
+            margin-bottom: 15px;
+        }
+
+        .requirements {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+        }
+
+        .requirements h3 {
+            color: #333;
+            margin-bottom: 15px;
+        }
+
+        .requirements ul {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .requirements li {
+            color: #555;
+            padding: 8px 0;
+            padding-left: 25px;
+            position: relative;
+        }
+
+        .requirements li:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #667eea;
+            font-weight: bold;
+        }
+
+        .apply-section {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .apply-section h2 {
+            margin-bottom: 15px;
+        }
+
+        .apply-section p {
+            margin-bottom: 20px;
+            opacity: 0.9;
+        }
+
+        .start-chat-btn {
+            background: white;
+            color: #667eea;
+            border: none;
+            padding: 15px 40px;
+            border-radius: 30px;
+            font-size: 1.1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+
+        .start-chat-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        #chatbot-notice {
+            display: none;
+            margin-top: 20px;
+            padding: 15px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 8px;
+            font-size: 0.95em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="jobs-listing.html" class="back-link">← Back to All Jobs</a>
+        
+        <h1 id="job-title">Loading...</h1>
+        <div class="job-meta" id="job-meta">
+            Getting job details...
+        </div>
+
+        <div class="job-description">
+            <h2>About This Position</h2>
+            <p id="job-description">We are looking for qualified candidates for this position.</p>
+        </div>
+
+        <div class="requirements">
+            <h3>Requirements</h3>
+            <ul id="requirements-list">
+                <li>Must be legally authorized to work</li>
+                <li>Relevant experience preferred</li>
+                <li>Strong work ethic and reliability</li>
+            </ul>
+        </div>
+
+        <div class="apply-section">
+            <h2>Ready to Apply?</h2>
+            <p>Click the button below to start your application process with our AI assistant.</p>
+            <button class="start-chat-btn" onclick="startApplication()">Start Application</button>
+            <div id="chatbot-notice">
+                Look for the chat widget in the bottom-right corner! 💬
+            </div>
+        </div>
+    </div>
+
+    <!-- Chatbot will be embedded here dynamically based on job_type -->
+    <div id="cleo-chatbot"></div>
+    
+    <!-- Load the chatbot script -->
+    <script src="http://localhost:8000/cleoAssistant.js"></script>
+
+    <script>
+        // Get job_type from URL parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        const jobType = urlParams.get('job_type');
+
+        // Job details database
+        const jobDetails = {
+            'carpenter': {
+                title: 'Carpenter',
+                icon: '🪚',
+                description: 'Join our team as a skilled carpenter! You\'ll be responsible for constructing, installing, and repairing structures and fixtures made from wood and other materials. Work on residential and commercial projects.',
+                requirements: [
+                    'Experience with woodworking tools and techniques',
+                    'Ability to read blueprints and technical drawings',
+                    'Physical fitness and stamina',
+                    'Attention to detail and precision'
+                ]
+            },
+            'electrician': {
+                title: 'Electrician',
+                icon: '⚡',
+                description: 'We need licensed electricians to install, maintain, and repair electrical systems in residential and commercial buildings. Ensure all work meets safety standards and building codes.',
+                requirements: [
+                    'Valid electrician license',
+                    'Knowledge of electrical codes and regulations',
+                    'Problem-solving skills',
+                    'Ability to work independently'
+                ]
+            },
+            'plumber': {
+                title: 'Plumber',
+                icon: '🔧',
+                description: 'Seeking experienced plumbers to install and repair water, drainage, and gas systems. Work on new construction and maintenance projects.',
+                requirements: [
+                    'Plumbing certification or license',
+                    'Experience with various plumbing systems',
+                    'Strong troubleshooting abilities',
+                    'Customer service skills'
+                ]
+            },
+            'mason': {
+                title: 'Mason',
+                icon: '🧱',
+                description: 'Looking for skilled masons to build and repair structures using brick, stone, and concrete. Work on both new construction and restoration projects.',
+                requirements: [
+                    'Experience in masonry work',
+                    'Knowledge of different materials and techniques',
+                    'Physical strength and endurance',
+                    'Precision and craftsmanship'
+                ]
+            },
+            'assembly_line_worker': {
+                title: 'Assembly Line Worker',
+                icon: '🏭',
+                description: 'Join our manufacturing team! Assemble products on our production line, ensuring quality and efficiency in every step.',
+                requirements: [
+                    'Attention to detail',
+                    'Ability to follow instructions',
+                    'Good hand-eye coordination',
+                    'Team player mentality'
+                ]
+            },
+            'machinist': {
+                title: 'Machinist',
+                icon: '⚙️',
+                description: 'Operate precision machinery to create high-quality parts and components. Read technical drawings and maintain quality standards.',
+                requirements: [
+                    'Experience with CNC machines or manual lathes',
+                    'Ability to read technical blueprints',
+                    'Mathematics and measurement skills',
+                    'Quality control knowledge'
+                ]
+            },
+            'welder': {
+                title: 'Welder',
+                icon: '🔥',
+                description: 'Skilled welders needed to join metal parts using various welding techniques. Work on fabrication and repair projects.',
+                requirements: [
+                    'Welding certification (MIG, TIG, or Stick)',
+                    'Experience with different metals',
+                    'Safety consciousness',
+                    'Ability to read welding symbols'
+                ]
+            },
+            'fabricator': {
+                title: 'Fabricator',
+                icon: '🔨',
+                description: 'Cut, shape, and assemble metal structures according to specifications. Work with various tools and equipment.',
+                requirements: [
+                    'Metal fabrication experience',
+                    'Knowledge of tools and machinery',
+                    'Blueprint reading ability',
+                    'Precision and accuracy'
+                ]
+            },
+            'mechanic': {
+                title: 'Mechanic',
+                icon: '🚗',
+                description: 'Diagnose and repair vehicles and machinery. Perform routine maintenance and complex repairs.',
+                requirements: [
+                    'Automotive or machinery repair experience',
+                    'Diagnostic skills',
+                    'Tool proficiency',
+                    'Problem-solving abilities'
+                ]
+            },
+            'appliance_repair': {
+                title: 'Appliance Repair Technician',
+                icon: '🔌',
+                description: 'Repair and maintain household and commercial appliances. Troubleshoot electrical and mechanical issues.',
+                requirements: [
+                    'Experience with appliance repair',
+                    'Electrical and mechanical knowledge',
+                    'Diagnostic skills',
+                    'Customer service oriented'
+                ]
+            },
+            'cook': {
+                title: 'Cook',
+                icon: '👨‍🍳',
+                description: 'Prepare delicious meals in our kitchen. Follow recipes, maintain food safety standards, and work as part of a culinary team.',
+                requirements: [
+                    'Culinary experience',
+                    'Food safety certification',
+                    'Ability to work in fast-paced environment',
+                    'Team player'
+                ]
+            },
+            'dishwasher': {
+                title: 'Dishwasher',
+                icon: '🍽️',
+                description: 'Keep our kitchen running smoothly by washing dishes, utensils, and kitchen equipment. Maintain cleanliness standards.',
+                requirements: [
+                    'Reliable and punctual',
+                    'Ability to work in hot, humid conditions',
+                    'Team oriented',
+                    'Physical stamina'
+                ]
+            },
+            'housekeeping': {
+                title: 'Housekeeping Staff',
+                icon: '🛏️',
+                description: 'Clean and maintain hotel rooms and facilities to the highest standards. Provide excellent service to guests.',
+                requirements: [
+                    'Attention to detail',
+                    'Time management skills',
+                    'Customer service oriented',
+                    'Physical stamina'
+                ]
+            }
+        };
+
+        // Display job details
+        if (jobType && jobDetails[jobType]) {
+            const job = jobDetails[jobType];
+            document.getElementById('job-title').textContent = job.icon + ' ' + job.title;
+            document.getElementById('job-meta').textContent = 'Position Type: Full-time | Location: Various Locations';
+            document.getElementById('job-description').textContent = job.description;
+            
+            const requirementsList = document.getElementById('requirements-list');
+            requirementsList.innerHTML = '';
+            job.requirements.forEach(req => {
+                const li = document.createElement('li');
+                li.textContent = req;
+                requirementsList.appendChild(li);
+            });
+
+            // Set job_type in the chatbot container
+            document.getElementById('cleo-chatbot').setAttribute('data-job-type', jobType);
+        } else {
+            document.getElementById('job-title').textContent = 'Job Not Found';
+            document.getElementById('job-meta').textContent = 'The requested position is not available.';
+            document.getElementById('job-description').textContent = 'Please return to the jobs listing page.';
+        }
+
+        function startApplication() {
+            const notice = document.getElementById('chatbot-notice');
+            notice.style.display = 'block';
+            
+            // Trigger chatbot to open (if it has an API to do so)
+            // This would need to be implemented in your chatbot code
+            setTimeout(() => {
+                if (window.CleoChatbot && window.CleoChatbot.openChat) {
+                    window.CleoChatbot.openChat();
+                }
+            }, 500);
+        }
+    </script>
+</body>
+</html>

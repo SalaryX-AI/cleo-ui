@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Essential Workers - Find Your Perfect Match</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            color: white;
+            font-size: 2.5em;
+            margin-bottom: 15px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .subtitle {
+            text-align: center;
+            color: rgba(255, 255, 255, 0.9);
+            font-size: 1.2em;
+            margin-bottom: 40px;
+        }
+
+        .jobs-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 25px;
+            margin-bottom: 40px;
+        }
+
+        .job-card {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            text-decoration: none;
+            color: inherit;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .job-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+        }
+
+        .job-icon {
+            font-size: 3em;
+            margin-bottom: 15px;
+        }
+
+        .job-title {
+            font-size: 1.4em;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        .job-description {
+            color: #666;
+            text-align: center;
+            font-size: 0.95em;
+            line-height: 1.5;
+        }
+
+        .apply-btn {
+            margin-top: 15px;
+            padding: 10px 25px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            font-weight: 600;
+            transition: opacity 0.3s;
+        }
+
+        .job-card:hover .apply-btn {
+            opacity: 0.9;
+        }
+
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 2em;
+            }
+            
+            .jobs-grid {
+                grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+                gap: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Essential Workers</h1>
+        <p class="subtitle">Find your perfect job match</p>
+        
+        <div class="jobs-grid">
+            <!-- Construction & Trades -->
+            <a href="job-details.html?job_type=carpenter" class="job-card">
+                <div class="job-icon">🪚</div>
+                <div class="job-title">Carpenter</div>
+                <div class="job-description">Build and repair structures, furniture, and fixtures</div>
+                <button class="apply-btn">Apply Now</button>
+            </a>
+
+            <a href="job-details.html?job_type=electrician" class="job-card">
+                <div class="job-icon">⚡</div>
+                <div class="job-title">Electrician</div>
+                <div class="job-description">Install and maintain electrical systems</div>
+                <button class="apply-btn">Apply Now</button>
+            </a>
+
+            <a href="job-details.html?job_type=plumber" class="job-card">
+                <div class="job-icon">🔧</div>
+                <div class="job-title">Plumber</div>
+                <div class="job-description">Install and repair water and drainage systems</div>
+                <button class="apply-btn">Apply Now</button>
+            </a>
+
+            <a href="job-details.html?job_type=mason" class="job-card">
+                <div class="job-icon">🧱</div>
+                <div class="job-title">Mason</div>
+                <div class="job-description">Build structures with brick, stone, and concrete</div>
+                <button class="apply-btn">Apply Now</button>
+            </a>
+
+            <!-- Manufacturing & Production -->
+            <a href="job-details.html?job_type=assembly_line_worker" class="job-card">
+                <div class="job-icon">🏭</div>
+                <div class="job-title">Assembly Line Worker</div>
+                <div class="job-description">Assemble products on production lines</div>
+                <button class="apply-btn">Apply Now</button>
+            </a>
+
+            <a href="job-details.html?job_type=machinist" class="job-card">
+                <div class="job-icon">⚙️</div>
+                <div class="job-title">Machinist</div>
+                <div class="job-description">Operate machine tools to produce precision parts</div>
+                <button class="apply-btn">Apply Now</button>
+            </a>
+
+            <a href="job-details.html?job_type=welder" class="job-card">
+                <div class="job-icon">🔥</div>
+                <div class="job-title">Welder</div>
+                <div class="job-description">Join metal parts using welding equipment</div>
+                <button class="apply-btn">Apply Now</button>
+            </a>
+
+            <a href="job-details.html?job_type=fabricator" class="job-card">
+                <div class="job-icon">🔨</div>
+                <div class="job-title">Fabricator</div>
+                <div class="job-description">Cut, shape, and assemble metal structures</div>
+                <button class="apply-btn">Apply Now</button>
+            </a>
+
+            <!-- Maintenance & Repair -->
+            <a href="job-details.html?job_type=mechanic" class="job-card">
+                <div class="job-icon">🚗</div>
+                <div class="job-title">Mechanic</div>
+                <div class="job-description">Repair and maintain vehicles and machinery</div>
+                <button class="apply-btn">Apply Now</button>
+            </a>
+
+            <a href="job-details.html?job_type=appliance_repair" class="job-card">
+                <div class="job-icon">🔌</div>
+                <div class="job-title">Appliance Repair</div>
+                <div class="job-description">Fix household and commercial appliances</div>
+                <button class="apply-btn">Apply Now</button>
+            </a>
+
+            <!-- Food Service & Hospitality -->
+            <a href="job-details.html?job_type=cook" class="job-card">
+                <div class="job-icon">👨‍🍳</div>
+                <div class="job-title">Cook</div>
+                <div class="job-description">Prepare and cook food in restaurants and kitchens</div>
+                <button class="apply-btn">Apply Now</button>
+            </a>
+
+            <a href="job-details.html?job_type=dishwasher" class="job-card">
+                <div class="job-icon">🍽️</div>
+                <div class="job-title">Dishwasher</div>
+                <div class="job-description">Clean dishes and maintain kitchen cleanliness</div>
+                <button class="apply-btn">Apply Now</button>
+            </a>
+
+            <a href="job-details.html?job_type=housekeeping" class="job-card">
+                <div class="job-icon">🛏️</div>
+                <div class="job-title">Housekeeping</div>
+                <div class="job-description">Clean and maintain hotel rooms and facilities</div>
+                <button class="apply-btn">Apply Now</button>
+            </a>
+        </div>
+    </div>
+
+        <!-- Just add these 2 lines to your webpage -->
+    <div id="cleo-chatbot" data-job-type="null"></div>
+    <script src="http://localhost:8000/cleoAssistant.js"></script>
+</body>
+</html>

@@ -18,20 +18,19 @@
          * This is called internally after server validation
          */
         init: function(options) {
-            
-            if (!options.jobId || !options.apiKey) {
-                console.error('CleoChatbot: jobId and apiKey are required');
+            if (!options.jobType || !options.apiKey) {
+                console.error('CleoChatbot: jobType and apiKey are required');
                 return;
             }
             
             // Store configuration
             this.config = {
-                jobId: options.jobId,
+                jobType: options.jobType,
                 apiKey: options.apiKey,
-                apiUrl: CHATBOT_CONFIG.apiBaseUrl,
-                wsUrl: CHATBOT_CONFIG.wsBaseUrl,
-                position: 'bottom-right',
-                primaryColor: '#667eea'
+                apiUrl: options.apiUrl || CHATBOT_CONFIG.apiBaseUrl,
+                wsUrl: options.wsUrl || CHATBOT_CONFIG.wsBaseUrl,
+                position: options.position || 'bottom-right',
+                primaryColor: options.primaryColor || '#667eea'
             };
             
             // Create the chat widget UI
@@ -124,7 +123,7 @@
                         <div>
                             <div style="font-weight: 600; font-size: 16px; text-align:center;">Cleo Chatbot</div>
                         </div>
-                        <button id="cleo-close-btn" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer; padding: 0; width: 30px; height: 30px;">x</button>
+                        <button id="cleo-close-btn" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer; padding: 0; width: 30px; height: 30px;">×</button>
                     </div>
                     <div id="chatbot-status" style="padding: 8px; text-align: center; font-size: 12px; color: #666; background: #f0f0f0;">
                         Not connected
@@ -185,7 +184,7 @@
                 this.updateStatus('Connecting...', 'info');
                 
                 const response = await fetch(
-                    `${this.config.apiUrl}/start-session?job_id=${this.config.jobId}&api_key=${this.config.apiKey}`,
+                    `${this.config.apiUrl}/start-session?job_type=${this.config.jobType}&api_key=${this.config.apiKey}`,
                     { method: 'POST' }
                 );
                 
@@ -228,25 +227,11 @@
             if (data.type === 'ai_message') {
                 this.addMessage(data.content, true);
                 this.enableInput();
-            } 
-            else if (data.type === 'workflow_complete') {
+            } else if (data.type === 'workflow_complete') {
                 this.updateStatus('Screening Complete', 'info');
                 this.disableInput();
-
-                const sendButton = document.getElementById('chatbot-send');
-                if (sendButton) {
-                    sendButton.disabled = true;
-                    sendButton.style.cursor = 'not-allowed';
-                    sendButton.style.opacity = '0.6';
-    }
                 
-                // const summary = data.summary;
-                // this.addMessage(
-                //     `✅ Screening completed!\nScore: ${summary.total_score}/${summary.max_score}`,
-                //     true
-                // );
-            } 
-            else if (data.type === 'error') {
+            } else if (data.type === 'error') {
                 this.updateStatus('Error occurred', 'disconnected');
                 this.addMessage(`Error: ${data.message}`, true);
             }
@@ -337,25 +322,26 @@
     
     /**
      * Auto-initialize chatbot when script loads
-     * 1. Reads job_id from data-job-id attribute
-     * 2. Calls server to validate job and get API key
+     * Implements domain-based validation:
+     * 1. Reads job_type from data-job-type attribute
+     * 2. Calls server to validate domain and get API key
      * 3. Initializes chatbot with validated configuration
      */
     async function autoInitChatbot() {
         // Find the chatbot container element
         const container = document.getElementById('cleo-chatbot') || 
-                         document.querySelector('[data-job-id]');
+                         document.querySelector('[data-job-type]');
 
         if (!container) {
-            console.error('CleoChatbot: Container element with data-job-id attribute not found');
+            console.error('CleoChatbot: Container element with data-job-type attribute not found');
             return;
         }
 
-        // Get job_id from data attribute
-        const jobId = container.dataset.jobId;
+        // Get job_type from data attribute
+        const jobType = container.dataset.jobType;
 
-        if (!jobId) {
-            console.error('CleoChatbot: data-job-id attribute is required on container element');
+        if (!jobType) {
+            console.error('CleoChatbot: data-job-type attribute is required on container element');
             return;
         }
 
@@ -363,27 +349,27 @@
             // Get current domain for validation
             const domain = window.location.hostname;
 
-            // Call server to validate job_id and domain, get API key
+            // Call server to validate domain and get API key
             const response = await fetch(
-                `${CHATBOT_CONFIG.apiBaseUrl}/validate-job?job_id=${encodeURIComponent(jobId)}&domain=${encodeURIComponent(domain)}`
+                `${CHATBOT_CONFIG.apiBaseUrl}/validate-domain?domain=${encodeURIComponent(domain)}`
             );
 
             if (!response.ok) {
                 const error = await response.json();
-                throw new Error(error.detail || 'Failed to validate job');
+                throw new Error(error.detail || 'Failed to validate domain');
             }
 
             const config = await response.json();
 
             // Initialize chatbot with validated configuration
             CleoChatbot.init({
-                jobId: config.jobId,
+                jobType: jobType,  // Use jobType from DOM
                 apiKey: config.apiKey,
                 apiUrl: CHATBOT_CONFIG.apiBaseUrl,
                 wsUrl: CHATBOT_CONFIG.wsBaseUrl
             });
 
-            console.log('CleoChatbot initialized successfully');
+            console.log('CleoChatbot initialized successfully for job type:', jobType);
 
         } catch (error) {
             console.error('CleoChatbot initialization failed:', error.message);
