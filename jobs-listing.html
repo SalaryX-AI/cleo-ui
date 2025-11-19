@@ -98,6 +98,16 @@
         .job-card:hover .apply-btn {
             opacity: 0.9;
         }
+        .location-selector {
+    margin-bottom: 20px;
+    font-size: 16px;
+}
+
+.location-selector select {
+    padding: 8px;
+    border-radius: 4px;
+    border: 1px solid #ccc;
+}
 
         @media (max-width: 768px) {
             h1 {
@@ -112,109 +122,94 @@
     </style>
 </head>
 <body>
+    <script>
+        document.getElementById('job-location').addEventListener('change', function () {
+            const selectedLocation = this.value;
+            const jobCards = document.querySelectorAll('.job-card');
+    
+            jobCards.forEach(card => {
+                const jobLocation = card.getAttribute('data-location');
+                if (!selectedLocation || jobLocation === selectedLocation) {
+                    card.style.display = 'block';
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+        });
+        const locationSelect = document.getElementById('job-location');
+
+document.querySelectorAll('.job-card').forEach(card => {
+    card.addEventListener('click', function (e) {
+        const selectedLocation = locationSelect.value;
+        const jobType = this.getAttribute('data-job-type');
+
+        // Prevent default navigation
+        e.preventDefault();
+
+        // Build new URL with selected location
+        const url = new URL('job-details.html', window.location.origin);
+        url.searchParams.set('job_type', jobType);
+        if (selectedLocation) {
+            url.searchParams.set('location', selectedLocation);
+        }
+
+        // Navigate to the updated URL
+        window.location.href = url.toString();
+    });
+});
+
+    </script>
+    
+
     <div class="container">
-        <h1>Essential Workers</h1>
-        <p class="subtitle">Find your perfect job match</p>
-        
+        <h1>Big Chicken</h1>
+        <p class="subtitle">Big jobs. Big flavor. Big future</p>
+        <div class="location-selector">
+            <label for="job-location">Choose your location:</label>
+            <select id="job-location" name="location">
+                <option value="">All Locations</option>
+                <option value="Boston">Boston</option>
+                <option value="Cambridge">Cambridge</option>
+                <option value="Newton">Newton</option>
+                <option value="Westwood">Westwood</option>
+                <option value="Quincy">Quincy</option>
+                <option value="Plainville">Plainville</option>
+                <option value="Wrentham">Wrentham</option>
+            </select>
+        </div>
         <div class="jobs-grid">
-            <!-- Construction & Trades -->
-            <a href="job-details.html?job_type=carpenter" class="job-card">
-                <div class="job-icon">🪚</div>
-                <div class="job-title">Carpenter</div>
-                <div class="job-description">Build and repair structures, furniture, and fixtures</div>
+            <!-- Restaurant Roles -->
+            <a href="job-details.html?job_type=front_of_house" class="job-card" data-location="Boston" data-job-type="front_of_house">
+                <div class="job-icon">👋</div> <!-- Friendly greeting for FOH -->
+                <div class="job-title">Front of House Team Member</div>
+                <div class="job-description">Welcomes guests and ensures smooth service in the dining area.</div>
                 <button class="apply-btn">Apply Now</button>
             </a>
 
-            <a href="job-details.html?job_type=electrician" class="job-card">
-                <div class="job-icon">⚡</div>
-                <div class="job-title">Electrician</div>
-                <div class="job-description">Install and maintain electrical systems</div>
+            <a href="job-details.html?job_type=line_cook" class="job-card">
+                <div class="job-icon">🍳</div> <!-- Cooking pan for kitchen -->
+                <div class="job-title">Back of House Cook (Line Cook)</div>
+                <div class="job-description">Prepares meals efficiently and maintains kitchen operations.</div>
                 <button class="apply-btn">Apply Now</button>
             </a>
 
-            <a href="job-details.html?job_type=plumber" class="job-card">
-                <div class="job-icon">🔧</div>
-                <div class="job-title">Plumber</div>
-                <div class="job-description">Install and repair water and drainage systems</div>
+            <a href="job-details.html?job_type=cashier" class="job-card">
+                <div class="job-icon">💳</div> <!-- Credit card for POS -->
+                <div class="job-title">Cashier</div>
+                <div class="job-description">Handles customer transactions and manages the point-of-sale system.</div>
                 <button class="apply-btn">Apply Now</button>
             </a>
 
-            <a href="job-details.html?job_type=mason" class="job-card">
-                <div class="job-icon">🧱</div>
-                <div class="job-title">Mason</div>
-                <div class="job-description">Build structures with brick, stone, and concrete</div>
-                <button class="apply-btn">Apply Now</button>
-            </a>
-
-            <!-- Manufacturing & Production -->
-            <a href="job-details.html?job_type=assembly_line_worker" class="job-card">
-                <div class="job-icon">🏭</div>
-                <div class="job-title">Assembly Line Worker</div>
-                <div class="job-description">Assemble products on production lines</div>
-                <button class="apply-btn">Apply Now</button>
-            </a>
-
-            <a href="job-details.html?job_type=machinist" class="job-card">
-                <div class="job-icon">⚙️</div>
-                <div class="job-title">Machinist</div>
-                <div class="job-description">Operate machine tools to produce precision parts</div>
-                <button class="apply-btn">Apply Now</button>
-            </a>
-
-            <a href="job-details.html?job_type=welder" class="job-card">
-                <div class="job-icon">🔥</div>
-                <div class="job-title">Welder</div>
-                <div class="job-description">Join metal parts using welding equipment</div>
-                <button class="apply-btn">Apply Now</button>
-            </a>
-
-            <a href="job-details.html?job_type=fabricator" class="job-card">
-                <div class="job-icon">🔨</div>
-                <div class="job-title">Fabricator</div>
-                <div class="job-description">Cut, shape, and assemble metal structures</div>
-                <button class="apply-btn">Apply Now</button>
-            </a>
-
-            <!-- Maintenance & Repair -->
-            <a href="job-details.html?job_type=mechanic" class="job-card">
-                <div class="job-icon">🚗</div>
-                <div class="job-title">Mechanic</div>
-                <div class="job-description">Repair and maintain vehicles and machinery</div>
-                <button class="apply-btn">Apply Now</button>
-            </a>
-
-            <a href="job-details.html?job_type=appliance_repair" class="job-card">
-                <div class="job-icon">🔌</div>
-                <div class="job-title">Appliance Repair</div>
-                <div class="job-description">Fix household and commercial appliances</div>
-                <button class="apply-btn">Apply Now</button>
-            </a>
-
-            <!-- Food Service & Hospitality -->
-            <a href="job-details.html?job_type=cook" class="job-card">
-                <div class="job-icon">👨‍🍳</div>
-                <div class="job-title">Cook</div>
-                <div class="job-description">Prepare and cook food in restaurants and kitchens</div>
-                <button class="apply-btn">Apply Now</button>
-            </a>
-
-            <a href="job-details.html?job_type=dishwasher" class="job-card">
-                <div class="job-icon">🍽️</div>
-                <div class="job-title">Dishwasher</div>
-                <div class="job-description">Clean dishes and maintain kitchen cleanliness</div>
-                <button class="apply-btn">Apply Now</button>
-            </a>
-
-            <a href="job-details.html?job_type=housekeeping" class="job-card">
-                <div class="job-icon">🛏️</div>
-                <div class="job-title">Housekeeping</div>
-                <div class="job-description">Clean and maintain hotel rooms and facilities</div>
+            <a href="job-details.html?job_type=shift_supervisor" class="job-card">
+                <div class="job-icon">📋</div> <!-- Clipboard for leadership -->
+                <div class="job-title">Shift Lead / Shift Supervisor</div>
+                <div class="job-description">Oversees team performance and ensures shift goals are met.</div>
                 <button class="apply-btn">Apply Now</button>
             </a>
         </div>
     </div>
 
-        <!-- Just add these 2 lines to your webpage -->
+    <!-- Just add these 2 lines to your webpage -->
     <div id="cleo-chatbot" data-job-type="null"></div>
     <script src="http://localhost:8000/cleoAssistant.js"></script>
 </body>

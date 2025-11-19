@@ -191,158 +191,68 @@
         const urlParams = new URLSearchParams(window.location.search);
         const jobType = urlParams.get('job_type');
 
-        // Job details database
         const jobDetails = {
-            'carpenter': {
-                title: 'Carpenter',
-                icon: '🪚',
-                description: 'Join our team as a skilled carpenter! You\'ll be responsible for constructing, installing, and repairing structures and fixtures made from wood and other materials. Work on residential and commercial projects.',
-                requirements: [
-                    'Experience with woodworking tools and techniques',
-                    'Ability to read blueprints and technical drawings',
-                    'Physical fitness and stamina',
-                    'Attention to detail and precision'
-                ]
-            },
-            'electrician': {
-                title: 'Electrician',
-                icon: '⚡',
-                description: 'We need licensed electricians to install, maintain, and repair electrical systems in residential and commercial buildings. Ensure all work meets safety standards and building codes.',
-                requirements: [
-                    'Valid electrician license',
-                    'Knowledge of electrical codes and regulations',
-                    'Problem-solving skills',
-                    'Ability to work independently'
-                ]
-            },
-            'plumber': {
-                title: 'Plumber',
-                icon: '🔧',
-                description: 'Seeking experienced plumbers to install and repair water, drainage, and gas systems. Work on new construction and maintenance projects.',
-                requirements: [
-                    'Plumbing certification or license',
-                    'Experience with various plumbing systems',
-                    'Strong troubleshooting abilities',
-                    'Customer service skills'
-                ]
-            },
-            'mason': {
-                title: 'Mason',
-                icon: '🧱',
-                description: 'Looking for skilled masons to build and repair structures using brick, stone, and concrete. Work on both new construction and restoration projects.',
-                requirements: [
-                    'Experience in masonry work',
-                    'Knowledge of different materials and techniques',
-                    'Physical strength and endurance',
-                    'Precision and craftsmanship'
-                ]
-            },
-            'assembly_line_worker': {
-                title: 'Assembly Line Worker',
-                icon: '🏭',
-                description: 'Join our manufacturing team! Assemble products on our production line, ensuring quality and efficiency in every step.',
-                requirements: [
-                    'Attention to detail',
-                    'Ability to follow instructions',
-                    'Good hand-eye coordination',
-                    'Team player mentality'
-                ]
-            },
-            'machinist': {
-                title: 'Machinist',
-                icon: '⚙️',
-                description: 'Operate precision machinery to create high-quality parts and components. Read technical drawings and maintain quality standards.',
-                requirements: [
-                    'Experience with CNC machines or manual lathes',
-                    'Ability to read technical blueprints',
-                    'Mathematics and measurement skills',
-                    'Quality control knowledge'
-                ]
-            },
-            'welder': {
-                title: 'Welder',
-                icon: '🔥',
-                description: 'Skilled welders needed to join metal parts using various welding techniques. Work on fabrication and repair projects.',
-                requirements: [
-                    'Welding certification (MIG, TIG, or Stick)',
-                    'Experience with different metals',
-                    'Safety consciousness',
-                    'Ability to read welding symbols'
-                ]
-            },
-            'fabricator': {
-                title: 'Fabricator',
-                icon: '🔨',
-                description: 'Cut, shape, and assemble metal structures according to specifications. Work with various tools and equipment.',
-                requirements: [
-                    'Metal fabrication experience',
-                    'Knowledge of tools and machinery',
-                    'Blueprint reading ability',
-                    'Precision and accuracy'
-                ]
-            },
-            'mechanic': {
-                title: 'Mechanic',
-                icon: '🚗',
-                description: 'Diagnose and repair vehicles and machinery. Perform routine maintenance and complex repairs.',
-                requirements: [
-                    'Automotive or machinery repair experience',
-                    'Diagnostic skills',
-                    'Tool proficiency',
-                    'Problem-solving abilities'
-                ]
-            },
-            'appliance_repair': {
-                title: 'Appliance Repair Technician',
-                icon: '🔌',
-                description: 'Repair and maintain household and commercial appliances. Troubleshoot electrical and mechanical issues.',
-                requirements: [
-                    'Experience with appliance repair',
-                    'Electrical and mechanical knowledge',
-                    'Diagnostic skills',
-                    'Customer service oriented'
-                ]
-            },
-            'cook': {
-                title: 'Cook',
-                icon: '👨‍🍳',
-                description: 'Prepare delicious meals in our kitchen. Follow recipes, maintain food safety standards, and work as part of a culinary team.',
-                requirements: [
-                    'Culinary experience',
-                    'Food safety certification',
-                    'Ability to work in fast-paced environment',
-                    'Team player'
-                ]
-            },
-            'dishwasher': {
-                title: 'Dishwasher',
-                icon: '🍽️',
-                description: 'Keep our kitchen running smoothly by washing dishes, utensils, and kitchen equipment. Maintain cleanliness standards.',
-                requirements: [
-                    'Reliable and punctual',
-                    'Ability to work in hot, humid conditions',
-                    'Team oriented',
-                    'Physical stamina'
-                ]
-            },
-            'housekeeping': {
-                title: 'Housekeeping Staff',
-                icon: '🛏️',
-                description: 'Clean and maintain hotel rooms and facilities to the highest standards. Provide excellent service to guests.',
-                requirements: [
-                    'Attention to detail',
-                    'Time management skills',
-                    'Customer service oriented',
-                    'Physical stamina'
-                ]
-            }
-        };
+    // Existing entries...
+
+    'front_of_house': {
+        title: 'Front of House Team Member',
+        icon: '👋',
+        description: 'Welcome guests, manage dining area flow, and deliver a great customer experience.',
+        requirements: [
+            'Friendly and professional demeanor',
+            'Strong communication skills',
+            'Ability to multitask in a fast-paced environment',
+            'Team-oriented attitude'
+        ]
+    },
+
+    'line_cook': {
+        title: 'Back of House Cook (Line Cook)',
+        icon: '🍳',
+        description: 'Prepare meals efficiently, follow recipes, and maintain kitchen cleanliness and safety.',
+        requirements: [
+            'Experience in food preparation or culinary training',
+            'Knowledge of kitchen safety and hygiene',
+            'Ability to work under pressure',
+            'Attention to detail and consistency'
+        ]
+    },
+
+    'cashier': {
+        title: 'Cashier',
+        icon: '💳',
+        description: 'Process orders and payments, assist customers, and maintain POS accuracy.',
+        requirements: [
+            'Basic math and cash handling skills',
+            'Customer service experience',
+            'Attention to detail',
+            'Ability to stay calm during busy hours'
+        ]
+    },
+
+    'shift_supervisor': {
+        title: 'Shift Lead / Shift Supervisor',
+        icon: '📋',
+        description: 'Lead the team during shifts, ensure smooth operations, and uphold service standards.',
+        requirements: [
+            'Leadership or supervisory experience',
+            'Strong problem-solving skills',
+            'Ability to motivate and manage a team',
+            'Understanding of restaurant operations'
+        ]
+    }
+        }
 
         // Display job details
         if (jobType && jobDetails[jobType]) {
             const job = jobDetails[jobType];
+            const params = new URLSearchParams(window.location.search);
+const location = params.get('location') || 'Various Locations';
+
+
+
             document.getElementById('job-title').textContent = job.icon + ' ' + job.title;
-            document.getElementById('job-meta').textContent = 'Position Type: Full-time | Location: Various Locations';
+            document.getElementById('job-meta').textContent = `Position Type: Full-time | Location: ${location}`;
             document.getElementById('job-description').textContent = job.description;
             
             const requirementsList = document.getElementById('requirements-list');
