@@ -9,7 +9,48 @@ import uuid
 from graph import build_graph, ChatbotState
 from job_configs import JOB_CONFIGS
 
-app = FastAPI(title="Screening Chatbot API")
+from contextlib import asynccontextmanager
+from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+from psycopg import AsyncConnection
+from psycopg.rows import dict_row
+import os
+
+
+# Initialize graph at startup
+graph_app = None
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    global graph_app
+    
+    # Get connection string
+    connection_string = os.getenv("POSTGRES_CONNECTION_STRING")
+    if not connection_string:
+        raise ValueError("POSTGRES_CONNECTION_STRING not set")
+    
+    # Create async connection
+    conn = await AsyncConnection.connect(
+        connection_string,
+        autocommit=True,
+        row_factory=dict_row
+    )
+    
+    # Create async checkpointer
+    checkpointer = AsyncPostgresSaver(conn)
+    await checkpointer.setup()
+    
+    # Build graph with checkpointer
+    graph_app = build_graph(checkpointer)
+    print("Graph initialized with AsyncPostgresSaver")
+    
+    yield
+    
+    # Cleanup
+    await conn.close()
+    print("Connection closed")
+
+# Update FastAPI initialization
+app = FastAPI(title="Screening Chatbot API", lifespan=lifespan)
 
 # CORS configuration
 app.add_middleware(
@@ -35,7 +76,6 @@ API_KEY = "test_key_secure_123"
 
 # Store active sessions
 sessions = {}
-
 
 @app.get("/")
 async def root():
@@ -126,7 +166,7 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
     job_type = session["job_type"]
     job_config = JOB_CONFIGS[job_type]
     
-    graph_app = build_graph()
+    # graph_app = build_graph()
     config = {"configurable": {"thread_id": thread_id}}
     
     try:
@@ -169,7 +209,7 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
         while True:
             
             # Check if workflow completed
-            snapshot = graph_app.get_state(config)
+            snapshot = await graph_app.aget_state(config)
             if not snapshot.next:
                 await websocket.send_json({
                     "type": "workflow_complete",
@@ -186,10 +226,10 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
             if not user_input:
                 continue
             
-            current_state = graph_app.get_state(config)
+            current_state = await graph_app.aget_state(config)
             current_messages = current_state.values.get("messages", [])
             
-            graph_app.update_state(
+            await graph_app.aupdate_state(
                 config,
                 {"messages": current_messages + [HumanMessage(content=user_input)]}
             )
@@ -212,7 +252,10 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
         sessions[session_id]["active"] = False
     
     except Exception as e:
+        import traceback
+        error_details = traceback.format_exc()  # Get full error trace
         print(f"Error in WebSocket: {e}")
+        print(f"Full traceback:\n{error_details}")  # NEW - shows full error
         await websocket.send_json({
             "type": "error",
             "message": str(e)

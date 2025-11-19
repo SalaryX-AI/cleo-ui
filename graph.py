@@ -3,7 +3,6 @@
 import json
 from typing import TypedDict, Literal, List, Dict
 from langgraph.graph import StateGraph, END, MessagesState
-from langgraph.checkpoint.memory import MemorySaver
 from langgraph.types import Command, interrupt
 from langchain_openai import ChatOpenAI
 from langchain.schema import HumanMessage, AIMessage
@@ -11,8 +10,9 @@ from prompts1 import *
 import os
 from dotenv import load_dotenv
 from langchain.prompts import ChatPromptTemplate
-
+# ========================================================
 load_dotenv()
+
 llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.5)
 
 # Create chat prompt template with system message
@@ -20,6 +20,7 @@ chat_template = ChatPromptTemplate.from_messages([
     ("system", SYSTEM_PROMPT),
     ("human", "{user_input}")
 ])
+
 # ==================== Email & Phone Validation ====================
 import re
 
@@ -493,6 +494,7 @@ def ask_question_node(state: ChatbotState) -> ChatbotState:
             previous_question = questions[idx-1] if idx > 0 else "None",
             previous_answer = state["answers"][questions[idx-1]] if idx > 0 else "None",
             )
+        
         response = llm.invoke(prompt)
         state["messages"].append(AIMessage(content=response.content))
     
@@ -601,7 +603,7 @@ def end_node(state: ChatbotState) -> ChatbotState:
 
 # ==================== GRAPH BUILDER ====================
 
-def build_graph():
+def build_graph(checkpointer):
     """Build the screening chatbot graph"""
     workflow = StateGraph(ChatbotState)
     
@@ -657,10 +659,8 @@ def build_graph():
     workflow.add_edge("score", "end")
     workflow.add_edge("end", END)
     
-    # Compile with memory
-    memory = MemorySaver()
     app = workflow.compile(
-        checkpointer=memory,
+        checkpointer=checkpointer,
         interrupt_after=["start", "ask_knockout_question", "ask_name", "ask_email", "ask_phone", "ask_question"]
     )
     
