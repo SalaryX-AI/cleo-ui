@@ -122,45 +122,6 @@
     </style>
 </head>
 <body>
-    <script>
-        document.getElementById('job-location').addEventListener('change', function () {
-            const selectedLocation = this.value;
-            const jobCards = document.querySelectorAll('.job-card');
-    
-            jobCards.forEach(card => {
-                const jobLocation = card.getAttribute('data-location');
-                if (!selectedLocation || jobLocation === selectedLocation) {
-                    card.style.display = 'block';
-                } else {
-                    card.style.display = 'none';
-                }
-            });
-        });
-        const locationSelect = document.getElementById('job-location');
-
-document.querySelectorAll('.job-card').forEach(card => {
-    card.addEventListener('click', function (e) {
-        const selectedLocation = locationSelect.value;
-        const jobType = this.getAttribute('data-job-type');
-
-        // Prevent default navigation
-        e.preventDefault();
-
-        // Build new URL with selected location
-        const url = new URL('job-details.html', window.location.origin);
-        url.searchParams.set('job_type', jobType);
-        if (selectedLocation) {
-            url.searchParams.set('location', selectedLocation);
-        }
-
-        // Navigate to the updated URL
-        window.location.href = url.toString();
-    });
-});
-
-    </script>
-    
-
     <div class="container">
         <h1>Big Chicken</h1>
         <p class="subtitle">Big jobs. Big flavor. Big future</p>
@@ -178,39 +139,79 @@ document.querySelectorAll('.job-card').forEach(card => {
             </select>
         </div>
         <div class="jobs-grid">
-            <!-- Restaurant Roles -->
-            <a href="job-details.html?job_type=front_of_house" class="job-card" data-location="Boston" data-job-type="front_of_house">
-                <div class="job-icon">👋</div> <!-- Friendly greeting for FOH -->
-                <div class="job-title">Front of House Team Member</div>
-                <div class="job-description">Welcomes guests and ensures smooth service in the dining area.</div>
-                <button class="apply-btn">Apply Now</button>
-            </a>
+            
+        <!-- Restaurant Roles -->
+        <a href="job-details.html?job_type=front_of_house" class="job-card" data-location="Boston" data-job-type="front_of_house">
+            <div class="job-icon">👋</div>
+            <div class="job-title">Front of House Team Member</div>
+            <div class="job-description">Welcomes guests and ensures smooth service in the dining area.</div>
+            <button class="apply-btn">Apply Now</button>
+        </a>
 
-            <a href="job-details.html?job_type=line_cook" class="job-card">
-                <div class="job-icon">🍳</div> <!-- Cooking pan for kitchen -->
-                <div class="job-title">Back of House Cook (Line Cook)</div>
-                <div class="job-description">Prepares meals efficiently and maintains kitchen operations.</div>
-                <button class="apply-btn">Apply Now</button>
-            </a>
+        <a href="job-details.html?job_type=line_cook" class="job-card" data-location="Cambridge" data-job-type="line_cook">
+            <div class="job-icon">🍳</div>
+            <div class="job-title">Back of House Cook (Line Cook)</div>
+            <div class="job-description">Prepares meals efficiently and maintains kitchen operations.</div>
+            <button class="apply-btn">Apply Now</button>
+        </a>
 
-            <a href="job-details.html?job_type=cashier" class="job-card">
-                <div class="job-icon">💳</div> <!-- Credit card for POS -->
-                <div class="job-title">Cashier</div>
-                <div class="job-description">Handles customer transactions and manages the point-of-sale system.</div>
-                <button class="apply-btn">Apply Now</button>
-            </a>
+        <a href="job-details.html?job_type=cashier" class="job-card" data-location="Newton" data-job-type="cashier">
+            <div class="job-icon">💳</div>
+            <div class="job-title">Cashier</div>
+            <div class="job-description">Handles customer transactions and manages the point-of-sale system.</div>
+            <button class="apply-btn">Apply Now</button>
+        </a>
 
-            <a href="job-details.html?job_type=shift_supervisor" class="job-card">
-                <div class="job-icon">📋</div> <!-- Clipboard for leadership -->
-                <div class="job-title">Shift Lead / Shift Supervisor</div>
-                <div class="job-description">Oversees team performance and ensures shift goals are met.</div>
-                <button class="apply-btn">Apply Now</button>
-            </a>
+        <a href="job-details.html?job_type=shift_supervisor" class="job-card" data-location="Westwood" data-job-type="shift_supervisor">
+            <div class="job-icon">📋</div>
+            <div class="job-title">Shift Lead / Shift Supervisor</div>
+            <div class="job-description">Oversees team performance and ensures shift goals are met.</div>
+            <button class="apply-btn">Apply Now</button>
+        </a>
         </div>
     </div>
 
-    <!-- Just add these 2 lines to your webpage -->
+    <!-- Cleo Chatbot Integration -->
     <div id="cleo-chatbot" data-job-type="null"></div>
     <script src="http://localhost:8000/cleoAssistant.js"></script>
+
+    <script>
+        // Filter jobs by location
+        document.getElementById('job-location').addEventListener('change', function () {
+            const selectedLocation = this.value;
+            const jobCards = document.querySelectorAll('.job-card');
+    
+            jobCards.forEach(card => {
+                const jobLocation = card.getAttribute('data-location');
+                if (!selectedLocation || jobLocation === selectedLocation) {
+                    card.style.display = 'flex'; // Show card
+                } else {
+                    card.style.display = 'none'; // Hide card
+                }
+            });
+        });
+
+        // Pass location to job-details page on click
+        const locationSelect = document.getElementById('job-location');
+
+        document.querySelectorAll('.job-card').forEach(card => {
+            card.addEventListener('click', function (e) {
+                e.preventDefault(); // Prevent default navigation
+                
+                const selectedLocation = locationSelect.value;
+                const jobType = this.getAttribute('data-job-type');
+                const jobLocation = this.getAttribute('data-location');
+
+                // Build URL with job_type and location
+                const url = new URL('job-details.html', window.location.origin);
+                url.searchParams.set('job_type', jobType);
+                url.searchParams.set('location', selectedLocation || jobLocation);
+
+                // Navigate to job details
+                window.location.href = url.toString();
+            });
+        });
+    </script>
+
 </body>
 </html>

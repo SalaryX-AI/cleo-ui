@@ -247,7 +247,7 @@
         if (jobType && jobDetails[jobType]) {
             const job = jobDetails[jobType];
             const params = new URLSearchParams(window.location.search);
-const location = params.get('location') || 'Various Locations';
+            const location = params.get('location') || 'Various Locations';
 
 
 
@@ -276,7 +276,6 @@ const location = params.get('location') || 'Various Locations';
             notice.style.display = 'block';
             
             // Trigger chatbot to open (if it has an API to do so)
-            // This would need to be implemented in your chatbot code
             setTimeout(() => {
                 if (window.CleoChatbot && window.CleoChatbot.openChat) {
                     window.CleoChatbot.openChat();
