@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Essential Workers - Find Your Perfect Match</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            color: white;
+            font-size: 2.5em;
+            margin-bottom: 15px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .subtitle {
+            text-align: center;
+            color: rgba(255, 255, 255, 0.9);
+            font-size: 1.2em;
+            margin-bottom: 40px;
+        }
+
+        .jobs-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 25px;
+            margin-bottom: 40px;
+        }
+
+        .job-card {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            text-decoration: none;
+            color: inherit;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .job-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+        }
+
+        .job-icon {
+            font-size: 3em;
+            margin-bottom: 15px;
+        }
+
+        .job-title {
+            font-size: 1.4em;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        .job-description {
+            color: #666;
+            text-align: center;
+            font-size: 0.95em;
+            line-height: 1.5;
+        }
+
+        .apply-btn {
+            margin-top: 15px;
+            padding: 10px 25px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            font-weight: 600;
+            transition: opacity 0.3s;
+        }
+
+        .job-card:hover .apply-btn {
+            opacity: 0.9;
+        }
+        .location-selector {
+    margin-bottom: 20px;
+    font-size: 16px;
+}
+
+.location-selector select {
+    padding: 8px;
+    border-radius: 4px;
+    border: 1px solid #ccc;
+}
+
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 2em;
+            }
+            
+            .jobs-grid {
+                grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+                gap: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Popeyes</h1>
+        <p class="subtitle">Love that chicken - Start your journey with us!</p>
+        <div class="location-selector">
+            <label for="job-location">Choose your location:</label>
+            <select id="job-location" name="location">
+                <option value="">All Locations</option>
+                <option value="Boston">Boston</option>
+                <option value="Cambridge">Cambridge</option>
+                <option value="Newton">Newton</option>
+                <option value="Westwood">Westwood</option>
+                <option value="Quincy">Quincy</option>
+                <option value="Plainville">Plainville</option>
+                <option value="Wrentham">Wrentham</option>
+            </select>
+        </div>
+        <div class="jobs-grid">
+            
+        <!-- Popeyes Roles -->
+        <a href="job-details.html?job_type=cashier" class="job-card" data-location="Boston" data-job-type="cashier">
+            <div class="job-icon">💳</div>
+            <div class="job-title">Cashier</div>
+            <div class="job-description">Handles orders, payments, and guest service.</div>
+            <button class="apply-btn">Apply Now</button>
+        </a>
+
+        <a href="job-details.html?job_type=kitchen_staff" class="job-card" data-location="Cambridge" data-job-type="kitchen_staff">
+            <div class="job-icon">👨‍🍳</div>
+            <div class="job-title">Kitchen Staff</div>
+            <div class="job-description">Supports cooking and prep.</div>
+            <button class="apply-btn">Apply Now</button>
+        </a>
+
+        <a href="job-details.html?job_type=prep_cook" class="job-card" data-location="Newton" data-job-type="prep_cook">
+            <div class="job-icon">🔪</div>
+            <div class="job-title">Prep Cook</div>
+            <div class="job-description">Prepares ingredients and stations.</div>
+            <button class="apply-btn">Apply Now</button>
+        </a>
+
+        <a href="job-details.html?job_type=shift_leader" class="job-card" data-location="Westwood" data-job-type="shift_leader">
+            <div class="job-icon">📋</div>
+            <div class="job-title">Shift Leader</div>
+            <div class="job-description">General frontline role.</div>
+            <button class="apply-btn">Apply Now</button>
+        </a>
+
+        <a href="job-details.html?job_type=team_lead" class="job-card" data-location="Quincy" data-job-type="team_lead">
+            <div class="job-icon">⭐</div>
+            <div class="job-title">Team Lead</div>
+            <div class="job-description">General frontline role.</div>
+            <button class="apply-btn">Apply Now</button>
+        </a>
+
+        <a href="job-details.html?job_type=maintenance" class="job-card" data-location="Plainville" data-job-type="maintenance">
+            <div class="job-icon">🔧</div>
+            <div class="job-title">Maintenance</div>
+            <div class="job-description">Handles cleaning and equipment upkeep.</div>
+            <button class="apply-btn">Apply Now</button>
+        </a>
+
+        <a href="job-details.html?job_type=drive_thru" class="job-card" data-location="Wrentham" data-job-type="drive_thru">
+            <div class="job-icon">🚗</div>
+            <div class="job-title">Drive-Thru</div>
+            <div class="job-description">General frontline role.</div>
+            <button class="apply-btn">Apply Now</button>
+        </a>
+
+        <a href="job-details.html?job_type=assistant_manager" class="job-card" data-location="Boston" data-job-type="assistant_manager">
+            <div class="job-icon">👔</div>
+            <div class="job-title">Assistant Manager</div>
+            <div class="job-description">Supports GM, manages daily operations.</div>
+            <button class="apply-btn">Apply Now</button>
+        </a>
+        </div>
+    </div>
+
+    <!-- Cleo Chatbot Integration -->
+    <div id="cleo-chatbot" data-job-type="null"></div>
+    
+    <!-- Load the chatbot script -->
+    <script src="../../config.js"></script>
+    <script>
+    const script = document.createElement("script");
+    script.src = `${window.apiBaseUrl}/cleoAssistant.js`;
+    document.body.appendChild(script);
+    </script>
+
+    <script>
+        // Filter jobs by location
+        document.getElementById('job-location').addEventListener('change', function () {
+            const selectedLocation = this.value;
+            const jobCards = document.querySelectorAll('.job-card');
+    
+            jobCards.forEach(card => {
+                const jobLocation = card.getAttribute('data-location');
+                if (!selectedLocation || jobLocation === selectedLocation) {
+                    card.style.display = 'flex'; // Show card
+                } else {
+                    card.style.display = 'none'; // Hide card
+                }
+            });
+        });
+
+        // Pass location to job-details page on click
+        const locationSelect = document.getElementById('job-location');
+
+        document.querySelectorAll('.job-card').forEach(card => {
+            card.addEventListener('click', function (e) {
+                e.preventDefault(); // Prevent default navigation
+                
+                const selectedLocation = locationSelect.value;
+                const jobType = this.getAttribute('data-job-type');
+                const jobLocation = this.getAttribute('data-location');
+
+                // Build URL with job_type and location
+                const url = new URL('job-details.html', window.location.href);
+                url.searchParams.set('job_type', jobType);
+                url.searchParams.set('location', selectedLocation || jobLocation);
+
+                // Navigate to job details
+                window.location.href = url.toString();
+            });
+        });
+    </script>
+
+</body>
+</html>

@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Job Application</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            padding: 40px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+
+        .back-link {
+            display: inline-block;
+            color: #667eea;
+            text-decoration: none;
+            margin-bottom: 20px;
+            font-weight: 600;
+            transition: color 0.3s;
+        }
+
+        .back-link:hover {
+            color: #764ba2;
+        }
+
+        h1 {
+            color: #333;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-transform: capitalize;
+        }
+
+        .job-meta {
+            color: #666;
+            font-size: 1.1em;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        .job-description {
+            margin-bottom: 30px;
+        }
+
+        .job-description h2 {
+            color: #333;
+            font-size: 1.5em;
+            margin-bottom: 15px;
+        }
+
+        .job-description p {
+            color: #555;
+            line-height: 1.8;
+            margin-bottom: 15px;
+        }
+
+        .requirements {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+        }
+
+        .requirements h3 {
+            color: #333;
+            margin-bottom: 15px;
+        }
+
+        .requirements ul {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .requirements li {
+            color: #555;
+            padding: 8px 0;
+            padding-left: 25px;
+            position: relative;
+        }
+
+        .requirements li:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #667eea;
+            font-weight: bold;
+        }
+
+        .apply-section {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .apply-section h2 {
+            margin-bottom: 15px;
+        }
+
+        .apply-section p {
+            margin-bottom: 20px;
+            opacity: 0.9;
+        }
+
+        .start-chat-btn {
+            background: white;
+            color: #667eea;
+            border: none;
+            padding: 15px 40px;
+            border-radius: 30px;
+            font-size: 1.1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+
+        .start-chat-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        #chatbot-notice {
+            display: none;
+            margin-top: 20px;
+            padding: 15px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 8px;
+            font-size: 0.95em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="jobs-listing.html" class="back-link">← Back to All Jobs</a>
+        
+        <h1 id="job-title">Loading...</h1>
+        <div class="job-meta" id="job-meta">
+            Getting job details...
+        </div>
+
+        <div class="job-description">
+            <h2>About This Position</h2>
+            <p id="job-description">We are looking for qualified candidates for this position.</p>
+        </div>
+
+        <div class="requirements">
+            <h3>Requirements</h3>
+            <ul id="requirements-list">
+                <li>Must be legally authorized to work</li>
+                <li>Relevant experience preferred</li>
+                <li>Strong work ethic and reliability</li>
+            </ul>
+        </div>
+
+        <div class="apply-section">
+            <h2>Ready to Apply?</h2>
+            <p>Click the button below to start your application process with our AI assistant.</p>
+            <button class="start-chat-btn" onclick="startApplication()">Start Application</button>
+            <div id="chatbot-notice">
+                Look for the chat widget in the bottom-right corner! 💬
+            </div>
+        </div>
+    </div>
+
+    <!-- Chatbot will be embedded here dynamically based on job_type -->
+    <div id="cleo-chatbot"></div>
+    
+    <!-- Load the chatbot script -->
+    <script src="../../config.js"></script>
+    <script>
+    const script = document.createElement("script");
+    script.src = `${window.apiBaseUrl}/cleoAssistant.js`;
+    document.body.appendChild(script);
+    </script>
+
+    <script>
+        // Get job_type from URL parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        const jobType = urlParams.get('job_type');
+
+        const jobDetails = {
+    'barista': {
+        title: 'Barista',
+        icon: '☕',
+        payRate: '$12–$17',
+        level: 'Entry',
+        shifts: 'Morning / Afternoon / Evening / Weekends',
+        description: 'Prepares beverages and handles guest orders.',
+        requirements: [
+            'Customer service experience preferred',
+            'Ability to work in a fast-paced environment',
+            'Strong communication skills',
+            'Passion for coffee and creating great experiences'
+        ]
+    },
+
+    'shift_supervisor': {
+        title: 'Shift Supervisor',
+        icon: '📋',
+        payRate: '$15–$22',
+        level: 'Mid',
+        shifts: 'Morning / Afternoon / Evening / Weekends',
+        description: 'Leads team and manages store operations.',
+        requirements: [
+            'Leadership or supervisory experience',
+            'Strong problem-solving skills',
+            'Ability to motivate and manage a team',
+            'Understanding of store operations'
+        ]
+    },
+
+    'store_support': {
+        title: 'Store Support',
+        icon: '📦',
+        payRate: '$12–$15',
+        level: 'Entry',
+        shifts: 'Morning / Afternoon / Evening / Weekends',
+        description: 'Helps with stocking and customer assistance.',
+        requirements: [
+            'Team player attitude',
+            'Ability to organize and stock inventory',
+            'Customer service skills',
+            'Physical ability to lift and move products'
+        ]
+    },
+
+    'coffee_specialist': {
+        title: 'Coffee Specialist',
+        icon: '🌟',
+        payRate: '$14–$18',
+        level: 'Mid',
+        shifts: 'Morning / Afternoon / Evening / Weekends',
+        description: 'Prepares specialty coffee drinks.',
+        requirements: [
+            'Knowledge of coffee preparation techniques',
+            'Attention to detail and quality',
+            'Barista experience preferred',
+            'Passion for specialty coffee and latte art'
+        ]
+    },
+
+    'customer_support': {
+        title: 'Customer Support',
+        icon: '💬',
+        payRate: '$12–$16',
+        level: 'Entry',
+        shifts: 'Morning / Afternoon / Evening / Weekends',
+        description: 'Handles customer needs and service.',
+        requirements: [
+            'Excellent communication skills',
+            'Problem-solving ability',
+            'Customer service experience',
+            'Friendly and welcoming demeanor'
+        ]
+    },
+
+    'assistant_store_manager': {
+        title: 'Assistant Store Manager',
+        icon: '👔',
+        payRate: '$12–$20',
+        level: 'Entry',
+        shifts: 'Morning / Afternoon / Evening / Weekends',
+        description: 'General frontline role.',
+        requirements: [
+            'Leadership experience',
+            'Strong organizational skills',
+            'Ability to support store manager',
+            'Team development capabilities'
+        ]
+    },
+
+    'maintenance': {
+        title: 'Maintenance',
+        icon: '🔧',
+        payRate: '$14–$20',
+        level: 'Entry–Mid',
+        shifts: 'Morning / Afternoon / Evening / Weekends',
+        description: 'Handles cleaning and equipment upkeep.',
+        requirements: [
+            'Basic maintenance and repair skills',
+            'Attention to cleanliness and sanitation',
+            'Ability to troubleshoot equipment issues',
+            'Reliable and detail-oriented'
+        ]
+    },
+
+    'trainer': {
+        title: 'Trainer',
+        icon: '📚',
+        payRate: '$12–$20',
+        level: 'Entry',
+        shifts: 'Morning / Afternoon / Evening / Weekends',
+        description: 'General frontline role.',
+        requirements: [
+            'Strong teaching and communication skills',
+            'Patience and ability to mentor others',
+            'Knowledge of store operations',
+            'Previous barista or retail experience'
+        ]
+    }
+        }
+
+        // Display job details
+        if (jobType && jobDetails[jobType]) {
+            const job = jobDetails[jobType];
+            const params = new URLSearchParams(window.location.search);
+            const location = params.get('location') || 'Various Locations';
+
+
+
+            document.getElementById('job-title').textContent = job.icon + ' ' + job.title;
+            document.getElementById('job-meta').textContent = `Pay Rate: ${job.payRate} | Level: ${job.level} | Location: ${location} | Shifts: ${job.shifts}`;
+            document.getElementById('job-description').textContent = job.description;
+            
+            const requirementsList = document.getElementById('requirements-list');
+            requirementsList.innerHTML = '';
+            job.requirements.forEach(req => {
+                const li = document.createElement('li');
+                li.textContent = req;
+                requirementsList.appendChild(li);
+            });
+
+            // Set job_type in the chatbot container
+            document.getElementById('cleo-chatbot').setAttribute('data-job-type', jobType);
+        } else {
+            document.getElementById('job-title').textContent = 'Job Not Found';
+            document.getElementById('job-meta').textContent = 'The requested position is not available.';
+            document.getElementById('job-description').textContent = 'Please return to the jobs listing page.';
+        }
+
+        function startApplication() {
+            const notice = document.getElementById('chatbot-notice');
+            notice.style.display = 'block';
+            
+            // Trigger chatbot to open (if it has an API to do so)
+            setTimeout(() => {
+                if (window.CleoChatbot && window.CleoChatbot.openChat) {
+                    window.CleoChatbot.openChat();
+                }
+            }, 500);
+        }
+    </script>
+</body>
+</html>

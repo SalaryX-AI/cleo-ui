@@ -151,7 +151,8 @@ venv.bak/
 .spyproject
 
 # Code
-frontend/ 
+chatbot_frontend/
+config.js/ 
 
 # Rope project settings
 .ropeproject

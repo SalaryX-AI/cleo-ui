@@ -3,8 +3,8 @@
     
     // Configuration for the chatbot API endpoints
     const CHATBOT_CONFIG = {
-        apiBaseUrl: 'http://localhost:8000',
-        wsBaseUrl: 'ws://localhost:8000'
+        apiBaseUrl: window.apiBaseUrl,
+        wsBaseUrl: window.wsBaseUrl
     };
     
     const CleoChatbot = {
@@ -350,6 +350,7 @@
             const domain = window.location.hostname;
 
             // Call server to validate domain and get API key
+            console.log(window.apiBaseUrl);
             const response = await fetch(
                 `${CHATBOT_CONFIG.apiBaseUrl}/validate-domain?domain=${encodeURIComponent(domain)}`
             );
