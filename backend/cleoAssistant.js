@@ -322,7 +322,7 @@
                 ${isBot 
                     ? `
                         background: #6A74DB;
-                        color: white;
+                        color: black;
                         border-bottom-left-radius: 4px;
                         border: 1px solid #e5e7eb;
                     ` 
