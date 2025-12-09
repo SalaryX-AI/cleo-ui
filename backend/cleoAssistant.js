@@ -27,10 +27,10 @@
             this.config = {
                 jobType: options.jobType,
                 apiKey: options.apiKey,
-                apiUrl: options.apiUrl || CHATBOT_CONFIG.apiBaseUrl,
-                wsUrl: options.wsUrl || CHATBOT_CONFIG.wsBaseUrl,
-                position: options.position || 'bottom-right',
-                primaryColor: options.primaryColor || '#667eea'
+                apiUrl: CHATBOT_CONFIG.apiBaseUrl,
+                wsUrl: CHATBOT_CONFIG.wsBaseUrl,
+                position: 'bottom-right',
+                primaryColor: '#667eea'
             };
             
             // Create the chat widget UI
@@ -96,13 +96,14 @@
             chatContainer.style.cssText = `
                 position: fixed;
                 ${positions[this.config.position]}
-                width: 450px;
-                height: 450px;
-                border-radius: 12px;
-                box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+                width: 500px;
+                height: 500px;
+                border-radius: 16px;
+                box-shadow: 0 12px 48px rgba(0,0,0,0.3);
                 z-index: 999998;
                 display: none;
                 animation: slideUp 0.3s ease-out;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
             `;
             
             chatContainer.innerHTML = `
@@ -117,24 +118,50 @@
                             transform: translateY(0);
                         }
                     }
+                    
+                    @keyframes fadeIn {
+                        from { opacity: 0; transform: translateY(10px); }
+                        to { opacity: 1; transform: translateY(0); }
+                    }
+                    
+                    #chatbot-messages::-webkit-scrollbar {
+                        width: 6px;
+                    }
+                    
+                    #chatbot-messages::-webkit-scrollbar-track {
+                        background: #f1f1f1;
+                        border-radius: 10px;
+                    }
+                    
+                    #chatbot-messages::-webkit-scrollbar-thumb {
+                        background: #c1c1c1;
+                        border-radius: 10px;
+                    }
+                    
+                    #chatbot-messages::-webkit-scrollbar-thumb:hover {
+                        background: #a8a8a8;
+                    }
                 </style>
-                <div style="height: 100%; display: flex; flex-direction: column; background: white; border-radius: 12px; overflow: hidden;">
-                    <div style="background: ${this.config.primaryColor}; color: white; padding: 16px; display: flex; justify-content: space-between; align-items: center;">
-                        <div>
-                            <div style="font-weight: 600; font-size: 16px; text-align:center;">Cleo Chatbot</div>
+                <div style="height: 100%; display: flex; flex-direction: column; background: white; border-radius: 16px; overflow: hidden;">
+                    <!-- Header -->
+                    <div style="background: linear-gradient(135deg, ${this.config.primaryColor} 0%, #764ba2 100%); color: white; padding: 20px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                        <div style="flex: 1;">
+                            <div style="font-weight: 700; font-size: 18px; margin-bottom: 4px;">Cleo Assistant</div>
+                            <div id="chatbot-status-text" style="font-size: 12px; opacity: 0.9;">Connecting...</div>
                         </div>
-                        <button id="cleo-close-btn" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer; padding: 0; width: 30px; height: 30px;">×</button>
+                        <button id="cleo-close-btn" style="background: rgba(255,255,255,0.2); border: none; color: white; font-size: 24px; cursor: pointer; padding: 0; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: background 0.2s;">×</button>
                     </div>
-                    <div id="chatbot-status" style="padding: 8px; text-align: center; font-size: 12px; color: #666; background: #f0f0f0;">
-                        Not connected
-                    </div>
-                    <div id="chatbot-messages" style="flex: 1; overflow-y: auto; padding: 16px; background: #f8f9fa;"></div>
-                    <div style="padding: 16px; background: white; border-top: 1px solid #e0e0e0; display: flex; gap: 8px;">
+                    
+                    <!-- Messages Area -->
+                    <div id="chatbot-messages" style="flex: 1; overflow-y: auto; padding: 20px; background: #f7f8fc; display: flex; flex-direction: column; gap: 16px;"></div>
+                    
+                    <!-- Input Area -->
+                    <div style="padding: 16px; background: white; border-top: 1px solid #e5e7eb; display: flex; gap: 10px; align-items: center;">
                         <input type="text" id="chatbot-input" placeholder="Type your message..." 
-                            style="flex: 1; padding: 10px 14px; border: 2px solid #e0e0e0; border-radius: 20px; font-size: 14px; outline: none;"
+                            style="flex: 1; padding: 12px 16px; border: 2px solid #e5e7eb; border-radius: 24px; font-size: 14px; outline: none; transition: border-color 0.2s;"
                             disabled>
                         <button id="chatbot-send" 
-                            style="padding: 10px 20px; background: ${this.config.primaryColor}; color: white; border: none; border-radius: 20px; font-size: 14px; font-weight: 600; cursor: pointer;"
+                            style="padding: 12px 24px; background: linear-gradient(135deg, ${this.config.primaryColor} 0%, #764ba2 100%); color: white; border: none; border-radius: 24px; font-size: 14px; font-weight: 600; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; white-space: nowrap;"
                             disabled>Send</button>
                     </div>
                 </div>
@@ -144,9 +171,33 @@
             
             // Add event listeners
             document.getElementById('cleo-close-btn').addEventListener('click', () => this.closeChat());
+            document.getElementById('cleo-close-btn').addEventListener('mouseenter', (e) => {
+                e.target.style.background = 'rgba(255,255,255,0.3)';
+            });
+            document.getElementById('cleo-close-btn').addEventListener('mouseleave', (e) => {
+                e.target.style.background = 'rgba(255,255,255,0.2)';
+            });
+            
             document.getElementById('chatbot-send').addEventListener('click', () => this.sendMessage());
+            document.getElementById('chatbot-send').addEventListener('mouseenter', (e) => {
+                e.target.style.transform = 'translateY(-2px)';
+                e.target.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
+            });
+            document.getElementById('chatbot-send').addEventListener('mouseleave', (e) => {
+                e.target.style.transform = 'translateY(0)';
+                e.target.style.boxShadow = 'none';
+            });
+            
             document.getElementById('chatbot-input').addEventListener('keypress', (e) => {
                 if (e.key === 'Enter') this.sendMessage();
+            });
+            
+            document.getElementById('chatbot-input').addEventListener('focus', (e) => {
+                e.target.style.borderColor = this.config.primaryColor;
+            });
+            
+            document.getElementById('chatbot-input').addEventListener('blur', (e) => {
+                e.target.style.borderColor = '#e5e7eb';
             });
         },
         
@@ -181,7 +232,7 @@
          */
         async startChat() {
             try {
-                this.updateStatus('Connecting...', 'info');
+                this.updateStatus('Connecting...', 'connecting');
                 
                 const response = await fetch(
                     `${this.config.apiUrl}/start-session?job_type=${this.config.jobType}&api_key=${this.config.apiKey}`,
@@ -195,12 +246,11 @@
                 const data = await response.json();
                 this.sessionId = data.session_id;
                 
-                this.updateStatus(`Connected - ${data.position}`, 'connected');
-                
                 this.ws = new WebSocket(`${this.config.wsUrl}/ws/${this.sessionId}`);
                 
                 this.ws.onopen = () => {
-                    this.updateStatus('Connected', 'connected');
+                    this.updateStatus('Online', 'connected');
+                    this.enableInput();
                 };
                 
                 this.ws.onmessage = (event) => {
@@ -210,6 +260,7 @@
                 
                 this.ws.onerror = () => {
                     this.updateStatus('Connection error', 'disconnected');
+                    this.disableInput();
                 };
                 
                 this.ws.onclose = () => {
@@ -228,9 +279,8 @@
                 this.addMessage(data.content, true);
                 this.enableInput();
             } else if (data.type === 'workflow_complete') {
-                this.updateStatus('Screening Complete', 'info');
+                this.updateStatus('Complete', 'complete');
                 this.disableInput();
-                
             } else if (data.type === 'error') {
                 this.updateStatus('Error occurred', 'disconnected');
                 this.addMessage(`Error: ${data.message}`, true);
@@ -239,31 +289,72 @@
         
         addMessage(content, isBot = true) {
             const messagesDiv = document.getElementById('chatbot-messages');
-            const messageDiv = document.createElement('div');
-            messageDiv.style.cssText = `
-                margin-bottom: 12px;
+            
+            // Get current time
+            const now = new Date();
+            const timeString = now.toLocaleTimeString('en-US', { 
+                hour: 'numeric', 
+                minute: '2-digit',
+                hour12: true 
+            });
+            
+            // Create message container
+            const messageContainer = document.createElement('div');
+            messageContainer.style.cssText = `
                 display: flex;
-                justify-content: ${isBot ? 'flex-start' : 'flex-end'};
-                animation: slideUp 0.3s ease-out;
+                flex-direction: column;
+                align-items: ${isBot ? 'flex-start' : 'flex-end'};
+                animation: fadeIn 0.4s ease-out;
+                max-width: 100%;
             `;
             
-            const contentDiv = document.createElement('div');
-            contentDiv.style.cssText = `
-                max-width: 75%;
-                padding: 10px 14px;
-                border-radius: 16px;
+            // Create message bubble
+            const messageBubble = document.createElement('div');
+            messageBubble.style.cssText = `
+                max-width: 80%;
+                padding: 12px 16px;
+                border-radius: 18px;
                 word-wrap: break-word;
                 white-space: pre-wrap;
                 font-size: 14px;
+                line-height: 1.5;
+                box-shadow: 0 1px 2px rgba(0,0,0,0.08);
                 ${isBot 
-                    ? 'background: white; color: #333; border-bottom-left-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);' 
-                    : `background: ${this.config.primaryColor}; color: white; border-bottom-right-radius: 4px;`}
+                    ? `
+                        background: white;
+                        color: #1f2937;
+                        border-bottom-left-radius: 4px;
+                        border: 1px solid #e5e7eb;
+                    ` 
+                    : `
+                        background: linear-gradient(135deg, ${this.config.primaryColor} 0%, #764ba2 100%);
+                        color: white;
+                        border-bottom-right-radius: 4px;
+                    `
+                }
             `;
-            contentDiv.textContent = content;
+            messageBubble.textContent = content;
             
-            messageDiv.appendChild(contentDiv);
-            messagesDiv.appendChild(messageDiv);
-            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+            // Create timestamp
+            const timestamp = document.createElement('div');
+            timestamp.style.cssText = `
+                font-size: 11px;
+                color: #9ca3af;
+                margin-top: 4px;
+                padding: 0 4px;
+            `;
+            timestamp.textContent = timeString;
+            
+            // Append elements
+            messageContainer.appendChild(messageBubble);
+            messageContainer.appendChild(timestamp);
+            messagesDiv.appendChild(messageContainer);
+            
+            // Smooth scroll to bottom
+            messagesDiv.scrollTo({
+                top: messagesDiv.scrollHeight,
+                behavior: 'smooth'
+            });
         },
         
         sendMessage() {
@@ -284,16 +375,21 @@
         },
         
         updateStatus(message, type = 'info') {
-            const statusEl = document.getElementById('chatbot-status');
+            const statusEl = document.getElementById('chatbot-status-text');
             if (statusEl) {
                 statusEl.textContent = message;
                 
-                const colors = {
-                    connected: '#d4edda',
-                    disconnected: '#f8d7da',
-                    info: '#f0f0f0'
+                const statusIcons = {
+                    connected: '🟢',
+                    connecting: '🟡',
+                    disconnected: '🔴',
+                    complete: '✅'
                 };
-                statusEl.style.background = colors[type] || colors.info;
+                
+                const icon = statusIcons[type] || '';
+                if (icon) {
+                    statusEl.textContent = `${icon} ${message}`;
+                }
             }
         },
         
@@ -350,7 +446,6 @@
             const domain = window.location.hostname;
 
             // Call server to validate domain and get API key
-            console.log(window.apiBaseUrl);
             const response = await fetch(
                 `${CHATBOT_CONFIG.apiBaseUrl}/validate-domain?domain=${encodeURIComponent(domain)}`
             );

@@ -59,6 +59,10 @@ class ChatbotState(MessagesState):
     max_possible_score: float = 0
 
     acknowledgement_type: str = ""
+    
+    delay_node_type: str = ""
+
+    brand_name: str = ""
 
     # Validation tracking
     email_validation_failed: bool = False
@@ -101,21 +105,64 @@ def post_acknowledgement_router(state: ChatbotState) -> Literal["ask_knockout_qu
     return "ask_knockout_question"
 
 
+# ==================== Delay messages ====================
+
+def delay_messages_node(state: ChatbotState) -> ChatbotState:
+    """Node that adds delayed messages"""
+    
+    print(f"delay_messages_node called (type: {state['delay_node_type']})")
+    
+    delay_messages = {
+        "greeting": [
+            "We're a friendly, locally-owned team here. My job is to make your application process super fast and easy.",
+            "I just need to ask a few quick screening questions—it'll take less than 2 minutes total. Ready to jump in?"
+        ],
+        "end": [
+            "Our hiring team will take it from here. Your application will be carefully reviewed. If you are selected to move forward, we will contact you via email or phone to schedule an interview or conduct a brief background check prior to scheduling the interview.",
+            "You can expect to hear from us regarding your status within 1-2 business day. Thank you again for your time and interest in working with Big Chicken!."
+        ],
+        "default": "Let's continue!"
+    }
+    
+    delay_node_type = state.get("delay_node_type", "default")
+    messages = delay_messages.get(delay_node_type)
+    
+    # Handle list or single message
+    if isinstance(messages, list):
+        for msg in messages:
+            state["messages"].append(AIMessage(content=msg))
+    else:
+        state["messages"].append(AIMessage(content=messages))
+    
+    return state
+
+def post_delay_router(state: ChatbotState) -> Literal["check_ready", "__end__"]:
+    """Decide where to go after delay messages"""
+    
+    # If we're done with personal details, start questions
+    if state.get("delay_node_type") == "greeting":
+        return "check_ready"
+    
+    # Otherwise, start knockout questions
+    return "__end__"
+
 
 # ==================== START & READY FLOW ====================
 
 def start_node(state: ChatbotState) -> ChatbotState:
-    """Send greeting and ask if ready"""
+    """Send greeting"""
 
     print("start_node called")
     
-    prompt = GREETING_PROMPT.format()
+    # prompt = GREETING_PROMPT.format()
 
     # Use the chat template
-    messages = chat_template.format_messages(user_input=prompt)
-    response = llm.invoke(messages)
+    # messages = chat_template.format_messages(user_input=prompt)
+    # response = llm.invoke(prompt)
     
-    state["messages"].append(AIMessage(content=response.content))
+    state["messages"].append(AIMessage(content=f"Hello. I'm Cleo, the hiring assistant for {state['brand_name']}. Thank you for your interest in this role."))
+
+    state["delay_node_type"] = "greeting"
     
     return state
 
@@ -595,9 +642,15 @@ def end_node(state: ChatbotState) -> ChatbotState:
     print("end_node called")
     
     name = state["personal_details"].get("name", "")
-    prompt = END_PROMPT.format(name=name)
-    response = llm.invoke(prompt)
-    state["messages"].append(AIMessage(content=response.content))
+    
+    # prompt = END_PROMPT.format(name=name)
+    
+    # response = llm.invoke(prompt)
+    
+    state["messages"].append(AIMessage(content=f"Great Job {name}! You've successfully completed the initial application. Your information has been securely saved and submitted."))
+
+    state["delay_node_type"] = "end"
+
     return state
 
 
@@ -609,6 +662,7 @@ def build_graph(checkpointer):
     
     # Add all nodes
     workflow.add_node("start", start_node)
+    workflow.add_node("delay_messages", delay_messages_node)
     workflow.add_node("check_ready", check_ready_node)
     workflow.add_node("acknowledgement", acknowledge_node)
     workflow.add_node("ask_knockout_question", ask_knockout_question_node)
@@ -628,14 +682,16 @@ def build_graph(checkpointer):
     
     # Set entry point
     workflow.set_entry_point("start")
-    # workflow.set_entry_point("ask_question")  # For testing only
     
     # Build flow
-    workflow.add_edge("start", "check_ready")
+    workflow.add_edge("start", "delay_messages")
+    workflow.add_conditional_edges("delay_messages", post_delay_router)
+    
     workflow.add_conditional_edges("check_ready", ready_router)
 
     # Knockout Questions loop
     workflow.add_conditional_edges("acknowledgement", post_acknowledgement_router)
+    
     workflow.add_edge("ask_knockout_question", "store_kq_answer")
     workflow.add_conditional_edges("store_kq_answer", knockout_question_router)
 
@@ -657,11 +713,11 @@ def build_graph(checkpointer):
 
     # Scoring and end
     workflow.add_edge("score", "end")
-    workflow.add_edge("end", END)
+    workflow.add_edge("end", "delay_messages")
     
     app = workflow.compile(
         checkpointer=checkpointer,
-        interrupt_after=["start", "ask_knockout_question", "ask_name", "ask_email", "ask_phone", "ask_question"]
+        interrupt_after=["delay_messages", "ask_knockout_question", "ask_name", "ask_email", "ask_phone", "ask_question"]
     )
     
     return app

@@ -14,7 +14,10 @@ from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from psycopg import AsyncConnection
 from psycopg.rows import dict_row
 import os
+import asyncio
 
+
+brand_name = ""
 
 # Initialize graph at startup
 graph_app = None
@@ -62,14 +65,29 @@ app.add_middleware(
 )
 
 # Allowed domains list - only these domains can embed the chatbot
+# Add specific production domains here
 ALLOWED_DOMAINS = [
     "*",  # Wildcard allows all domains (for testing)
     "localhost",
     "127.0.0.1",
-    # Add specific production domains here:
+    "bigchicken",
+    "burgerking",
+    "mcdonald",
+    "popeyes",
+    "starbucks"
+
     # "example.com",
     # "www.example.com",
 ]
+
+Brand_names = {
+    "bigchicken": "Big Chicken",
+    "burgerking": "Burger King",
+    "mcdonald": "McDonald's",
+    "popeyes": "Popeyes",
+    "starbucks": "Starbucks",
+    "127.0.0.1": "Big Chicken",
+}
 
 # API key for authenticated requests
 API_KEY = "test_key_secure_123"
@@ -80,7 +98,7 @@ sessions = {}
 @app.get("/")
 async def root():
     """Serve test page"""
-    with open("frontend/index.html", "r") as f:
+    with open("./client-websites/big_chicken_frontend/index.html", "r") as f:
         return HTMLResponse(content=f.read())
 
 
@@ -113,6 +131,9 @@ async def validate_domain(
                 detail=f"Domain '{domain}' is not authorized"
             )
     
+    global brand_name
+    brand_name = Brand_names.get(domain, "")
+
     # Return API key if validation passes
     return {
         "apiKey": API_KEY
@@ -165,6 +186,8 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
     thread_id = session["thread_id"]
     job_type = session["job_type"]
     job_config = JOB_CONFIGS[job_type]
+
+    global brand_name
     
     # graph_app = build_graph()
     config = {"configurable": {"thread_id": thread_id}}
@@ -189,7 +212,11 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
             invalid_email_attempt="",
             invalid_phone_attempt="",
             acknowledgement_type="",
+            
+            delay_node_type="",
+            
             knockout_passed=False,
+            brand_name=brand_name
         )
         
         async for event in graph_app.astream(initial_state, config=config, stream_mode="updates"):
@@ -197,14 +224,28 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                 if node_data and "messages" in node_data:
                     messages = node_data["messages"]
                     
-                    msg = messages[-1]
-                    print(msg)
-                    if isinstance(msg, AIMessage):
-                        await websocket.send_json({
-                            "type": "ai_message",
-                            "content": msg.content
+                    # Check if this is delay_messages_node
+                    if node_name == "delay_messages":
                         
-                    })
+                        await asyncio.sleep(2)  # Initial delay before starting
+                        
+                        for msg in messages[-2:]:   # only last two messages
+                            print(msg.content)
+                            if isinstance(msg, AIMessage):
+                                await websocket.send_json({
+                                    "type": "ai_message",
+                                    "content": msg.content
+                                })
+                                await asyncio.sleep(2)  # 1 second delay
+                    else:
+                        # Normal processing - send last message only
+                        msg = messages[-1]
+                        print(msg.content)
+                        if isinstance(msg, AIMessage):
+                            await websocket.send_json({
+                                "type": "ai_message",
+                                "content": msg.content
+                            })
         
         while True:
             
@@ -239,13 +280,29 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                 for node_name, node_data in event.items():
                     if node_data and "messages" in node_data:
                         messages = node_data["messages"]
-                        msg = messages[-1]
-                        print(msg)
-                        if isinstance(msg, AIMessage):
-                            await websocket.send_json({
-                                "type": "ai_message",
-                                "content": msg.content
-                            })
+                        
+                        # Check if this is delay_messages_node
+                        if node_name == "delay_messages":
+                            print("Processing delay_messages node")
+                            await asyncio.sleep(2)  # Initial delay before starting
+                            
+                            for msg in messages[-2:]:   # only last two messages
+                                print(msg.content)
+                                if isinstance(msg, AIMessage):
+                                    await websocket.send_json({
+                                        "type": "ai_message",
+                                        "content": msg.content
+                                    })
+                                    await asyncio.sleep(2)  # 1 second delay
+                        else:
+                            # Normal processing - send last message only
+                            msg = messages[-1]
+                            print(msg.content)
+                            if isinstance(msg, AIMessage):
+                                await websocket.send_json({
+                                    "type": "ai_message",
+                                    "content": msg.content
+                                })
     
     except WebSocketDisconnect:
         print(f"Client disconnected: {session_id}")
