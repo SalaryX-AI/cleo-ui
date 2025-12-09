@@ -321,8 +321,8 @@
                 box-shadow: 0 1px 2px rgba(0,0,0,0.08);
                 ${isBot 
                     ? `
-                        background: white;
-                        color: #1f2937;
+                        background: #6A74DB;
+                        color: white;
                         border-bottom-left-radius: 4px;
                         border: 1px solid #e5e7eb;
                     ` 
