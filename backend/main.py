@@ -216,7 +216,16 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
             delay_node_type="",
             
             knockout_passed=False,
-            brand_name=brand_name
+            brand_name=brand_name,
+
+            email_otp_code="",
+            email_otp_timestamp=0,
+            email_verified=False,
+            email_otp_attempts=0,
+            phone_otp_code="",
+            phone_otp_timestamp=0,
+            phone_verified=False,
+            phone_otp_attempts=0
         )
         
         async for event in graph_app.astream(initial_state, config=config, stream_mode="updates"):

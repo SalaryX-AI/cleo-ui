@@ -1,15 +1,24 @@
 """Main graph implementation for Cleo screening chatbot with human-in-the-loop"""
 
 import json
-from typing import TypedDict, Literal, List, Dict
+from typing import Literal, List, Dict
 from langgraph.graph import StateGraph, END, MessagesState
-from langgraph.types import Command, interrupt
+from langgraph.types import interrupt
 from langchain_openai import ChatOpenAI
 from langchain.schema import HumanMessage, AIMessage
 from prompts1 import *
 import os
 from dotenv import load_dotenv
 from langchain.prompts import ChatPromptTemplate
+import time
+
+from otp_verification import (
+    generate_otp, 
+    send_email_otp, 
+    send_sms_otp, 
+    verify_otp,
+    is_otp_expired
+)
 # ========================================================
 load_dotenv()
 
@@ -73,6 +82,18 @@ class ChatbotState(MessagesState):
     email_attempt_count: int = 0
     phone_attempt_count: int = 0
 
+    # Email OTP fields
+    email_otp_code: str = ""
+    email_otp_timestamp: float = 0
+    email_verified: bool = False
+    email_otp_attempts: int = 0
+    
+    # Phone OTP fields
+    phone_otp_code: str = ""
+    phone_otp_timestamp: float = 0
+    phone_verified: bool = False
+    phone_otp_attempts: int = 0
+
 
 # ==================== Acknowledgement ====================
 def acknowledge_node(state: ChatbotState) -> ChatbotState:
@@ -115,11 +136,11 @@ def delay_messages_node(state: ChatbotState) -> ChatbotState:
     delay_messages = {
         "greeting": [
             "We're a friendly, locally-owned team here. My job is to make your application process super fast and easy.",
-            "I just need to ask a few quick screening questions—it'll take less than 2 minutes total. Ready to jump in?"
+            "I just need to ask a few quick screening questions, it'll take less than 2 minutes total. Ready to jump in?"
         ],
         "end": [
             "Our hiring team will take it from here. Your application will be carefully reviewed. If you are selected to move forward, we will contact you via email or phone to schedule an interview or conduct a brief background check prior to scheduling the interview.",
-            "You can expect to hear from us regarding your status within 1-2 business day. Thank you again for your time and interest in working with Big Chicken!."
+            f"You can expect to hear from us regarding your status within 1-2 business day. Thank you again for your time and interest in working with {state.get("brand_name")}."
         ],
         "default": "Let's continue!"
     }
@@ -429,14 +450,14 @@ def store_email_node(state: ChatbotState) -> ChatbotState:
     return state
 
 
-def email_router(state: ChatbotState) -> Literal["ask_email", "ask_phone"]:
+def email_router(state: ChatbotState) -> Literal["ask_email", "send_email_otp"]:
     """Check if email is valid, re-ask or continue"""
     
     print("email_router called")
     
-    if state.get("email_validation_failed", False):
+    if state.get("email_validation_failed"):
         return "ask_email"  # Re-ask for email
-    return "ask_phone"  # Continue to phone
+    return "send_email_otp"  # Continue to email OTP verification
 
 
 # ==================== PHONE COLLECTION ====================
@@ -512,7 +533,7 @@ def store_phone_node(state: ChatbotState) -> ChatbotState:
     return state
 
 
-def phone_router(state: ChatbotState) -> Literal["ask_phone", "acknowledgement"]:
+def phone_router(state: ChatbotState) -> Literal["ask_phone", "send_phone_otp"]:
     """Check if phone is valid, re-ask or continue"""
     
     print("phone_router called")
@@ -520,11 +541,269 @@ def phone_router(state: ChatbotState) -> Literal["ask_phone", "acknowledgement"]
     if state.get("phone_validation_failed", False):
         return "ask_phone"  # Re-ask for phone
     
-    return "acknowledgement"  # Continue to questions
+    return "send_phone_otp"  # Continue to phone OTP verification
+
+
+# ==================== EMAIL OTP VERIFICATION NODES ====================
+
+def send_email_otp_node(state: ChatbotState) -> ChatbotState:
+    """Generate and send OTP to email"""
+    
+    print("send_email_otp_node called")
+    
+    email = state["personal_details"].get("email", "")
+    user_name = state["personal_details"].get("name")
+    
+    # Generate OTP
+    otp_code = generate_otp()
+    
+    # Store in state
+    state["email_otp_code"] = otp_code
+    state["email_otp_timestamp"] = time.time()
+    brand_name = state.get("brand_name")
+    
+    # Send email
+    success = send_email_otp(email, otp_code, brand_name, user_name)
+    
+    if success:
+        message = f"Okay, I've just sent a 6-digit verification code to {email}. Please check your inbox (and spam folder)"
+    else:
+        message = "I'm having trouble sending the verification email right now. Let me try again in a moment."
+    
+    state["messages"].append(AIMessage(content=message))
+    
+    return state
+
+
+def ask_email_otp_node(state: ChatbotState) -> ChatbotState:
+    """Ask user to enter email OTP code"""
+    
+    print("ask_email_otp_node called")
+    
+    # Check if we need to resend
+    # if state.get("email_otp_attempts", 0) > 0:
+    #     message = "Please enter the 6-digit code from your email:"
+    #     state["messages"].append(AIMessage(content=message))
+
+    state["messages"].append(AIMessage(content="Please enter the 6-digit code from your email:"))    
+    
+    return state
+
+
+def verify_email_otp_node(state: ChatbotState) -> ChatbotState:
+    """Verify the email OTP code entered by user"""
+    
+    print("verify_email_otp_node called")
+    
+    messages = state["messages"]
+    last_message = messages[-1] if messages else None
+    
+    if isinstance(last_message, HumanMessage):
+        user_input = last_message.content.strip()
+        
+        # Check for resend request
+        if user_input.lower() in ["resend", "send again", "resend code"]:
+            state["email_otp_attempts"] = 0  # Reset attempts for resend
+            # Will trigger resend in router
+            return state
+        
+        # Verify OTP
+        stored_code = state.get("email_otp_code", "")
+        timestamp = state.get("email_otp_timestamp", 0)
+        
+        is_valid, error = verify_otp(user_input, stored_code, timestamp)
+        
+        if is_valid:
+            state["email_verified"] = True
+            state["messages"].append(AIMessage(content="Success! Your email address is confirmed."))
+        else:
+            state["email_otp_attempts"] += 1
+            attempts = state["email_otp_attempts"]
+            
+            if error == "expired":
+                state["messages"].append(AIMessage(
+                    content="That code has expired. Let me send you a fresh one."
+                ))
+                state["email_otp_attempts"] = 0  # Reset for resend
+            elif error == "invalid_format":
+                state["messages"].append(AIMessage(
+                    content="Please enter a 6-digit code (numbers only)."
+                ))
+            elif error == "incorrect":
+                if attempts >= 3:
+                    state["messages"].append(AIMessage(
+                        content="Hmm, that code didn't work after 3 tries. Let's start over with your email address."
+                    ))
+                else:
+                    state["messages"].append(AIMessage(
+                        content=f"Hmm, that code didn't work. Please enter a correct 6-digit code (numbers only). (Attempt {attempts}/3)"
+                    ))
+    
+    return state
+
+
+def email_otp_router(state: ChatbotState) -> Literal["ask_phone", "send_email_otp", "ask_email", "ask_email_otp"]:
+    """Route based on email OTP verification status"""
+    
+    print("email_otp_router called")
+    
+    # Check if verified
+    if state.get("email_verified"):
+        return "ask_phone"
+    
+    # Check if need to resend (expired or user requested)
+    messages = state["messages"]
+    last_message = messages[-1] if messages else None
+    
+    if isinstance(last_message, HumanMessage):
+        user_input = last_message.content.strip().lower()
+        if "resend" in user_input or "send again" in user_input:
+            return "send_email_otp"
+    
+    # Check if expired
+    if is_otp_expired(state.get("email_otp_timestamp", 0)):
+        return "send_email_otp"
+    
+    # Check if too many attempts
+    if state.get("email_otp_attempts") >= 3:
+        # Reset and ask for email again
+        state["email_otp_attempts"] = 0
+        state["email_validation_failed"] = True
+        return "ask_email"
+    
+    # Continue asking for OTP
+    return "ask_email_otp"
+
+
+# ==================== PHONE OTP VERIFICATION NODES ====================
+
+def send_phone_otp_node(state: ChatbotState) -> ChatbotState:
+    """Generate and send OTP to phone via SMS"""
+    
+    print("send_phone_otp_node called")
+    
+    phone = state["personal_details"].get("phone", "")
+    
+    # Generate OTP
+    otp_code = generate_otp()
+    
+    # Store in state
+    state["phone_otp_code"] = otp_code
+    state["phone_otp_timestamp"] = time.time()
+    
+    # Send SMS
+    success = send_sms_otp(phone, otp_code, state.get("brand_name"))
+    
+    if success:
+        message = f"I'm sending a verification text with a 6-digit code to {phone} now. Please check your messages."
+    else:
+        message = "I'm having trouble sending the verification text right now. Let me try again in a moment."
+    
+    state["messages"].append(AIMessage(content=message))
+    
+    return state
+
+
+def ask_phone_otp_node(state: ChatbotState) -> ChatbotState:
+    """Ask user to enter phone OTP code"""
+    
+    print("ask_phone_otp_node called")
+    
+    # Check if we need to resend
+    # if state.get("phone_otp_attempts", 0) > 0:
+    #     message = "Please enter the 6-digit code from your text message:"
+    #     state["messages"].append(AIMessage(content=message))
+    
+    state["messages"].append(AIMessage(content="Please enter the 6-digit code from your text message:"))
+    return state
+
+
+def verify_phone_otp_node(state: ChatbotState) -> ChatbotState:
+    """Verify the phone OTP code entered by user"""
+    
+    print("verify_phone_otp_node called")
+    
+    messages = state["messages"]
+    last_message = messages[-1] if messages else None
+    
+    if isinstance(last_message, HumanMessage):
+        user_input = last_message.content.strip()
+        
+        # Check for resend request
+        if user_input.lower() in ["resend", "send again", "resend code"]:
+            state["phone_otp_attempts"] = 0  # Reset attempts for resend
+            return state
+        
+        # Verify OTP
+        stored_code = state.get("phone_otp_code", "")
+        timestamp = state.get("phone_otp_timestamp", 0)
+        
+        is_valid, error = verify_otp(user_input, stored_code, timestamp)
+        
+        if is_valid:
+            state["phone_verified"] = True
+            # Don't send message here - continue to next question
+            state["acknowledgement_type"] = "questions"
+        else:
+            state["phone_otp_attempts"] += 1
+            attempts = state["phone_otp_attempts"]
+            
+            if error == "expired":
+                state["messages"].append(AIMessage(
+                    content="That code has expired. Let me send you a fresh one."
+                ))
+                state["phone_otp_attempts"] = 0  # Reset for resend
+            elif error == "invalid_format":
+                state["messages"].append(AIMessage(
+                    content="Please enter a 6-digit code (numbers only)."
+                ))
+            elif error == "incorrect":
+                if attempts >= 3:
+                    state["messages"].append(AIMessage(
+                        content="The code was incorrect after 3 tries. Let's start over with your phone number."
+                    ))
+                else:
+                    state["messages"].append(AIMessage(
+                        content=f"The code was incorrect. I can resend the text or you can type the number again to correct any mistakes. (Attempt {attempts}/3)"
+                    ))
+    
+    return state
+
+
+def phone_otp_router(state: ChatbotState) -> Literal["acknowledgement", "send_phone_otp", "ask_phone", "ask_phone_otp"]:
+    """Route based on phone OTP verification status"""
+    
+    print("phone_otp_router called")
+    
+    # Check if verified
+    if state.get("phone_verified", False):
+        return "acknowledgement"
+    
+    # Check if need to resend (expired or user requested)
+    messages = state["messages"]
+    last_message = messages[-1] if messages else None
+    
+    if isinstance(last_message, HumanMessage):
+        user_input = last_message.content.strip().lower()
+        if "resend" in user_input or "send again" in user_input:
+            return "send_phone_otp"
+    
+    # Check if expired
+    if is_otp_expired(state.get("phone_otp_timestamp", 0)):
+        return "send_phone_otp"
+    
+    # Check if too many attempts
+    if state.get("phone_otp_attempts", 0) >= 3:
+        # Reset and ask for phone again
+        state["phone_otp_attempts"] = 0
+        state["phone_validation_failed"] = True
+        return "ask_phone"
+    
+    # Continue asking for OTP
+    return "ask_phone_otp"
 
 
 # ==================== QUESTIONS LOOP ====================
-
 def ask_question_node(state: ChatbotState) -> ChatbotState:
     """Ask screening question"""
     
@@ -672,8 +951,14 @@ def build_graph(checkpointer):
     workflow.add_node("store_name", store_name_node)
     workflow.add_node("ask_email", ask_email_node)
     workflow.add_node("store_email", store_email_node)
+    workflow.add_node("send_email_otp", send_email_otp_node)
+    workflow.add_node("ask_email_otp", ask_email_otp_node)
+    workflow.add_node("verify_email_otp", verify_email_otp_node)
     workflow.add_node("ask_phone", ask_phone_node)
     workflow.add_node("store_phone", store_phone_node)
+    workflow.add_node("send_phone_otp", send_phone_otp_node)
+    workflow.add_node("ask_phone_otp", ask_phone_otp_node)
+    workflow.add_node("verify_phone_otp", verify_phone_otp_node)
     workflow.add_node("ask_question", ask_question_node)
     workflow.add_node("store_answer", store_answer_node)
     workflow.add_node("score", score_node)
@@ -704,8 +989,18 @@ def build_graph(checkpointer):
     workflow.add_edge("ask_email", "store_email")
     workflow.add_conditional_edges("store_email", email_router)  # Check email validity
     
+    # Email OTP verification flow
+    workflow.add_edge("send_email_otp", "ask_email_otp")
+    workflow.add_edge("ask_email_otp", "verify_email_otp")
+    workflow.add_conditional_edges("verify_email_otp", email_otp_router)
+    
     workflow.add_edge("ask_phone", "store_phone")
     workflow.add_conditional_edges("store_phone", phone_router)  # Check phone validity
+    
+    # Phone OTP verification flow
+    workflow.add_edge("send_phone_otp", "ask_phone_otp")
+    workflow.add_edge("ask_phone_otp", "verify_phone_otp")
+    workflow.add_conditional_edges("verify_phone_otp", phone_otp_router)
  
     # Questions loop
     workflow.add_edge("ask_question", "store_answer")
@@ -717,7 +1012,7 @@ def build_graph(checkpointer):
     
     app = workflow.compile(
         checkpointer=checkpointer,
-        interrupt_after=["delay_messages", "ask_knockout_question", "ask_name", "ask_email", "ask_phone", "ask_question"]
+        interrupt_after=["delay_messages", "ask_knockout_question", "ask_name", "ask_email", "ask_email_otp", "ask_phone", "ask_phone_otp", "ask_question"]
     )
     
     return app
