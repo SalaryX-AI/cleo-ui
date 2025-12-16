@@ -70,23 +70,25 @@ ALLOWED_DOMAINS = [
     "*",  # Wildcard allows all domains (for testing)
     "localhost",
     "127.0.0.1",
-    "bigchicken",
-    "burgerking",
-    "mcdonald",
-    "popeyes",
-    "starbucks"
+    "bigchicken.vercel.app",
+    "burgerking.vercel.app",
+    "mcdonald.vercel.app",
+    "popeyes.vercel.app",
+    "starbucks.vercel.app",
+    "scanandhire.com"
 
     # "example.com",
     # "www.example.com",
 ]
 
 Brand_names = {
-    "bigchicken": "Big Chicken",
-    "burgerking": "Burger King",
-    "mcdonald": "McDonald's",
-    "popeyes": "Popeyes",
-    "starbucks": "Starbucks",
+    "bigchicken.vercel.app": "Big Chicken",
+    "burgerking.vercel.app": "Burger King",
+    "mcdonald.vercel.app": "McDonald's",
+    "popeyes.vercel.app": "Popeyes",
+    "starbucks.vercel.app": "Starbucks",
     "127.0.0.1": "Big Chicken",
+    "scanandhire.com": "Big Chicken",
 }
 
 # API key for authenticated requests
