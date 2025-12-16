@@ -71,10 +71,10 @@ ALLOWED_DOMAINS = [
     "localhost",
     "127.0.0.1",
     "bigchicken.vercel.app",
-    "burgerking.vercel.app",
-    "mcdonald.vercel.app",
-    "popeyes.vercel.app",
-    "starbucks.vercel.app",
+    "burgerking-olive.vercel.app",
+    "mcdonald-eta.vercel.app",
+    "popeyes-ten.vercel.app",
+    "starbucks-virid-three.vercel.app",
     "scanandhire.com"
 
     # "example.com",
@@ -83,7 +83,7 @@ ALLOWED_DOMAINS = [
 
 Brand_names = {
     "bigchicken.vercel.app": "Big Chicken",
-    "burgerking.vercel.app": "Burger King",
+    "burgerking-olive.vercel.app": "Burger King",
     "mcdonald.vercel.app": "McDonald's",
     "popeyes.vercel.app": "Popeyes",
     "starbucks.vercel.app": "Starbucks",
