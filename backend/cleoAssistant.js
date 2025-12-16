@@ -444,6 +444,7 @@
         try {
             // Get current domain for validation
             const domain = window.location.hostname;
+            console.log('CleoChatbot: Validating domain', domain, 'for job type', jobType);
 
             // Call server to validate domain and get API key
             const response = await fetch(
