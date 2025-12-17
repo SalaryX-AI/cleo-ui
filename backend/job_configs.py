@@ -75,7 +75,7 @@ JOB_CONFIGS = {
     "cashier": {
         "knockout_questions": [
             "To work here, you must be legally eligible to work in the U.S. Can you confirm that you are?",
-            "Next, Next, You must be at least 18 years old for this role. Are you 18 or older?",
+            "Next, You must be at least 18 years old for this role. Are you 18 or older?",
             "We are currently hiring specifically for evening and weekend shifts. Is your general availability a fit for that schedule?",
             "Do you have reliable transportation to and from our store located at {address}?"
         ],
