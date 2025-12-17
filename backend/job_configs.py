@@ -21,9 +21,9 @@ JOB_CONFIGS = {
     "assistant_manager": {
         "knockout_questions": [
             "To work here, you must be legally eligible to work in the U.S. Can you confirm that you are?",
-            "You must be at least 18 years old for this role. Are you 18 or older?",
+            "Next, You must be at least 18 years old for this role. Are you 18 or older?",
             "We are currently hiring specifically for evening and weekend shifts. Is your general availability a fit for that schedule?",
-            "Do you have reliable transportation to and from our store located at [Address]?"
+            "Do you have reliable transportation to and from our store located at {address}?"
         ],
         "questions": [
             "How many years of restaurant management experience do you have?",
@@ -39,9 +39,9 @@ JOB_CONFIGS = {
     "assistant_store_manager": {
         "knockout_questions": [
             "To work here, you must be legally eligible to work in the U.S. Can you confirm that you are?",
-            "You must be at least 18 years old for this role. Are you 18 or older?",
+            "Next, You must be at least 18 years old for this role. Are you 18 or older?",
             "We are currently hiring specifically for evening and weekend shifts. Is your general availability a fit for that schedule?",
-            "Do you have reliable transportation to and from our store located at [Address]?"
+            "Do you have reliable transportation to and from our store located at {address}?"
         ],
         "questions": [
             "How many years of store operations experience do you have?",
@@ -57,9 +57,9 @@ JOB_CONFIGS = {
     "barista": {
         "knockout_questions": [
             "To work here, you must be legally eligible to work in the U.S. Can you confirm that you are?",
-            "You must be at least 18 years old for this role. Are you 18 or older?",
+            "Next, You must be at least 18 years old for this role. Are you 18 or older?",
             "We are currently hiring specifically for evening and weekend shifts. Is your general availability a fit for that schedule?",
-            "Do you have reliable transportation to and from our store located at [Address]?"
+            "Do you have reliable transportation to and from our store located at {address}?"
         ],
         "questions": [
             "How many months of barista or beverage preparation experience do you have?",
@@ -75,9 +75,9 @@ JOB_CONFIGS = {
     "cashier": {
         "knockout_questions": [
             "To work here, you must be legally eligible to work in the U.S. Can you confirm that you are?",
-            "You must be at least 18 years old for this role. Are you 18 or older?",
+            "Next, Next, You must be at least 18 years old for this role. Are you 18 or older?",
             "We are currently hiring specifically for evening and weekend shifts. Is your general availability a fit for that schedule?",
-            "Do you have reliable transportation to and from our store located at [Address]?"
+            "Do you have reliable transportation to and from our store located at {address}?"
         ],
         "questions": [
             "How many months of cashier or POS system experience do you have?",
@@ -93,9 +93,9 @@ JOB_CONFIGS = {
     "coffee_specialist": {
         "knockout_questions": [
             "To work here, you must be legally eligible to work in the U.S. Can you confirm that you are?",
-            "You must be at least 18 years old for this role. Are you 18 or older?",
+            "Next, You must be at least 18 years old for this role. Are you 18 or older?",
             "We are currently hiring specifically for evening and weekend shifts. Is your general availability a fit for that schedule?",
-            "Do you have reliable transportation to and from our store located at [Address]?"
+            "Do you have reliable transportation to and from our store located at {address}?"
         ],
         "questions": [
             "How many years of specialty coffee experience do you have?",
@@ -111,9 +111,9 @@ JOB_CONFIGS = {
     "cook": {
         "knockout_questions": [
             "To work here, you must be legally eligible to work in the U.S. Can you confirm that you are?",
-            "You must be at least 18 years old for this role. Are you 18 or older?",
+            "Next, You must be at least 18 years old for this role. Are you 18 or older?",
             "We are currently hiring specifically for evening and weekend shifts. Is your general availability a fit for that schedule?",
-            "Do you have reliable transportation to and from our store located at [Address]?"
+            "Do you have reliable transportation to and from our store located at {address}?"
         ],
         "questions": [
             "How many years of cooking experience do you have?",
@@ -129,9 +129,9 @@ JOB_CONFIGS = {
     "crew_member": {
         "knockout_questions": [
             "To work here, you must be legally eligible to work in the U.S. Can you confirm that you are?",
-            "You must be at least 18 years old for this role. Are you 18 or older?",
+            "Next, You must be at least 18 years old for this role. Are you 18 or older?",
             "We are currently hiring specifically for evening and weekend shifts. Is your general availability a fit for that schedule?",
-            "Do you have reliable transportation to and from our store located at [Address]?"
+            "Do you have reliable transportation to and from our store located at {address}?"
         ],
         "questions": [
             "How many months of restaurant or food service experience do you have?",
@@ -147,9 +147,9 @@ JOB_CONFIGS = {
     "customer_support": {
         "knockout_questions": [
             "To work here, you must be legally eligible to work in the U.S. Can you confirm that you are?",
-            "You must be at least 18 years old for this role. Are you 18 or older?",
+            "Next, You must be at least 18 years old for this role. Are you 18 or older?",
             "We are currently hiring specifically for evening and weekend shifts. Is your general availability a fit for that schedule?",
-            "Do you have reliable transportation to and from our store located at [Address]?"
+            "Do you have reliable transportation to and from our store located at {address}?"
         ],
         "questions": [
             "How many years of customer service experience do you have?",
@@ -165,9 +165,9 @@ JOB_CONFIGS = {
     "dining_room": {
         "knockout_questions": [
             "To work here, you must be legally eligible to work in the U.S. Can you confirm that you are?",
-            "You must be at least 18 years old for this role. Are you 18 or older?",
+            "Next, You must be at least 18 years old for this role. Are you 18 or older?",
             "We are currently hiring specifically for evening and weekend shifts. Is your general availability a fit for that schedule?",
-            "Do you have reliable transportation to and from our store located at [Address]?"
+            "Do you have reliable transportation to and from our store located at {address}?"
         ],
         "questions": [
             "How many months of cleaning or dining room experience do you have?",
@@ -183,9 +183,9 @@ JOB_CONFIGS = {
     "dishwasher": {
         "knockout_questions": [
             "To work here, you must be legally eligible to work in the U.S. Can you confirm that you are?",
-            "You must be at least 18 years old for this role. Are you 18 or older?",
+            "Next, You must be at least 18 years old for this role. Are you 18 or older?",
             "We are currently hiring specifically for evening and weekend shifts. Is your general availability a fit for that schedule?",
-            "Do you have reliable transportation to and from our store located at [Address]?"
+            "Do you have reliable transportation to and from our store located at {address}?"
         ],
         "questions": [
             "How many months of dishwashing or kitchen experience do you have?",
@@ -201,9 +201,9 @@ JOB_CONFIGS = {
     "drive_thru": {
         "knockout_questions": [
             "To work here, you must be legally eligible to work in the U.S. Can you confirm that you are?",
-            "You must be at least 18 years old for this role. Are you 18 or older?",
+            "Next, You must be at least 18 years old for this role. Are you 18 or older?",
             "We are currently hiring specifically for evening and weekend shifts. Is your general availability a fit for that schedule?",
-            "Do you have reliable transportation to and from our store located at [Address]?"
+            "Do you have reliable transportation to and from our store located at {address}?"
         ],
         "questions": [
             "How many months of drive-thru or customer service experience do you have?",
@@ -219,9 +219,9 @@ JOB_CONFIGS = {
     "grill_cook": {
         "knockout_questions": [
             "To work here, you must be legally eligible to work in the U.S. Can you confirm that you are?",
-            "You must be at least 18 years old for this role. Are you 18 or older?",
+            "Next, You must be at least 18 years old for this role. Are you 18 or older?",
             "We are currently hiring specifically for evening and weekend shifts. Is your general availability a fit for that schedule?",
-            "Do you have reliable transportation to and from our store located at [Address]?"
+            "Do you have reliable transportation to and from our store located at {address}?"
         ],
         "questions": [
             "How many years of grill cooking experience do you have?",
@@ -237,9 +237,9 @@ JOB_CONFIGS = {
     "guest_experience": {
         "knockout_questions": [
             "To work here, you must be legally eligible to work in the U.S. Can you confirm that you are?",
-            "You must be at least 18 years old for this role. Are you 18 or older?",
+            "Next, You must be at least 18 years old for this role. Are you 18 or older?",
             "We are currently hiring specifically for evening and weekend shifts. Is your general availability a fit for that schedule?",
-            "Do you have reliable transportation to and from our store located at [Address]?"
+            "Do you have reliable transportation to and from our store located at {address}?"
         ],
         "questions": [
             "How many years of customer experience or hospitality experience do you have?",
@@ -255,9 +255,9 @@ JOB_CONFIGS = {
     "host": {
         "knockout_questions": [
             "To work here, you must be legally eligible to work in the U.S. Can you confirm that you are?",
-            "You must be at least 18 years old for this role. Are you 18 or older?",
+            "Next, You must be at least 18 years old for this role. Are you 18 or older?",
             "We are currently hiring specifically for evening and weekend shifts. Is your general availability a fit for that schedule?",
-            "Do you have reliable transportation to and from our store located at [Address]?"
+            "Do you have reliable transportation to and from our store located at {address}?"
         ],
         "questions": [
             "How many months of hosting or front desk experience do you have?",
@@ -273,9 +273,9 @@ JOB_CONFIGS = {
     "kitchen_staff": {
         "knockout_questions": [
             "To work here, you must be legally eligible to work in the U.S. Can you confirm that you are?",
-            "You must be at least 18 years old for this role. Are you 18 or older?",
+            "Next, You must be at least 18 years old for this role. Are you 18 or older?",
             "We are currently hiring specifically for evening and weekend shifts. Is your general availability a fit for that schedule?",
-            "Do you have reliable transportation to and from our store located at [Address]?"
+            "Do you have reliable transportation to and from our store located at {address}?"
         ],
         "questions": [
             "How many months of kitchen or food preparation experience do you have?",
@@ -291,9 +291,9 @@ JOB_CONFIGS = {
     "maintenance": {
         "knockout_questions": [
             "To work here, you must be legally eligible to work in the U.S. Can you confirm that you are?",
-            "You must be at least 18 years old for this role. Are you 18 or older?",
+            "Next, You must be at least 18 years old for this role. Are you 18 or older?",
             "We are currently hiring specifically for evening and weekend shifts. Is your general availability a fit for that schedule?",
-            "Do you have reliable transportation to and from our store located at [Address]?"
+            "Do you have reliable transportation to and from our store located at {address}?"
         ],
         "questions": [
             "How many years of maintenance or facilities experience do you have?",
@@ -309,9 +309,9 @@ JOB_CONFIGS = {
     "overnight_crew": {
         "knockout_questions": [
             "To work here, you must be legally eligible to work in the U.S. Can you confirm that you are?",
-            "You must be at least 18 years old for this role. Are you 18 or older?",
+            "Next, You must be at least 18 years old for this role. Are you 18 or older?",
             "We are currently hiring specifically for evening and weekend shifts. Is your general availability a fit for that schedule?",
-            "Do you have reliable transportation to and from our store located at [Address]?"
+            "Do you have reliable transportation to and from our store located at {address}?"
         ],
         "questions": [
             "How many months of overnight or late-night shift experience do you have?",
@@ -327,9 +327,9 @@ JOB_CONFIGS = {
     "prep_cook": {
         "knockout_questions": [
             "To work here, you must be legally eligible to work in the U.S. Can you confirm that you are?",
-            "You must be at least 18 years old for this role. Are you 18 or older?",
+            "Next, You must be at least 18 years old for this role. Are you 18 or older?",
             "We are currently hiring specifically for evening and weekend shifts. Is your general availability a fit for that schedule?",
-            "Do you have reliable transportation to and from our store located at [Address]?"
+            "Do you have reliable transportation to and from our store located at {address}?"
         ],
         "questions": [
             "How many years of food prep or cooking experience do you have?",
@@ -345,9 +345,9 @@ JOB_CONFIGS = {
     "prep_team": {
         "knockout_questions": [
             "To work here, you must be legally eligible to work in the U.S. Can you confirm that you are?",
-            "You must be at least 18 years old for this role. Are you 18 or older?",
+            "Next, You must be at least 18 years old for this role. Are you 18 or older?",
             "We are currently hiring specifically for evening and weekend shifts. Is your general availability a fit for that schedule?",
-            "Do you have reliable transportation to and from our store located at [Address]?"
+            "Do you have reliable transportation to and from our store located at {address}?"
         ],
         "questions": [
             "How many months of food preparation experience do you have?",
@@ -363,9 +363,9 @@ JOB_CONFIGS = {
     "shift_coordinator": {
         "knockout_questions": [
             "To work here, you must be legally eligible to work in the U.S. Can you confirm that you are?",
-            "You must be at least 18 years old for this role. Are you 18 or older?",
+            "Next, You must be at least 18 years old for this role. Are you 18 or older?",
             "We are currently hiring specifically for evening and weekend shifts. Is your general availability a fit for that schedule?",
-            "Do you have reliable transportation to and from our store located at [Address]?"
+            "Do you have reliable transportation to and from our store located at {address}?"
         ],
         "questions": [
             "How many years of shift coordination or supervisory experience do you have?",
@@ -381,9 +381,9 @@ JOB_CONFIGS = {
     "shift_lead": {
         "knockout_questions": [
             "To work here, you must be legally eligible to work in the U.S. Can you confirm that you are?",
-            "You must be at least 18 years old for this role. Are you 18 or older?",
+            "Next, You must be at least 18 years old for this role. Are you 18 or older?",
             "We are currently hiring specifically for evening and weekend shifts. Is your general availability a fit for that schedule?",
-            "Do you have reliable transportation to and from our store located at [Address]?"
+            "Do you have reliable transportation to and from our store located at {address}?"
         ],
         "questions": [
             "How many years of shift leadership experience do you have?",
@@ -399,9 +399,9 @@ JOB_CONFIGS = {
     "shift_leader": {
         "knockout_questions": [
             "To work here, you must be legally eligible to work in the U.S. Can you confirm that you are?",
-            "You must be at least 18 years old for this role. Are you 18 or older?",
+            "Next, You must be at least 18 years old for this role. Are you 18 or older?",
             "We are currently hiring specifically for evening and weekend shifts. Is your general availability a fit for that schedule?",
-            "Do you have reliable transportation to and from our store located at [Address]?"
+            "Do you have reliable transportation to and from our store located at {address}?"
         ],
         "questions": [
             "How many years of team leadership experience do you have?",
@@ -417,9 +417,9 @@ JOB_CONFIGS = {
     "shift_manager": {
         "knockout_questions": [
             "To work here, you must be legally eligible to work in the U.S. Can you confirm that you are?",
-            "You must be at least 18 years old for this role. Are you 18 or older?",
+            "Next, You must be at least 18 years old for this role. Are you 18 or older?",
             "We are currently hiring specifically for evening and weekend shifts. Is your general availability a fit for that schedule?",
-            "Do you have reliable transportation to and from our store located at [Address]?"
+            "Do you have reliable transportation to and from our store located at {address}?"
         ],
         "questions": [
             "How many years of restaurant management experience do you have?",
@@ -435,9 +435,9 @@ JOB_CONFIGS = {
     "shift_supervisor": {
         "knockout_questions": [
             "To work here, you must be legally eligible to work in the U.S. Can you confirm that you are?",
-            "You must be at least 18 years old for this role. Are you 18 or older?",
+            "Next, You must be at least 18 years old for this role. Are you 18 or older?",
             "We are currently hiring specifically for evening and weekend shifts. Is your general availability a fit for that schedule?",
-            "Do you have reliable transportation to and from our store located at [Address]?"
+            "Do you have reliable transportation to and from our store located at {address}?"
         ],
         "questions": [
             "How many years of team leadership experience do you have?",
@@ -453,9 +453,9 @@ JOB_CONFIGS = {
     "store_support": {
         "knockout_questions": [
             "To work here, you must be legally eligible to work in the U.S. Can you confirm that you are?",
-            "You must be at least 18 years old for this role. Are you 18 or older?",
+            "Next, You must be at least 18 years old for this role. Are you 18 or older?",
             "We are currently hiring specifically for evening and weekend shifts. Is your general availability a fit for that schedule?",
-            "Do you have reliable transportation to and from our store located at [Address]?"
+            "Do you have reliable transportation to and from our store located at {address}?"
         ],
         "questions": [
             "How many months of retail or stocking experience do you have?",
@@ -471,9 +471,9 @@ JOB_CONFIGS = {
     "team_lead": {
         "knockout_questions": [
             "To work here, you must be legally eligible to work in the U.S. Can you confirm that you are?",
-            "You must be at least 18 years old for this role. Are you 18 or older?",
+            "Next, You must be at least 18 years old for this role. Are you 18 or older?",
             "We are currently hiring specifically for evening and weekend shifts. Is your general availability a fit for that schedule?",
-            "Do you have reliable transportation to and from our store located at [Address]?"
+            "Do you have reliable transportation to and from our store located at {address}?"
         ],
         "questions": [
             "How many years of team leadership or mentoring experience do you have?",
@@ -489,9 +489,9 @@ JOB_CONFIGS = {
     "team_member": {
         "knockout_questions": [
             "To work here, you must be legally eligible to work in the U.S. Can you confirm that you are?",
-            "You must be at least 18 years old for this role. Are you 18 or older?",
+            "Next, You must be at least 18 years old for this role. Are you 18 or older?",
             "We are currently hiring specifically for evening and weekend shifts. Is your general availability a fit for that schedule?",
-            "Do you have reliable transportation to and from our store located at [Address]?"
+            "Do you have reliable transportation to and from our store located at {address}?"
         ],
         "questions": [
             "How many months of restaurant or retail experience do you have?",
@@ -507,9 +507,9 @@ JOB_CONFIGS = {
     "trainer": {
         "knockout_questions": [
             "To work here, you must be legally eligible to work in the U.S. Can you confirm that you are?",
-            "You must be at least 18 years old for this role. Are you 18 or older?",
+            "Next, You must be at least 18 years old for this role. Are you 18 or older?",
             "We are currently hiring specifically for evening and weekend shifts. Is your general availability a fit for that schedule?",
-            "Do you have reliable transportation to and from our store located at [Address]?"
+            "Do you have reliable transportation to and from our store located at {address}?"
         ],
         "questions": [
             "How many years of training or teaching experience do you have?",

@@ -143,7 +143,7 @@ async def validate_domain(
 
 
 @app.post("/start-session")
-async def start_session(job_type: str = Query(...), api_key: str = Query(...)):
+async def start_session(job_type: str = Query(...), api_key: str = Query(...), location: str = Query(...)):
     """Create new screening session for a specific job type"""
     
     # Validate job_type exists
@@ -161,6 +161,7 @@ async def start_session(job_type: str = Query(...), api_key: str = Query(...)):
     sessions[session_id] = {
         "thread_id": thread_id,
         "job_type": job_type,
+        "location": location,
         "active": True
     }
     
@@ -170,6 +171,18 @@ async def start_session(job_type: str = Query(...), api_key: str = Query(...)):
         "position": job_type.replace('_', ' ').title()
     }
 
+
+def set_job_address(job_config: dict, location: str):
+
+    # Replace placeholder in knockout questions
+    job = job_config.copy()
+    job["knockout_questions"] = [
+        q.format(address=location) for q in job["knockout_questions"]
+    ]
+
+    print(f"Updated Job ->: {job}")
+
+    return job
 
 @app.websocket("/ws/{session_id}")
 async def websocket_endpoint(websocket: WebSocket, session_id: str):
@@ -187,7 +200,11 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
     session = sessions[session_id]
     thread_id = session["thread_id"]
     job_type = session["job_type"]
+    location = session["location"]
     job_config = JOB_CONFIGS[job_type]
+
+    job = set_job_address(job_config, location)
+
 
     global brand_name
     
@@ -197,15 +214,15 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
     try:
         initial_state = ChatbotState(
             messages=[],
-            questions=job_config["questions"],
-            scoring_model=job_config["scoring_model"],
+            questions=job["questions"],
+            scoring_model=job["scoring_model"],
             current_question_index=0,
             answers={},
             personal_details={},
             ready_confirmed=False,
             knockout_answers={},
             current_knockout_question_index=0,
-            knockout_questions=job_config["knockout_questions"],
+            knockout_questions=job["knockout_questions"],
             
             email_attempt_count=0,
             phone_attempt_count=0,

@@ -233,9 +233,12 @@
         async startChat() {
             try {
                 this.updateStatus('Connecting...', 'connecting');
+
+                const params = new URLSearchParams(window.location.search);
+                const location = params.get("location");
                 
                 const response = await fetch(
-                    `${this.config.apiUrl}/start-session?job_type=${this.config.jobType}&api_key=${this.config.apiKey}`,
+                    `${this.config.apiUrl}/start-session?job_type=${this.config.jobType}&api_key=${this.config.apiKey}&location=${location}`,
                     { method: 'POST' }
                 );
                 

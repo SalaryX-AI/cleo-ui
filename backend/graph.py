@@ -17,7 +17,9 @@ from otp_verification import (
     send_email_otp, 
     send_sms_otp, 
     verify_otp,
-    is_otp_expired
+    is_otp_expired,
+    extract_email_from_text,
+    extract_phone_from_text
 )
 # ========================================================
 load_dotenv()
@@ -245,11 +247,18 @@ def ask_knockout_question_node(state: ChatbotState) -> ChatbotState:
             previous_answer = state["knockout_answers"][knockout_questions[idx-1]] if idx > 0 else "None",
             )
         
-        # Use the chat template
-        messages = chat_template.format_messages(user_input=prompt)
-        response = llm.invoke(messages)
+        if idx == 1:
+            #  response = llm.invoke(prompt)
+             state["messages"].append(AIMessage(content=knockout_question))
+        else:
+            # Use the chat template
+            messages = chat_template.format_messages(user_input=prompt)
+            response = llm.invoke(messages)
+
+            prompt = prompt + "\n(Note: This is the first question.)"
+        
             
-        state["messages"].append(AIMessage(content=response.content))
+            state["messages"].append(AIMessage(content=response.content))
     
     return state
 
@@ -426,7 +435,13 @@ def store_email_node(state: ChatbotState) -> ChatbotState:
     last_message = messages[-1] if messages else None
     
     if isinstance(last_message, HumanMessage):
-        email = last_message.content.strip()
+        user_text = last_message.content.strip()
+
+        # Extract email using LLM
+        email = extract_email_from_text(user_text)
+        
+        print(f"Original input: {user_text}")  # Debug
+        print(f"Extracted email: {email}")  # Debug
         
         # Validate email
         if validate_email(email):
@@ -510,7 +525,13 @@ def store_phone_node(state: ChatbotState) -> ChatbotState:
     last_message = messages[-1] if messages else None
     
     if isinstance(last_message, HumanMessage):
-        phone = last_message.content.strip()
+        user_text = last_message.content.strip()
+
+        # Extract phone using LLM
+        phone = extract_phone_from_text(user_text)
+        
+        print(f"Original input: {user_text}")  # Debug
+        print(f"Extracted phone: {phone}")  # Debug
         
         # Validate phone
         if validate_phone(phone):
@@ -611,7 +632,7 @@ def verify_email_otp_node(state: ChatbotState) -> ChatbotState:
         stored_code = state.get("email_otp_code", "")
         timestamp = state.get("email_otp_timestamp", 0)
         
-        is_valid, error = verify_otp(user_input, stored_code, timestamp)
+        is_valid, error = verify_otp(user_input, stored_code, timestamp, "email")
         
         if is_valid:
             state["email_verified"] = True
@@ -661,7 +682,7 @@ def email_otp_router(state: ChatbotState) -> Literal["ask_phone", "send_email_ot
             return "send_email_otp"
     
     # Check if expired
-    if is_otp_expired(state.get("email_otp_timestamp", 0)):
+    if is_otp_expired(state.get("email_otp_timestamp", 0), "email"):
         return "send_email_otp"
     
     # Check if too many attempts
@@ -738,7 +759,7 @@ def verify_phone_otp_node(state: ChatbotState) -> ChatbotState:
         stored_code = state.get("phone_otp_code", "")
         timestamp = state.get("phone_otp_timestamp", 0)
         
-        is_valid, error = verify_otp(user_input, stored_code, timestamp)
+        is_valid, error = verify_otp(user_input, stored_code, timestamp, "phone")
         
         if is_valid:
             state["phone_verified"] = True
@@ -789,7 +810,7 @@ def phone_otp_router(state: ChatbotState) -> Literal["acknowledgement", "send_ph
             return "send_phone_otp"
     
     # Check if expired
-    if is_otp_expired(state.get("phone_otp_timestamp", 0)):
+    if is_otp_expired(state.get("phone_otp_timestamp", 0), "phone"):
         return "send_phone_otp"
     
     # Check if too many attempts
