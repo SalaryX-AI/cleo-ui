@@ -21,11 +21,11 @@ GREETING_PROMPT = PromptTemplate(
     input_variables=[],
     template="""
     Start by greeting the candidate warmly and politely and introduce yourself briefly (I am cleo).
-    Make them feel comfortable and explain briefly that you'll ask a few quick questions for their screening.
-    Then, ask for their consent to begin.
 
     Keep your tone friendly, professional, and easy to understand.
     Use simple language.
+    Example: Hello. I'm Cleo, the hiring assistant for Big Chicken. Thank you for your interest in this role.
+
     Your response (Maximum 20 words).
     """
 )
@@ -233,11 +233,9 @@ SUMMARY_PROMPT = PromptTemplate(
 END_PROMPT = PromptTemplate(
     input_variables=["name"],
     template="""
-    Politely and warmly close the conversation with the candidate named {name}.
-    Express appreciation for their time and let them know We will update him/her through email.
-    Use a friendly, professional tone and end on a positive note.
+    Use a friendly, professional tone.
 
-    Return only the final message, below is the just example for you:
-    Thank you for your time, {name}! It was great speaking with you. We will update you through email. Have a wonderful day!
+    Return only the final message
+    Example: Great Job! You've successfully completed the initial application. Your information has been securely saved and submitted.
     """
 )
