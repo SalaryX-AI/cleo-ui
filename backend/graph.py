@@ -2,6 +2,7 @@
 
 import json
 from typing import Literal, List, Dict
+from urllib import response
 from langgraph.graph import StateGraph, END, MessagesState
 from langgraph.types import interrupt
 from langchain_openai import ChatOpenAI
@@ -103,8 +104,7 @@ def acknowledge_node(state: ChatbotState) -> ChatbotState:
     print(f"acknowledge_node called (type: {state['acknowledgement_type']})")
 
     ack_messages = {
-        "ready": "Ok! I'll guide you through each step. You can stop or come back anytime. Let's start!",
-        "questions": "Thanks! For sharing your contact details with us. Now we are moving on next stage. Let's start!",
+        "questions": "Thanks! For sharing your contact details with us. Now we are moving on next stage.",
         "default": "Let's continue!"
     }
 
@@ -137,8 +137,8 @@ def delay_messages_node(state: ChatbotState) -> ChatbotState:
     
     delay_messages = {
         "greeting": [
-            "We're a friendly, locally-owned team here. My job is to make your application process super fast and easy.",
-            "I just need to ask a few quick screening questions, it'll take less than 2 minutes total. Ready to jump in?"
+            "Thanks for your interest — we're a friendly, locally-owned team, and I'm here to make your application process smooth and fast.",
+            "I'll guide you through a quick screening. It takes less than 3 minutes in total, and we can begin whenever you're ready."
         ],
         "end": [
             "Our hiring team will take it from here. Your application will be carefully reviewed. If you are selected to move forward, we will contact you via email or phone to schedule an interview or conduct a brief background check prior to scheduling the interview.",
@@ -182,8 +182,10 @@ def start_node(state: ChatbotState) -> ChatbotState:
     # Use the chat template
     # messages = chat_template.format_messages(user_input=prompt)
     # response = llm.invoke(prompt)
+
+    # Hello! I'm Cleo, the hiring assistant for Big Chicken.
     
-    state["messages"].append(AIMessage(content=f"Hello. I'm Cleo, the hiring assistant for {state['brand_name']}. Thank you for your interest in this role."))
+    state["messages"].append(AIMessage(content=f"Hello! I'm Cleo, the hiring assistant for {state['brand_name']}."))
 
     state["delay_node_type"] = "greeting"
     
@@ -220,13 +222,13 @@ def check_ready_node(state: ChatbotState) -> ChatbotState:
     return state
 
 
-def ready_router(state: ChatbotState) -> Literal["acknowledgement", "__end__"]:
+def ready_router(state: ChatbotState) -> Literal["ask_knockout_question", "__end__"]:
     """Route based on ready confirmation"""
     
     print("ready_router called")
     
     if state["ready_confirmed"]:
-        return "acknowledgement"
+        return "ask_knockout_question"
     return "__end__" # go directly to END
 
 # ==================== knockout questions ============================
@@ -355,17 +357,17 @@ def ask_name_node(state: ChatbotState) -> ChatbotState:
     
     print("ask_name_node called")
 
-    prompt = PERSONAL_DETAIL_ASK_PROMPT.format(
-        detail_type="name",
-        previous_question="None",
-        previous_answer="None",
-    )
+    # prompt = PERSONAL_DETAIL_ASK_PROMPT.format(
+    #     detail_type="name",
+    #     previous_question="None",
+    #     previous_answer="None",
+    # )
     
     # Use the chat template
-    messages = chat_template.format_messages(user_input=prompt)
-    response = llm.invoke(messages)
+    # messages = chat_template.format_messages(user_input=prompt)
+    # response = llm.invoke(messages)
         
-    state["messages"].append(AIMessage(content=response.content))
+    state["messages"].append(AIMessage(content="Awesome! Let's get your application file started. To begin, what is your first and last name?"))
     
     return state
 
@@ -493,25 +495,27 @@ def ask_phone_node(state: ChatbotState) -> ChatbotState:
                 invalid_attempt=state.get("invalid_phone_attempt"),
                 example="+1-234-567-8900 or 2345678900"
             )
+
+            # Use the chat template
+            messages = chat_template.format_messages(user_input=prompt)
+            response = llm.invoke(messages)
+            
+            state["messages"].append(AIMessage(content=response.content))
         else:
             # Normal re-ask (no example)
             prompt = PERSONAL_DETAIL_REASK_PROMPT.format(
                 detail_type="phone number",
                 invalid_attempt=state.get("invalid_phone_attempt")
             )
+
+            # Use the chat template
+            messages = chat_template.format_messages(user_input=prompt)
+            response = llm.invoke(messages)
+            
+            state["messages"].append(AIMessage(content=response.content))
     else:
         # Use normal ask prompt
-        prompt = PERSONAL_DETAIL_ASK_PROMPT.format(
-            detail_type="phone number",
-            previous_question="What is your email address?",
-            previous_answer=state["personal_details"].get("email", "None")
-        )
-
-    # Use the chat template
-    messages = chat_template.format_messages(user_input=prompt)
-    response = llm.invoke(messages)
-    
-    state["messages"].append(AIMessage(content=response.content))
+        state["messages"].append(AIMessage(content="And finally, what is your phone number in case we need to call you for an interview?"))
     
     return state
 

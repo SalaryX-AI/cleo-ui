@@ -312,7 +312,7 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                         # Check if this is delay_messages_node
                         if node_name == "delay_messages":
                             print("Processing delay_messages node")
-                            await asyncio.sleep(2)  # Initial delay before starting
+                            await asyncio.sleep(3)  # Initial delay before starting
                             
                             for msg in messages[-2:]:   # only last two messages
                                 print(msg.content)
@@ -321,7 +321,7 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                                         "type": "ai_message",
                                         "content": msg.content
                                     })
-                                    await asyncio.sleep(2)  # 1 second delay
+                                    await asyncio.sleep(3)  # 3 second delay
                         else:
                             # Normal processing - send last message only
                             msg = messages[-1]
