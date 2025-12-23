@@ -945,13 +945,13 @@ def end_node(state: ChatbotState) -> ChatbotState:
     
     print("end_node called")
     
-    name = state["personal_details"].get("name", "")
+    name = state["personal_details"].get("name")
     
     # prompt = END_PROMPT.format(name=name)
     
     # response = llm.invoke(prompt)
     
-    state["messages"].append(AIMessage(content=f"Great Job {name}! You've successfully completed the initial application. Your information has been securely saved and submitted."))
+    state["messages"].append(AIMessage(content=f"Great Job! You've successfully completed the initial application. Your information has been securely saved and submitted."))
 
     state["delay_node_type"] = "end"
 

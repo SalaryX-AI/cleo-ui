@@ -110,6 +110,12 @@ async def serve_embed_script():
     return FileResponse("cleoAssistant.js", media_type="application/javascript")
 
 
+@app.get("/cleo-typography.css")
+async def serve_css():
+    """Serve the CSS file"""
+    return FileResponse("cleo-typography.css", media_type="text/css")
+
+
 @app.get("/validate-domain")
 async def validate_domain(
     domain: str = Query(..., description="Domain where chatbot is embedded")
@@ -247,6 +253,7 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
             phone_otp_attempts=0
         )
         
+        # Start workflow with streaming
         async for event in graph_app.astream(initial_state, config=config, stream_mode="updates"):
             for node_name, node_data in event.items():
                 if node_data and "messages" in node_data:
@@ -254,17 +261,19 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                     
                     # Check if this is delay_messages_node
                     if node_name == "delay_messages":
+                        print("Processing delay_messages stage start...")
                         
-                        await asyncio.sleep(2)  # Initial delay before starting
+                        await asyncio.sleep(3)  # Initial delay before starting
                         
                         for msg in messages[-2:]:   # only last two messages
                             print(msg.content)
                             if isinstance(msg, AIMessage):
                                 await websocket.send_json({
                                     "type": "ai_message",
-                                    "content": msg.content
+                                    "content": msg.content,
+                                    "messageType": "body"
                                 })
-                                await asyncio.sleep(2)  # 1 second delay
+                                await asyncio.sleep(3)  # 1 second delay
                     else:
                         # Normal processing - send last message only
                         msg = messages[-1]
@@ -272,7 +281,8 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                         if isinstance(msg, AIMessage):
                             await websocket.send_json({
                                 "type": "ai_message",
-                                "content": msg.content
+                                "content": msg.content,
+                                "messageType": "intro"
                             })
         
         while True:
@@ -311,7 +321,7 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                         
                         # Check if this is delay_messages_node
                         if node_name == "delay_messages":
-                            print("Processing delay_messages node")
+                            print("Processing delay_messages stage end...")
                             await asyncio.sleep(3)  # Initial delay before starting
                             
                             for msg in messages[-2:]:   # only last two messages
@@ -319,17 +329,24 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                                 if isinstance(msg, AIMessage):
                                     await websocket.send_json({
                                         "type": "ai_message",
-                                        "content": msg.content
+                                        "content": msg.content,
+                                        "messageType": "body"
                                     })
-                                    await asyncio.sleep(3)  # 3 second delay
+                                    await asyncio.sleep(5)  # 5 second delay
                         else:
+                            # Check if this is delay_messages_node
+                            messageType = "body"
+                            if node_name == "ask_knockout_question" or node_name ==  "ask_name" or node_name == "ask_email" or node_name == "ask_phone" or node_name == "ask_question":
+                                messageType = "questions"
+
                             # Normal processing - send last message only
                             msg = messages[-1]
                             print(msg.content)
                             if isinstance(msg, AIMessage):
                                 await websocket.send_json({
                                     "type": "ai_message",
-                                    "content": msg.content
+                                    "content": msg.content,
+                                    "messageType": messageType
                                 })
     
     except WebSocketDisconnect:

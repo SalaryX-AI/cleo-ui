@@ -1,0 +1,406 @@
+/* ============================================================================
+   Apple-Grade Premium Design with SF Pro Font System
+   ============================================================================ */
+
+/* ----------------------------------------------------------------------------
+   FONT SETUP
+   ---------------------------------------------------------------------------- */
+
+body, 
+.chat-container,
+#cleo-chat-container {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    background-color: #F9F9FB;
+    color: #1C1C1E;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+/* ----------------------------------------------------------------------------
+   MESSAGE TYPE STYLES
+   ---------------------------------------------------------------------------- */
+
+/* INTRO MESSAGES - SF Pro Display, 20px, Semibold, Bold */
+.cleo-intro {
+    font-family: "SF Pro Display", -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 20px;
+    font-weight: 600; /* Semibold */
+    line-height: 1.4;
+    letter-spacing: -0.3px; /* Tighter for display font */
+}
+
+/* QUESTION MESSAGES - SF Pro Text, 16px, Medium */
+.cleo-question {
+    font-family: "SF Pro Text", -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 16px;
+    font-weight: 500; /* Medium */
+    line-height: 1.42;
+    letter-spacing: -0.1px;
+}
+
+/* BODY TEXT MESSAGES - SF Pro Text, 16px, Regular */
+.cleo-body {
+    font-family: "SF Pro Text", -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 16px;
+    font-weight: 400; /* Regular */
+    line-height: 1.42;
+}
+
+/* ----------------------------------------------------------------------------
+   CHAT BUBBLES
+   ---------------------------------------------------------------------------- */
+
+.cleo-bubble {
+    max-width: 75%;
+    background-color: #EFEFF0;
+    padding: 12px 16px; /* Updated spacing: 12-14px vertical, 14-18px horizontal */
+    border-radius: 18px; /* Updated from 16px to 18px */
+    margin: 0;
+    word-wrap: break-word;
+    white-space: pre-wrap;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+    border: 1px solid #E5E7EB;
+    position: relative;
+    color: #1C1C1E;
+}
+
+/* AI Message Bubble - Left aligned */
+.cleo-bubble.ai-message {
+    border-bottom-left-radius: 4px; /* Tail effect */
+}
+
+/* User Message Bubble - Right aligned */
+.user-bubble {
+    max-width: 75%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 12px 16px;
+    border-radius: 18px;
+    border-bottom-right-radius: 4px; /* Tail effect */
+    margin: 0;
+    word-wrap: break-word;
+    white-space: pre-wrap;
+    color: white;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+    /* User messages always use body text style */
+    font-family: "SF Pro Text", -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 16px;
+    font-weight: 400;
+    line-height: 1.42;
+}
+
+/* ----------------------------------------------------------------------------
+   MESSAGE CONTAINER & SPACING
+   ---------------------------------------------------------------------------- */
+
+.message-container {
+    display: flex;
+    flex-direction: column;
+    gap: 4px; /* Small gap between bubble and timestamp */
+    margin-bottom: 12px; /* Spacing between messages */
+    animation: fadeIn 0.4s ease-out;
+}
+
+.message-container.ai {
+    align-items: flex-start;
+}
+
+.message-container.user {
+    align-items: flex-end;
+}
+
+/* Section spacing - 20px between major sections */
+.section-spacing {
+    margin-top: 20px;
+}
+
+/* ----------------------------------------------------------------------------
+   TIMESTAMP STYLES
+   ---------------------------------------------------------------------------- */
+
+.message-timestamp {
+    font-family: "SF Pro Text", -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 11px;
+    font-weight: 400;
+    color: #9ca3af;
+    margin-top: 4px;
+    padding: 0 4px;
+    letter-spacing: 0;
+}
+
+/* ----------------------------------------------------------------------------
+   CHAT INTERFACE ELEMENTS
+   ---------------------------------------------------------------------------- */
+
+/* Header */
+#cleo-chat-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+#cleo-chat-header .title {
+    font-family: "SF Pro Display", -apple-system, BlinkMacSystemFont, sans-serif;
+    font-weight: 700;
+    font-size: 18px;
+    margin-bottom: 4px;
+    letter-spacing: -0.2px;
+}
+
+#cleo-chat-header .status {
+    font-family: "SF Pro Text", -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 12px;
+    opacity: 0.9;
+}
+
+/* Messages Area */
+#chatbot-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+    background: #F9F9FB;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Input Area */
+#chatbot-input {
+    flex: 1;
+    padding: 12px 16px;
+    border: 2px solid #E5E7EB;
+    border-radius: 24px;
+    font-family: "SF Pro Text", -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 14px;
+    font-weight: 400;
+    outline: none;
+    transition: border-color 0.2s;
+    background: white;
+    color: #1C1C1E;
+}
+
+#chatbot-input:focus {
+    border-color: #667eea;
+}
+
+#chatbot-input::placeholder {
+    color: #9ca3af;
+}
+
+/* Send Button */
+#chatbot-send {
+    padding: 12px 24px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    border-radius: 24px;
+    font-family: "SF Pro Text", -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+    white-space: nowrap;
+}
+
+#chatbot-send:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+#chatbot-send:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* Close Button */
+#cleo-close-btn {
+    background: rgba(255, 255, 255, 0.2);
+    border: none;
+    color: white;
+    font-size: 24px;
+    cursor: pointer;
+    padding: 0;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s;
+}
+
+#cleo-close-btn:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+/* Widget Button */
+#cleo-widget-button {
+    position: fixed;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    font-size: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    z-index: 999999;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+#cleo-widget-button:hover {
+    transform: scale(1.1);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+}
+
+/* ----------------------------------------------------------------------------
+   ANIMATIONS
+   ---------------------------------------------------------------------------- */
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ----------------------------------------------------------------------------
+   SCROLLBAR STYLING
+   ---------------------------------------------------------------------------- */
+
+#chatbot-messages::-webkit-scrollbar {
+    width: 6px;
+}
+
+#chatbot-messages::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 10px;
+}
+
+#chatbot-messages::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 10px;
+}
+
+#chatbot-messages::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}
+
+/* ----------------------------------------------------------------------------
+   RESPONSIVE DESIGN
+   ---------------------------------------------------------------------------- */
+
+@media (max-width: 600px) {
+    .cleo-intro {
+        font-size: 18px; /* Slightly smaller on mobile */
+    }
+    
+    .cleo-question,
+    .cleo-body {
+        font-size: 15px; /* Slightly smaller on mobile */
+    }
+    
+    .cleo-bubble,
+    .user-bubble {
+        max-width: 85%; /* Wider on mobile */
+        padding: 10px 14px; /* Slightly less padding */
+    }
+    
+    #cleo-chat-container {
+        width: 100% !important;
+        height: 100% !important;
+        bottom: 0 !important;
+        right: 0 !important;
+        border-radius: 0 !important;
+    }
+}
+
+/* ----------------------------------------------------------------------------
+   ACCESSIBILITY
+   ---------------------------------------------------------------------------- */
+
+/* Focus visible for keyboard navigation */
+#chatbot-input:focus-visible,
+#chatbot-send:focus-visible,
+#cleo-close-btn:focus-visible {
+    outline: 2px solid #667eea;
+    outline-offset: 2px;
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+    .cleo-bubble {
+        border: 2px solid #1C1C1E;
+    }
+    
+    .user-bubble {
+        border: 2px solid white;
+    }
+}
+
+/* Reduced motion for accessibility */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+/* ----------------------------------------------------------------------------
+   UTILITY CLASSES
+   ---------------------------------------------------------------------------- */
+
+.text-center {
+    text-align: center;
+}
+
+.text-bold {
+    font-weight: 600;
+}
+
+.text-medium {
+    font-weight: 500;
+}
+
+.text-regular {
+    font-weight: 400;
+}
+
+/* ----------------------------------------------------------------------------
+   PRINT STYLES
+   ---------------------------------------------------------------------------- */
+
+@media print {
+    #cleo-widget-button {
+        display: none;
+    }
+    
+    #cleo-chat-container {
+        position: static;
+        box-shadow: none;
+    }
+}
