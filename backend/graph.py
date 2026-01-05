@@ -22,6 +22,9 @@ from otp_verification import (
     extract_email_from_text,
     extract_phone_from_text
 )
+
+import cleo_engagement
+
 # ========================================================
 load_dotenv()
 
@@ -64,14 +67,14 @@ class ChatbotState(MessagesState):
     knockout_passed: bool = False
     
     scoring_model: Dict[str, Dict] = {}
-    personal_details: Dict[str, str] = {}
-    ready_confirmed: bool = False
     scores: Dict[str, float] = {}
     total_score: float = 0
     max_possible_score: float = 0
 
+    personal_details: Dict[str, str] = {}
+    ready_confirmed: bool = False
+
     acknowledgement_type: str = ""
-    
     delay_node_type: str = ""
 
     brand_name: str = ""
@@ -97,22 +100,21 @@ class ChatbotState(MessagesState):
     phone_verified: bool = False
     phone_otp_attempts: int = 0
 
+    session_id: str = ""
+
 
 # ==================== Acknowledgement ====================
 def acknowledge_node(state: ChatbotState) -> ChatbotState:
     """Send acknowledgment message"""
     print(f"acknowledge_node called (type: {state['acknowledgement_type']})")
 
-    ack_messages = {
-        "questions": "Thanks! For sharing your contact details with us. Now we are moving on next stage.",
-        "default": "Let's continue!"
-    }
-
     ack_type = state.get("acknowledgement_type", "default")
+
+    ack_messages = cleo_engagement.ack_messages
+    
     message = ack_messages.get(ack_type)
 
     state["messages"].append(AIMessage(content=message))
-    
     
     return state
 
@@ -177,14 +179,6 @@ def start_node(state: ChatbotState) -> ChatbotState:
 
     print("start_node called")
     
-    # prompt = GREETING_PROMPT.format()
-
-    # Use the chat template
-    # messages = chat_template.format_messages(user_input=prompt)
-    # response = llm.invoke(prompt)
-
-    # Hello! I'm Cleo, the hiring assistant for Big Chicken.
-    
     state["messages"].append(AIMessage(content=f"Hello! I'm Cleo, the hiring assistant for {state['brand_name']}."))
 
     state["delay_node_type"] = "greeting"
@@ -216,7 +210,7 @@ def check_ready_node(state: ChatbotState) -> ChatbotState:
             state["acknowledgement_type"] = "ready"
         else:
             # Send decline message
-            decline_message = "No problem at all! Thanks for stopping by. Feel free to reach out anytime. Take care!"
+            decline_message = cleo_engagement.decline_message
             state["messages"].append(AIMessage(content=decline_message))    
     
     return state
@@ -258,8 +252,7 @@ def ask_knockout_question_node(state: ChatbotState) -> ChatbotState:
             response = llm.invoke(messages)
 
             prompt = prompt + "\n(Note: This is the first question.)"
-        
-            
+    
             state["messages"].append(AIMessage(content=response.content))
     
     return state
@@ -330,10 +323,10 @@ def evaluate_knockout_node(state: ChatbotState) -> ChatbotState:
         state["knockout_passed"] = True
     else:
         state["knockout_passed"] = False
-        failure_messages = "Thank you for your interest! Unfortunately, based on your responses, you don't meet our basic requirements at this time. We appreciate you taking the time to chat with us. Best of luck in your job search!"
+        failure_message = cleo_engagement.failure_message
         
         # Add failure message to conversation
-        state["messages"].append(AIMessage(content=failure_messages))
+        state["messages"].append(AIMessage(content=failure_message))
     
     return state
 
@@ -357,17 +350,9 @@ def ask_name_node(state: ChatbotState) -> ChatbotState:
     
     print("ask_name_node called")
 
-    # prompt = PERSONAL_DETAIL_ASK_PROMPT.format(
-    #     detail_type="name",
-    #     previous_question="None",
-    #     previous_answer="None",
-    # )
-    
-    # Use the chat template
-    # messages = chat_template.format_messages(user_input=prompt)
-    # response = llm.invoke(messages)
-        
-    state["messages"].append(AIMessage(content="Awesome! Let's get your application file started. To begin, what is your first and last name?"))
+    ask_name = cleo_engagement.ask_name
+
+    state["messages"].append(AIMessage(content=ask_name))
     
     return state
 
@@ -515,7 +500,8 @@ def ask_phone_node(state: ChatbotState) -> ChatbotState:
             state["messages"].append(AIMessage(content=response.content))
     else:
         # Use normal ask prompt
-        state["messages"].append(AIMessage(content="And finally, what is your phone number in case we need to call you for an interview?"))
+        ask_phone = cleo_engagement.ask_phone
+        state["messages"].append(AIMessage(content=ask_phone))
     
     return state
 
@@ -593,7 +579,7 @@ def send_email_otp_node(state: ChatbotState) -> ChatbotState:
     if success:
         message = f"Okay, I've just sent a 6-digit verification code to {email}. Please check your inbox (and spam folder)"
     else:
-        message = "I'm having trouble sending the verification email right now. Let me try again in a moment."
+        message = cleo_engagement.otp_failure_message
     
     state["messages"].append(AIMessage(content=message))
     
@@ -604,13 +590,8 @@ def ask_email_otp_node(state: ChatbotState) -> ChatbotState:
     """Ask user to enter email OTP code"""
     
     print("ask_email_otp_node called")
-    
-    # Check if we need to resend
-    # if state.get("email_otp_attempts", 0) > 0:
-    #     message = "Please enter the 6-digit code from your email:"
-    #     state["messages"].append(AIMessage(content=message))
 
-    state["messages"].append(AIMessage(content="Please enter the 6-digit code from your email:"))    
+    state["messages"].append(AIMessage(content=cleo_engagement.ask_email_otp))
     
     return state
 
@@ -640,25 +621,20 @@ def verify_email_otp_node(state: ChatbotState) -> ChatbotState:
         
         if is_valid:
             state["email_verified"] = True
-            state["messages"].append(AIMessage(content="Success! Your email address is confirmed."))
+            state["messages"].append(AIMessage(content=cleo_engagement.email_success_message))
         else:
             state["email_otp_attempts"] += 1
             attempts = state["email_otp_attempts"]
             
             if error == "expired":
-                state["messages"].append(AIMessage(
-                    content="That code has expired. Let me send you a fresh one."
-                ))
+                state["messages"].append(AIMessage(content=cleo_engagement.otp_expired_message))
+                
                 state["email_otp_attempts"] = 0  # Reset for resend
             elif error == "invalid_format":
-                state["messages"].append(AIMessage(
-                    content="Please enter a 6-digit code (numbers only)."
-                ))
+                state["messages"].append(AIMessage(content="Please enter a 6-digit code (numbers only)."))
             elif error == "incorrect":
                 if attempts >= 3:
-                    state["messages"].append(AIMessage(
-                        content="Hmm, that code didn't work after 3 tries. Let's start over with your email address."
-                    ))
+                    state["messages"].append(AIMessage(content=cleo_engagement.email_otp_failure_message))
                 else:
                     state["messages"].append(AIMessage(
                         content=f"Hmm, that code didn't work. Please enter a correct 6-digit code (numbers only). (Attempt {attempts}/3)"
@@ -722,7 +698,7 @@ def send_phone_otp_node(state: ChatbotState) -> ChatbotState:
     if success:
         message = f"I'm sending a verification text with a 6-digit code to {phone} now. Please check your messages."
     else:
-        message = "I'm having trouble sending the verification text right now. Let me try again in a moment."
+        message = cleo_engagement.otp_failure_message
     
     state["messages"].append(AIMessage(content=message))
     
@@ -734,12 +710,7 @@ def ask_phone_otp_node(state: ChatbotState) -> ChatbotState:
     
     print("ask_phone_otp_node called")
     
-    # Check if we need to resend
-    # if state.get("phone_otp_attempts", 0) > 0:
-    #     message = "Please enter the 6-digit code from your text message:"
-    #     state["messages"].append(AIMessage(content=message))
-    
-    state["messages"].append(AIMessage(content="Please enter the 6-digit code from your text message:"))
+    state["messages"].append(AIMessage(content=cleo_engagement.ask_phone_otp))
     return state
 
 
@@ -774,19 +745,13 @@ def verify_phone_otp_node(state: ChatbotState) -> ChatbotState:
             attempts = state["phone_otp_attempts"]
             
             if error == "expired":
-                state["messages"].append(AIMessage(
-                    content="That code has expired. Let me send you a fresh one."
-                ))
+                state["messages"].append(AIMessage(content=cleo_engagement.otp_expired_message))
                 state["phone_otp_attempts"] = 0  # Reset for resend
             elif error == "invalid_format":
-                state["messages"].append(AIMessage(
-                    content="Please enter a 6-digit code (numbers only)."
-                ))
+                state["messages"].append(AIMessage(content="Please enter a 6-digit code (numbers only)."))
             elif error == "incorrect":
                 if attempts >= 3:
-                    state["messages"].append(AIMessage(
-                        content="The code was incorrect after 3 tries. Let's start over with your phone number."
-                    ))
+                    state["messages"].append(AIMessage(content=cleo_engagement.phone_otp_failure_message))
                 else:
                     state["messages"].append(AIMessage(
                         content=f"The code was incorrect. I can resend the text or you can type the number again to correct any mistakes. (Attempt {attempts}/3)"
@@ -908,6 +873,9 @@ def score_node(state: ChatbotState) -> ChatbotState:
         state["scores"] = result["scores"]
         state["total_score"] = result["total_score"]
         state["max_possible_score"] = result.get("max_possible_score", 100)
+        
+        print("Calculated total_score:", result["total_score"])
+        print("Calculated max_possible_score:", result.get("max_possible_score"))
     except json.JSONDecodeError:
         state["scores"] = {}
         state["total_score"] = 0
@@ -917,11 +885,13 @@ def score_node(state: ChatbotState) -> ChatbotState:
 
 
 def summary_node(state: ChatbotState) -> ChatbotState:
-    """Generate summary"""
+    """Generate summary and send to XANO"""
     
     print("summary_node called")
     
     name = state["personal_details"].get("name", "Candidate")
+    email = state["personal_details"].get("email", " ")
+    phone = state["personal_details"].get("phone", " ")
     answers = state["answers"]
     total_score = state["total_score"]
     max_score = state["max_possible_score"]
@@ -934,8 +904,26 @@ def summary_node(state: ChatbotState) -> ChatbotState:
         total_score=f"{total_score:.1f}",
         max_score=f"{max_score:.1f}"
     )
+    
+    # Generate employer summary
     response = llm.invoke(prompt)
-    state["messages"].append(AIMessage(content=response.content))
+    employer_summary = response.content
+    
+    # Send to XANO
+    from xano import send_applicant_to_xano
+    
+    session_id = state.get("session_id")
+    
+    send_applicant_to_xano(
+        name=name,
+        email=email,
+        phone=phone,
+        score=total_score,
+        max_score=max_score,
+        summary=employer_summary,
+        answers=answers,
+        session_id=session_id
+    )
     
     return state
 
@@ -945,13 +933,9 @@ def end_node(state: ChatbotState) -> ChatbotState:
     
     print("end_node called")
     
-    name = state["personal_details"].get("name")
+    # name = state["personal_details"].get("name")
     
-    # prompt = END_PROMPT.format(name=name)
-    
-    # response = llm.invoke(prompt)
-    
-    state["messages"].append(AIMessage(content=f"Great Job! You've successfully completed the initial application. Your information has been securely saved and submitted."))
+    state["messages"].append(AIMessage(content=cleo_engagement.end_message))
 
     state["delay_node_type"] = "end"
 
@@ -987,7 +971,7 @@ def build_graph(checkpointer):
     workflow.add_node("ask_question", ask_question_node)
     workflow.add_node("store_answer", store_answer_node)
     workflow.add_node("score", score_node)
-    # workflow.add_node("summary", summary_node)
+    workflow.add_node("summary", summary_node)
     workflow.add_node("end", end_node)
     
     # Set entry point
@@ -1010,7 +994,7 @@ def build_graph(checkpointer):
     
     # Personal details flow with validation
     workflow.add_edge("ask_name", "store_name")
-    workflow.add_edge("store_name", "ask_email")
+    workflow.add_edge("store_name", "ask_question")
     workflow.add_edge("ask_email", "store_email")
     workflow.add_conditional_edges("store_email", email_router)  # Check email validity
     
@@ -1032,7 +1016,8 @@ def build_graph(checkpointer):
     workflow.add_conditional_edges("store_answer", question_router)
 
     # Scoring and end
-    workflow.add_edge("score", "end")
+    workflow.add_edge("score", "summary")
+    workflow.add_edge("summary", "end")
     workflow.add_edge("end", "delay_messages")
     
     app = workflow.compile(
