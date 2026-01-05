@@ -1,35 +1,51 @@
 /* ============================================================================
-   Apple-Grade Premium Design with SF Pro Font System
+   CLEO CHAT — TYPOGRAPHY & UI STYLES
+   Design Goal: Apple-grade premium chat experience using SF Pro system fonts
+   Scope: Typography, chat bubbles, layout spacing, and UI elements
    ============================================================================ */
 
+
 /* ----------------------------------------------------------------------------
-   FONT SETUP
+   GLOBAL FONT SETUP
+   ----------------------------------------------------------------------------
+   Applies system-level typography and smoothing across the chat interface.
+   Uses SF Pro when available, with safe fallbacks for cross-platform support.
    ---------------------------------------------------------------------------- */
 
-body, 
+body,
 .chat-container,
 #cleo-chat-container {
-    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text",
+                 "SF Pro Display", "Segoe UI", Roboto, Oxygen, Ubuntu,
+                 Cantarell, sans-serif;
     background-color: #F9F9FB;
     color: #1C1C1E;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
 }
 
+
 /* ----------------------------------------------------------------------------
-   MESSAGE TYPE STYLES
+   MESSAGE TYPOGRAPHY TYPES
+   ----------------------------------------------------------------------------
+   Defines distinct text styles used inside chat messages.
+   Each class maps to a specific conversational intent.
    ---------------------------------------------------------------------------- */
 
-/* INTRO MESSAGES - SF Pro Display, 20px, Semibold, Bold */
+/* Intro messages
+   Usage: Initial assistant greeting or opening message
+   Visual priority: High (display-style text) */
 .cleo-intro {
     font-family: "SF Pro Display", -apple-system, BlinkMacSystemFont, sans-serif;
     font-size: 20px;
     font-weight: 600; /* Semibold */
     line-height: 1.4;
-    letter-spacing: -0.3px; /* Tighter for display font */
+    letter-spacing: -0.3px;
 }
 
-/* QUESTION MESSAGES - SF Pro Text, 16px, Medium */
+/* Question messages
+   Usage: Assistant questions prompting user input
+   Visual priority: Medium */
 .cleo-question {
     font-family: "SF Pro Text", -apple-system, BlinkMacSystemFont, sans-serif;
     font-size: 16px;
@@ -38,7 +54,8 @@ body,
     letter-spacing: -0.1px;
 }
 
-/* BODY TEXT MESSAGES - SF Pro Text, 16px, Regular */
+/* Body text messages
+   Usage: Standard assistant message content */
 .cleo-body {
     font-family: "SF Pro Text", -apple-system, BlinkMacSystemFont, sans-serif;
     font-size: 16px;
@@ -46,15 +63,20 @@ body,
     line-height: 1.42;
 }
 
+
 /* ----------------------------------------------------------------------------
    CHAT BUBBLES
+   ----------------------------------------------------------------------------
+   Core message containers for assistant and user messages.
+   Handles spacing, wrapping, visual depth, and readability.
    ---------------------------------------------------------------------------- */
 
+/* Assistant (AI) message bubble */
 .cleo-bubble {
     max-width: 75%;
     background-color: #EFEFF0;
-    padding: 12px 16px; /* Updated spacing: 12-14px vertical, 14-18px horizontal */
-    border-radius: 18px; /* Updated from 16px to 18px */
+    padding: 12px 16px;
+    border-radius: 18px;
     margin: 0;
     word-wrap: break-word;
     white-space: pre-wrap;
@@ -64,39 +86,44 @@ body,
     color: #1C1C1E;
 }
 
-/* AI Message Bubble - Left aligned */
+/* Assistant bubble alignment indicator */
 .cleo-bubble.ai-message {
-    border-bottom-left-radius: 4px; /* Tail effect */
+    border-bottom-left-radius: 4px; /* Visual tail cue */
 }
 
-/* User Message Bubble - Right aligned */
+/* User message bubble */
 .user-bubble {
     max-width: 75%;
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     padding: 12px 16px;
     border-radius: 18px;
-    border-bottom-right-radius: 4px; /* Tail effect */
+    border-bottom-right-radius: 4px; /* Visual tail cue */
     margin: 0;
     word-wrap: break-word;
     white-space: pre-wrap;
     color: white;
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
-    /* User messages always use body text style */
+
+    /* User messages always use standard body typography */
     font-family: "SF Pro Text", -apple-system, BlinkMacSystemFont, sans-serif;
     font-size: 16px;
     font-weight: 400;
     line-height: 1.42;
 }
 
+
 /* ----------------------------------------------------------------------------
-   MESSAGE CONTAINER & SPACING
+   MESSAGE CONTAINERS & SPACING
+   ----------------------------------------------------------------------------
+   Controls vertical rhythm, alignment, and entry animations
+   for message groups.
    ---------------------------------------------------------------------------- */
 
 .message-container {
     display: flex;
     flex-direction: column;
-    gap: 4px; /* Small gap between bubble and timestamp */
-    margin-bottom: 12px; /* Spacing between messages */
+    gap: 4px; /* Space between bubble and timestamp */
+    margin-bottom: 12px; /* Space between messages */
     animation: fadeIn 0.4s ease-out;
 }
 
@@ -108,13 +135,16 @@ body,
     align-items: flex-end;
 }
 
-/* Section spacing - 20px between major sections */
+/* Utility spacing for larger layout sections */
 .section-spacing {
     margin-top: 20px;
 }
 
+
 /* ----------------------------------------------------------------------------
    TIMESTAMP STYLES
+   ----------------------------------------------------------------------------
+   Small, low-emphasis metadata shown below messages.
    ---------------------------------------------------------------------------- */
 
 .message-timestamp {
@@ -127,11 +157,14 @@ body,
     letter-spacing: 0;
 }
 
+
 /* ----------------------------------------------------------------------------
    CHAT INTERFACE ELEMENTS
+   ----------------------------------------------------------------------------
+   Structural UI elements outside message bubbles.
    ---------------------------------------------------------------------------- */
 
-/* Header */
+/* Chat header */
 #cleo-chat-header {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: white;
@@ -156,7 +189,7 @@ body,
     opacity: 0.9;
 }
 
-/* Messages Area */
+/* Messages scroll area */
 #chatbot-messages {
     flex: 1;
     overflow-y: auto;
@@ -166,7 +199,7 @@ body,
     flex-direction: column;
 }
 
-/* Input Area */
+/* Text input field */
 #chatbot-input {
     flex: 1;
     padding: 12px 16px;
@@ -189,7 +222,7 @@ body,
     color: #9ca3af;
 }
 
-/* Send Button */
+/* Send button */
 #chatbot-send {
     padding: 12px 24px;
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -215,14 +248,13 @@ body,
     transform: none;
 }
 
-/* Close Button */
+/* Close button */
 #cleo-close-btn {
     background: rgba(255, 255, 255, 0.2);
     border: none;
     color: white;
     font-size: 24px;
     cursor: pointer;
-    padding: 0;
     width: 36px;
     height: 36px;
     border-radius: 50%;
@@ -236,7 +268,7 @@ body,
     background: rgba(255, 255, 255, 0.3);
 }
 
-/* Widget Button */
+/* Floating widget launcher */
 #cleo-widget-button {
     position: fixed;
     width: 60px;
@@ -258,6 +290,7 @@ body,
     transform: scale(1.1);
     box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
 }
+
 
 /* ----------------------------------------------------------------------------
    ANIMATIONS
@@ -285,6 +318,7 @@ body,
     }
 }
 
+
 /* ----------------------------------------------------------------------------
    SCROLLBAR STYLING
    ---------------------------------------------------------------------------- */
@@ -307,26 +341,29 @@ body,
     background: #a8a8a8;
 }
 
+
 /* ----------------------------------------------------------------------------
-   RESPONSIVE DESIGN
+   RESPONSIVE ADJUSTMENTS
+   ----------------------------------------------------------------------------
+   Optimizes readability and spacing for smaller screens.
    ---------------------------------------------------------------------------- */
 
 @media (max-width: 600px) {
     .cleo-intro {
-        font-size: 18px; /* Slightly smaller on mobile */
+        font-size: 18px;
     }
-    
+
     .cleo-question,
     .cleo-body {
-        font-size: 15px; /* Slightly smaller on mobile */
+        font-size: 15px;
     }
-    
+
     .cleo-bubble,
     .user-bubble {
-        max-width: 85%; /* Wider on mobile */
-        padding: 10px 14px; /* Slightly less padding */
+        max-width: 85%;
+        padding: 10px 14px;
     }
-    
+
     #cleo-chat-container {
         width: 100% !important;
         height: 100% !important;
@@ -336,11 +373,11 @@ body,
     }
 }
 
+
 /* ----------------------------------------------------------------------------
    ACCESSIBILITY
    ---------------------------------------------------------------------------- */
 
-/* Focus visible for keyboard navigation */
 #chatbot-input:focus-visible,
 #chatbot-send:focus-visible,
 #cleo-close-btn:focus-visible {
@@ -348,18 +385,16 @@ body,
     outline-offset: 2px;
 }
 
-/* High contrast mode support */
 @media (prefers-contrast: high) {
     .cleo-bubble {
         border: 2px solid #1C1C1E;
     }
-    
+
     .user-bubble {
         border: 2px solid white;
     }
 }
 
-/* Reduced motion for accessibility */
 @media (prefers-reduced-motion: reduce) {
     *,
     *::before,
@@ -369,6 +404,7 @@ body,
         transition-duration: 0.01ms !important;
     }
 }
+
 
 /* ----------------------------------------------------------------------------
    UTILITY CLASSES
@@ -390,6 +426,7 @@ body,
     font-weight: 400;
 }
 
+
 /* ----------------------------------------------------------------------------
    PRINT STYLES
    ---------------------------------------------------------------------------- */
@@ -398,7 +435,7 @@ body,
     #cleo-widget-button {
         display: none;
     }
-    
+
     #cleo-chat-container {
         position: static;
         box-shadow: none;
