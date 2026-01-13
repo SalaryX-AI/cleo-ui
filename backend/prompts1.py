@@ -210,23 +210,25 @@ SCORING_PROMPT = PromptTemplate(
 SUMMARY_PROMPT = PromptTemplate(
     input_variables=["name", "answers", "total_score", "max_score"],
     template="""
-    Provide a final summary to candidate {name}.
-
-    Their answers were:
+    Generate a professional summary report for the hiring manager about candidate {name}.
+    
+    Candidate's responses:
     {answers}
-
-    Score achieved: {total_score} out of {max_score}
-
-    Generate a warm, professional summary that:
-    1. Thanks them by name
-    2. States their score
-    3. Provides an encouraging evaluation based on their score percentage:
-    - Above 70%: Mention they seem well-suited for the role
-    - 40-70%: Mention they have good potential
-    - Below 40%: Politely mention their application will be carefully considered
-
-    Keep it friendly and professional. 2-3 sentences maximum."""
-    )
+    
+    Score: {total_score} out of {max_score} ({total_score}/{max_score}*100)%
+    
+    Create a concise employer-focused summary that includes:
+    1. Overall impression of the candidate
+    2. Key strengths based on their answers
+    3. Any areas of concern or gaps
+    4. Hiring recommendation:
+       - Score above 70%: "Strong candidate - Recommend for interview"
+       - Score 50-70%: "Qualified candidate - Consider for interview"
+       - Score below 50%: "Does not meet minimum requirements at this time"
+    
+    Keep it professional and objective. 5 sentences maximum.
+    Format as plain text, no special characters or markdown."""
+)
 
 
 # End conversation prompt
@@ -239,3 +241,50 @@ END_PROMPT = PromptTemplate(
     Example: Great Job! You've successfully completed the initial application. Your information has been securely saved and submitted.
     """
 )
+
+
+GENERATE_JOB_CONFIG_PROMPT = PromptTemplate(
+    input_variables=["job_title", "job_description"],
+    template="""    
+    
+    You are an expert HR assistant. Based on the job description below, generate a screening configuration.
+
+    Job Title: {job_title}
+    Job Description: {job_description}
+
+    Generate a JSON object with the following structure:
+    {{
+        "knockout_questions": [
+            "4 knockout questions that check basic eligibility (age 18+, work authorization, availability, transportation)"
+        ],
+        "questions": [
+            "3-5 screening questions specific to this role that assess relevant skills and experience"
+        ],
+        "scoring_model": {{
+            "exact question text": {{"rule": "scoring rule like 'Score = years * 5' or 'Yes -> 10, No -> 2'"}},
+            ...
+        }}
+    }}
+
+    IMPORTANT RULES:
+    1. Knockout questions MUST include:
+    - Legal work authorization in U.S.
+    - Age 18+ requirement
+    - Schedule availability (evening/weekend shifts)
+    - Transportation to store at {{address}} (use this exact placeholder)
+
+    2. Screening questions should be:
+    - Specific to the role (e.g., "How many years of X experience?")
+    - Measurable (experience in years/months, yes/no questions)
+    - Relevant to job requirements
+
+    3. Scoring model rules:
+    - For experience: "Score = years * multiplier" or "Score = months / divisor"
+    - For yes/no: "Yes -> high_score, No -> low_score"
+    - Total should sum to approximately 20-30 points max
+    - Be consistent with question text (copy exact question)
+
+    4. Return ONLY valid JSON, no markdown, no explanations.
+
+    Generate the configuration now:"""
+    )

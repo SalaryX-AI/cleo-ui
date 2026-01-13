@@ -76,9 +76,6 @@ ALLOWED_DOMAINS = [
     "popeyes-ten.vercel.app",
     "starbucks-virid-three.vercel.app",
     "scanandhire.com"
-
-    # "example.com",
-    # "www.example.com",
 ]
 
 Brand_names = {
@@ -250,7 +247,9 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
             phone_otp_code="",
             phone_otp_timestamp=0,
             phone_verified=False,
-            phone_otp_attempts=0
+            phone_otp_attempts=0,
+
+            session_id = session_id
         )
         
         # Start workflow with streaming
@@ -273,7 +272,7 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                                     "content": msg.content,
                                     "messageType": "body"
                                 })
-                                await asyncio.sleep(3)  # 1 second delay
+                                await asyncio.sleep(3)  # 3 second delay
                     else:
                         # Normal processing - send last message only
                         msg = messages[-1]
@@ -357,7 +356,7 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
         import traceback
         error_details = traceback.format_exc()  # Get full error trace
         print(f"Error in WebSocket: {e}")
-        print(f"Full traceback:\n{error_details}")  # NEW - shows full error
+        print(f"Full traceback:\n{error_details}")
         await websocket.send_json({
             "type": "error",
             "message": str(e)
