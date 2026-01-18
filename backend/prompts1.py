@@ -244,13 +244,14 @@ END_PROMPT = PromptTemplate(
 
 
 GENERATE_JOB_CONFIG_PROMPT = PromptTemplate(
-    input_variables=["job_title", "job_description"],
+    input_variables=["job_title", "job_description", "job_location"],
     template="""    
     
     You are an expert HR assistant. Based on the job description below, generate a screening configuration.
 
     Job Title: {job_title}
     Job Description: {job_description}
+    Job Location: {job_location}
 
     Generate a JSON object with the following structure:
     {{
@@ -271,7 +272,7 @@ GENERATE_JOB_CONFIG_PROMPT = PromptTemplate(
     - Legal work authorization in U.S.
     - Age 18+ requirement
     - Schedule availability (evening/weekend shifts)
-    - Transportation to store at {{address}} (use this exact placeholder)
+    - Transportation to store at {job_location} (use this exact placeholder)
 
     2. Screening questions should be:
     - Specific to the role (e.g., "How many years of X experience?")
@@ -288,3 +289,100 @@ GENERATE_JOB_CONFIG_PROMPT = PromptTemplate(
 
     Generate the configuration now:"""
     )
+
+
+JSON_REPORT_PROMPT = PromptTemplate(
+    input_variables=["name", "email", "phone", "session_id", "knockout_answers", "answers", "total_score", "max_score"],
+    template="""
+    You are an expert HR analyst. Generate a comprehensive JSON report for the hiring manager based on the candidate's screening interview.
+
+    CANDIDATE INFORMATION:
+    - Name: {name}
+    - Email: {email}
+    - Phone: {phone}
+    - Session ID: {session_id}
+
+    KNOCKOUT QUESTIONS (Eligibility Criteria):
+    {knockout_answers}
+
+    SCREENING QUESTIONS (Skills & Experience):
+    {answers}
+
+    SCORES:
+    - Total Score: {total_score} out of {max_score}
+    - Percentage: {total_score}/{max_score} * 100
+
+    Generate a JSON report with the following exact structure:
+
+    {{
+      "report_metadata": {{
+        "session_id": "{session_id}",
+        "generated_at": "ISO 8601 timestamp (current time)",
+        "report_version": "1.0"
+      }},
+      "applicant_information": {{
+        "full_name": "{name}",
+        "email": "{email}",
+        "phone_number": "{phone}",
+        "address": null
+      }},
+      "qualification": {{
+        "requirements": [
+          {{
+            "criterion": "Criterion name from knockout questions",
+            "met": true/false based on answer,
+            "evidence": "Quote from candidate's answer",
+            "importance": "High/Medium/Low"
+          }}
+          // One object for each knockout question
+        ],
+        "overall_qualified": true/false (true if all High importance criteria met)
+      }},
+      "experiences": [
+        {{
+          "years_experience": Extract number from answers,
+          "job_title": null (if not mentioned),
+          "employer": null (if not mentioned),
+          "duration": null (if not mentioned),
+          "skills": null (if not mentioned),
+          "relevant_experience": "Summary of candidate's experience from their answers"
+        }}
+      ],
+      "education": [],
+      "fit_score": {{
+        "total_score": {total_score} as integer,
+        "qualification_score": 0-100 based on knockout answers,
+        "experience_score": 0-100 based on screening answers,
+        "personality_score": 0-100 based on communication quality,
+        "rating": "Excellent" if >80, "Good" if 60-80, "Fair" if 40-60, "Poor" if <40,
+        "explanation": "2-3 sentence explanation of the scores"
+      }},
+      "summary": {{
+        "eligibility_status": "Eligible" or "Not Eligible",
+        "recommendation": "Strongly recommend/Recommend/Consider/Do not recommend + position type",
+        "key_strengths": [
+          "List 3-5 key strengths from answers"
+        ],
+        "concerns": [
+          "List any concerns or gaps, or empty array if none"
+        ]
+      }},
+      "interview_notes": {{
+        "notable_responses": [
+          "2-3 notable quotes or responses from candidate"
+        ],
+        "overall_impression": "1-2 sentence overall impression"
+      }}
+    }}
+
+    IMPORTANT:
+    1. Return ONLY valid JSON, no markdown, no code blocks, no explanations
+    2. All text fields must be properly escaped for JSON
+    3. Use actual data from the candidate's answers
+    4. Be objective and professional
+    5. Ensure all boolean values are lowercase (true/false not True/False)
+    6. Use ISO 8601 format for timestamp: YYYY-MM-DDTHH:MM:SS.mmmmmm
+
+    Generate the JSON report now:
+    """
+)

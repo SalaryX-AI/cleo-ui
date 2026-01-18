@@ -24,7 +24,7 @@ def send_applicant_to_xano(
     phone: str,
     score: float,
     max_score: float,
-    summary: str,
+    json_report: dict,
     answers: dict,
     session_id: str,
 ):
@@ -34,15 +34,24 @@ def send_applicant_to_xano(
     
     print(f"send_applicant_to_xano function called...")
     print(f"Applicant Name: {name}, Email: {email}, Phone: {phone}, Score: {score}, Max Score: {max_score}, Session ID: {session_id}")
+    
     # Static company ID and job ID
     COMPANY_ID = "92b8f778-8b2f-4758-81d3-20c13d411334"  
     JOB_ID = "8ad4624e-9f8c-47f6-a449-5998af5c27fa"   
     
     XANO_API_URL = "https://xoho-w3ng-km3o.n7e.xano.io/api:6skoiMBa/candidate_new_api"
+
+    # Add headers
+    headers = {
+            'x-api-key': 'sk_test_51QxA9F7C2E8B4D1A6F9C3E7B2A',
+        }
     
     try:
         # Determine status
         status = "Short Listed" if score > 50 else "Rejected"
+
+          # Generate PDF (using summary from JSON report)
+        summary = json_report.get("fit_score", {}).get("explanation", "No summary available")
                 
         # Generate PDF
         pdf_buffer = generate_applicant_pdf(
@@ -59,40 +68,47 @@ def send_applicant_to_xano(
         # Prepare form data
         
         files = {
-            'File': ('applicant_report.pdf', pdf_buffer, 'application/pdf')
+            'Report_pdf': ('applicant_report.pdf', pdf_buffer, 'application/pdf')
         }
+
+        # Convert JSON report to string
+        profile_summary_json = json.dumps(json_report, indent=2)
         
         data = {
             'Name': name,
             'Score': int(score),
             'Email': email,
-            'Phone': "1234567890",  
-            # 'Phone': int(phone.replace('+', '').replace('-', '').replace(' ', '')),
+            # 'Phone': phone,  
+            'Phone': int(phone.replace('+', '').replace('-', '').replace(' ', '')),
             'job_id': JOB_ID,
             'company_id': COMPANY_ID,
             'Status': status,
-            'ProfileSummary': summary,
-            'my_session_id': session_id
-        }
-
-        # Add headers
-        headers = {
-            'x-api-key': 'sk_test_51QxA9F7C2E8B4D1A6F9C3E7B2A',
+            'ProfileSummary': profile_summary_json,
+            'my_session_id': session_id,
+            'Report_pdf': ('applicant_report.pdf', pdf_buffer, 'application/pdf')
         }
 
         # Send POST request
-        response = requests.post(XANO_API_URL, data=data, files=files, headers=headers)
+        response = requests.post(XANO_API_URL, data=data, headers=headers)
         
         if response.status_code == 200:
             print(f"Successfully sent applicant {name} to XANO")
-            return True
+            try:
+                print(f"   Response: {response.json()}")
+            except:
+                print(f"   Response: {response.text}")
+                return True
+
         else:
-            print(f"Failed to send to XANO: {response.status_code} - {response.text}")
+            print(f"Failed to send to XANO: {response.status_code}")
+            print(f"   Response: {response.text}")
             return False
             
     except Exception as e:
-        print(f"Error sending to XANO: {e}")
-        return False
+            print(f"Error sending to XANO: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
 
 
 def generate_applicant_pdf(
@@ -250,7 +266,7 @@ def fetch_job_from_xano(job_id: str) -> dict:
         return None
 
 
-def generate_job_config_from_description(job_description: str, job_title: str, job_id: str) -> dict:
+def generate_job_config_from_description(job_description: str, job_title: str) -> dict:
     """
     Generate knockout questions, screening questions, and scoring model using LLM
     Returns:
@@ -335,7 +351,7 @@ def get_or_generate_job_config(job_id: str) -> dict:
         return get_fallback_config()
     
     # Generate config using LLM
-    config = generate_job_config_from_description(job_description, job_title, job_id)
+    config = generate_job_config_from_description(job_description, job_title)
     
     # Cache the result
     JOB_CONFIGS[job_id] = config

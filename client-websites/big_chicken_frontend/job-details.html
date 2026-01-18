@@ -149,7 +149,7 @@
 </head>
 <body>
     <div class="container">
-        <a href="jobs-listing.html" class="back-link">← Back to All Jobs</a>
+        <a href="index.html" class="back-link">← Back to All Jobs</a>
         
         <h1 id="job-title">Loading...</h1>
         <div class="job-meta" id="job-meta">
@@ -180,7 +180,7 @@
         </div>
     </div>
 
-    <!-- Chatbot will be embedded here dynamically based on job_type -->
+    <!-- Chatbot will be embedded here dynamically based on job_id -->
     <div id="cleo-chatbot"></div>
     
     <!-- Load the chatbot script -->
@@ -192,9 +192,9 @@
     </script>
 
     <script>
-        // Get job_type from URL parameters
+        // Get job_id from URL parameters
         const urlParams = new URLSearchParams(window.location.search);
-        const jobType = urlParams.get('job_type');
+        const jobID = urlParams.get('job_id');
 
         const jobDetails = {
     'cashier': {
@@ -212,7 +212,7 @@
         ]
     },
 
-    'cook': {
+    'de37fb7c-9633-43f3-be9b-8e15581ccdb8': {
         title: 'Cook',
         icon: '🍳',
         payRate: '$13-$18',
@@ -334,8 +334,8 @@
         }
 
         // Display job details
-        if (jobType && jobDetails[jobType]) {
-            const job = jobDetails[jobType];
+        if (jobID && jobDetails[jobID]) {
+            const job = jobDetails[jobID];
             const params = new URLSearchParams(window.location.search);
             const location = params.get('location') || 'Various Locations';
 
@@ -353,8 +353,8 @@
                 requirementsList.appendChild(li);
             });
 
-            // Set job_type in the chatbot container
-            document.getElementById('cleo-chatbot').setAttribute('data-job-type', jobType);
+            // Set job_id in the chatbot container
+            document.getElementById('cleo-chatbot').setAttribute('data-job-id', jobID);
         } else {
             document.getElementById('job-title').textContent = 'Job Not Found';
             document.getElementById('job-meta').textContent = 'The requested position is not available.';

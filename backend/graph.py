@@ -1,5 +1,7 @@
 """Main graph implementation for Cleo screening chatbot with human-in-the-loop"""
 
+
+from datetime import datetime
 import json
 from typing import Literal, List, Dict
 from urllib import response
@@ -566,7 +568,8 @@ def send_email_otp_node(state: ChatbotState) -> ChatbotState:
     user_name = state["personal_details"].get("name")
     
     # Generate OTP
-    otp_code = generate_otp()
+    # otp_code = generate_otp()
+    otp_code = "123456"  # For testing
     
     # Store in state
     state["email_otp_code"] = otp_code
@@ -574,14 +577,15 @@ def send_email_otp_node(state: ChatbotState) -> ChatbotState:
     brand_name = state.get("brand_name")
     
     # Send email
-    success = send_email_otp(email, otp_code, brand_name, user_name)
+    # success = send_email_otp(email, otp_code, brand_name, user_name)
+    success = True  # For testing
     
     if success:
         message = f"Okay, I've just sent a 6-digit verification code to {email}. Please check your inbox (and spam folder)"
     else:
         message = cleo_engagement.otp_failure_message
     
-    state["messages"].append(AIMessage(content=message))
+    # state["messages"].append(AIMessage(content=message))
     
     return state
 
@@ -686,21 +690,23 @@ def send_phone_otp_node(state: ChatbotState) -> ChatbotState:
     phone = state["personal_details"].get("phone", "")
     
     # Generate OTP
-    otp_code = generate_otp()
+    # otp_code = generate_otp()
+    otp_code = "123456"  # For testing
     
     # Store in state
     state["phone_otp_code"] = otp_code
     state["phone_otp_timestamp"] = time.time()
     
     # Send SMS
-    success = send_sms_otp(phone, otp_code, state.get("brand_name"))
+    # success = send_sms_otp(phone, otp_code, state.get("brand_name"))
+    success = True  # For testing
     
     if success:
         message = f"I'm sending a verification text with a 6-digit code to {phone} now. Please check your messages."
     else:
         message = cleo_engagement.otp_failure_message
     
-    state["messages"].append(AIMessage(content=message))
+    # state["messages"].append(AIMessage(content=message))
     
     return state
 
@@ -869,10 +875,19 @@ def score_node(state: ChatbotState) -> ChatbotState:
     print("Scoring node response:", response.content)
     
     try:
-        result = json.loads(response.content)
+
+        # Clean response (remove markdown if present)
+        score_text = response.content.strip()
+        if score_text.startswith("```json"):
+            score_text = score_text.replace("```json", "").replace("```", "").strip()
+        elif score_text.startswith("```"):
+            score_text = score_text.replace("```", "").strip()
+        
+        result = json.loads(score_text)
+        
         state["scores"] = result["scores"]
         state["total_score"] = result["total_score"]
-        state["max_possible_score"] = result.get("max_possible_score", 100)
+        state["max_possible_score"] = result.get("max_possible_score")
         
         print("Calculated total_score:", result["total_score"])
         print("Calculated max_possible_score:", result.get("max_possible_score"))
@@ -884,35 +899,75 @@ def score_node(state: ChatbotState) -> ChatbotState:
     return state
 
 
+
 def summary_node(state: ChatbotState) -> ChatbotState:
-    """Generate summary and send to XANO"""
+    """Generate comprehensive JSON report and send to XANO"""
     
     print("summary_node called")
     
+    # Extract data from state
     name = state["personal_details"].get("name", "Candidate")
-    email = state["personal_details"].get("email", " ")
-    phone = state["personal_details"].get("phone", " ")
-    answers = state["answers"]
-    total_score = state["total_score"]
-    max_score = state["max_possible_score"]
+    email = state["personal_details"].get("email", "")
+    phone = state["personal_details"].get("phone", "")
+    session_id = state.get("session_id", "")
     
-    answers_text = "\n".join([f"- {q}: {a}" for q, a in answers.items()])
+    knockout_answers = state.get("knockout_answers", {})
+    answers = state.get("answers", {})
+    total_score = state.get("total_score", 0)
+    max_score = state.get("max_possible_score", 100)
     
-    prompt = SUMMARY_PROMPT.format(
+    # Format knockout answers for prompt
+    knockout_text = "\n".join([
+        f"Q: {q}\nA: {a}" for q, a in knockout_answers.items()
+    ])
+    
+    # Format screening answers for prompt
+    answers_text = "\n".join([
+        f"Q: {q}\nA: {a}" for q, a in answers.items()
+    ])
+    
+    
+    prompt = JSON_REPORT_PROMPT.format(
         name=name,
+        email=email,
+        phone=phone,
+        session_id=session_id,
+        knockout_answers=knockout_text,
         answers=answers_text,
         total_score=f"{total_score:.1f}",
         max_score=f"{max_score:.1f}"
     )
     
-    # Generate employer summary
+    print("Generating JSON report...")
     response = llm.invoke(prompt)
-    employer_summary = response.content
+    
+    # Parse JSON response
+    try:
+        # Clean response (remove markdown if present)
+        json_text = response.content.strip()
+        if json_text.startswith("```json"):
+            json_text = json_text.replace("```json", "").replace("```", "").strip()
+        elif json_text.startswith("```"):
+            json_text = json_text.replace("```", "").strip()
+        
+        json_report = json.loads(json_text)
+        print("Successfully generated below JSON report...")
+        print(json_report)
+        
+    except json.JSONDecodeError as e:
+        print(f"Failed to parse JSON report: {e}")
+        print(f"Response was: {response.content[:500]}")
+        
+        # Fallback: Create basic JSON structure
+        json_report = create_fallback_report(
+            name, email, phone, session_id, 
+            knockout_answers, answers, total_score, max_score
+        )
     
     # Send to XANO
     from xano import send_applicant_to_xano
     
-    session_id = state.get("session_id")
+    # job_id = state.get("job_id", "")
     
     send_applicant_to_xano(
         name=name,
@@ -920,12 +975,77 @@ def summary_node(state: ChatbotState) -> ChatbotState:
         phone=phone,
         score=total_score,
         max_score=max_score,
-        summary=employer_summary,
+        json_report=json_report,
         answers=answers,
         session_id=session_id
     )
     
     return state
+
+
+def create_fallback_report(name, email, phone, session_id, knockout_answers, answers, total_score, max_score):
+    """
+    Create a fallback JSON report if LLM generation fails
+    """
+    from datetime import datetime
+    
+    percentage = (total_score / max_score * 100) if max_score > 0 else 0
+    
+    return {
+        "report_metadata": {
+            "session_id": session_id,
+            "generated_at": datetime.now().isoformat(),
+            "report_version": "1.0"
+        },
+        "applicant_information": {
+            "full_name": name,
+            "email": email,
+            "phone_number": phone,
+            "address": None
+        },
+        "qualification": {
+            "requirements": [
+                {
+                    "criterion": q,
+                    "met": True,  
+                    "evidence": a,
+                    "importance": "High"
+                }
+                for q, a in knockout_answers.items()
+            ],
+            "overall_qualified": True
+        },
+        "experiences": [
+            {
+                "years_experience": 0,
+                "job_title": None,
+                "employer": None,
+                "duration": None,
+                "skills": None,
+                "relevant_experience": "See screening answers for details"
+            }
+        ],
+        "education": [],
+        "fit_score": {
+            "total_score": int(total_score),
+            "qualification_score": 100,
+            "experience_score": int(percentage),
+            "personality_score": 80,
+            "rating": "Good" if percentage >= 60 else "Fair",
+            "explanation": f"Candidate scored {total_score:.1f} out of {max_score:.1f} ({percentage:.1f}%)"
+        },
+        "summary": {
+            "eligibility_status": "Eligible" if total_score > 50 else "Not Eligible",
+            "recommendation": "Recommend for interview" if total_score > 50 else "Do not recommend",
+            "key_strengths": ["Completed screening process"],
+            "concerns": [] if total_score > 50 else ["Score below threshold"]
+        },
+        "interview_notes": {
+            "notable_responses": [f"{q}: {a}" for q, a in list(answers.items())[:2]],
+            "overall_impression": "Candidate completed the screening process."
+        }
+    }
+
 
 
 def end_node(state: ChatbotState) -> ChatbotState:
@@ -994,7 +1114,7 @@ def build_graph(checkpointer):
     
     # Personal details flow with validation
     workflow.add_edge("ask_name", "store_name")
-    workflow.add_edge("store_name", "ask_question")
+    workflow.add_edge("store_name", "ask_email")
     workflow.add_edge("ask_email", "store_email")
     workflow.add_conditional_edges("store_email", email_router)  # Check email validity
     

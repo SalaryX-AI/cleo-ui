@@ -18,8 +18,8 @@
          * This is called internally after server validation
          */
         init: function(options) {
-            if (!options.jobType || !options.apiKey) {
-                console.error('CleoChatbot: jobType and apiKey are required');
+            if (!options.jobID || !options.apiKey) {
+                console.error('CleoChatbot: jobID and apiKey are required');
                 return;
             }
             
@@ -28,7 +28,7 @@
             
             // Store configuration
             this.config = {
-                jobType: options.jobType,
+                jobID: options.jobID,
                 apiKey: options.apiKey,
                 apiUrl: CHATBOT_CONFIG.apiBaseUrl,
                 wsUrl: CHATBOT_CONFIG.wsBaseUrl,
@@ -174,7 +174,7 @@
                 const location = params.get("location");
                 
                 const response = await fetch(
-                    `${this.config.apiUrl}/start-session?job_type=${this.config.jobType}&api_key=${this.config.apiKey}&location=${location}`,
+                    `${this.config.apiUrl}/start-session?job_id=${this.config.jobID}&api_key=${this.config.apiKey}&location=${location}`,
                     { method: 'POST' }
                 );
                 
@@ -348,32 +348,42 @@
     /**
      * Auto-initialize chatbot when script loads
      * Implements domain-based validation:
-     * 1. Reads job_type from data-job-type attribute
+     * 1. Reads job_id from data-job-id attribute
      * 2. Calls server to validate domain and get API key
      * 3. Initializes chatbot with validated configuration
      */
     async function autoInitChatbot() {
+        
         // Find the chatbot container element
         const container = document.getElementById('cleo-chatbot') || 
-                         document.querySelector('[data-job-type]');
+                         document.querySelector('[data-job-id]');
 
         if (!container) {
-            console.error('CleoChatbot: Container element with data-job-type attribute not found');
+            console.error('CleoChatbot: Container element with data-job-id attribute not found');
             return;
         }
 
-        // Get job_type from data attribute
-        const jobType = container.dataset.jobType;
+        // Get job_id from data attribute
+        // const jobID = container.dataset.jobID;
+        
+        // Get job_id from URL parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        const jobID = urlParams.get('job_id');
 
-        if (!jobType) {
-            console.error('CleoChatbot: data-job-type attribute is required on container element');
+        if (!jobID) {
+            console.error('CleoChatbot: job_id is required to initialize the chatbot');
             return;
         }
+
+        // if (!jobID) {
+        //     console.error('CleoChatbot: data-job-id attribute is required on container element');
+        //     return;
+        // }
 
         try {
             // Get current domain for validation
             const domain = window.location.hostname;
-            console.log('CleoChatbot: Validating domain', domain, 'for job type', jobType);
+            console.log('CleoChatbot: Validating domain', domain, 'for job id', jobID);
 
             // Call server to validate domain and get API key
             const response = await fetch(
@@ -389,13 +399,13 @@
 
             // Initialize chatbot with validated configuration
             CleoChatbot.init({
-                jobType: jobType,  // Use jobType from DOM
+                jobID: jobID,  // Use jobID from URL parameter
                 apiKey: config.apiKey,
                 apiUrl: CHATBOT_CONFIG.apiBaseUrl,
                 wsUrl: CHATBOT_CONFIG.wsBaseUrl
             });
 
-            console.log('CleoChatbot initialized successfully for job type:', jobType);
+            console.log('CleoChatbot initialized successfully for job id:', jobID);
 
         } catch (error) {
             console.error('CleoChatbot initialization failed:', error.message);

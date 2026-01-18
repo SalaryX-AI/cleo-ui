@@ -1,5 +1,6 @@
 """FastAPI WebSocket server for screening chatbot"""
 
+import sys
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, FileResponse
@@ -7,7 +8,8 @@ from langchain.schema import HumanMessage, AIMessage
 import json
 import uuid
 from graph import build_graph, ChatbotState
-from job_configs import JOB_CONFIGS
+# from job_configs import JOB_CONFIGS
+from xano_jobs import read_job_config_from_db
 
 from contextlib import asynccontextmanager
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
@@ -15,6 +17,7 @@ from psycopg import AsyncConnection
 from psycopg.rows import dict_row
 import os
 import asyncio
+
 
 
 brand_name = ""
@@ -59,7 +62,7 @@ app = FastAPI(title="Screening Chatbot API", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -106,6 +109,11 @@ async def serve_embed_script():
     """Serve the chatbot embed script"""
     return FileResponse("cleoAssistant.js", media_type="application/javascript")
 
+@app.get("/config.js")
+async def serve_config_script():
+    """Serve the config script"""
+    return FileResponse("config.js", media_type="application/javascript")
+
 
 @app.get("/cleo-typography.css")
 async def serve_css():
@@ -126,6 +134,8 @@ async def validate_domain(
     
     Job type validation happens when session is created.
     """
+
+    print(f"Validating domain endpoint hitted for domain: {domain}")
     
     # Validate domain against ALLOWED_DOMAINS list
     if "*" not in ALLOWED_DOMAINS:
@@ -146,12 +156,16 @@ async def validate_domain(
 
 
 @app.post("/start-session")
-async def start_session(job_type: str = Query(...), api_key: str = Query(...), location: str = Query(...)):
+async def start_session(job_id: str = Query(...), api_key: str = Query(...), location: str = Query(...)):
     """Create new screening session for a specific job type"""
-    
-    # Validate job_type exists
-    if job_type not in JOB_CONFIGS:
-        raise HTTPException(status_code=404, detail="Job type not found")
+
+    print(f"Starting session for job_id: {job_id} at location: {location}")
+
+    job_configs = await read_job_config_from_db()
+
+    # Validate job_id exists
+    if job_id not in job_configs:
+        raise HTTPException(status_code=404, detail="Job id not found")
     
     # Validate API key
     if api_key != API_KEY:
@@ -159,19 +173,19 @@ async def start_session(job_type: str = Query(...), api_key: str = Query(...), l
     
     # Create session
     session_id = str(uuid.uuid4())
-    thread_id = f"thread_{job_type}_{session_id}"
+    thread_id = f"thread_{job_id}_{session_id}"
     
     sessions[session_id] = {
         "thread_id": thread_id,
-        "job_type": job_type,
+        "job_id": job_id,
         "location": location,
         "active": True
     }
     
     return {
         "session_id": session_id,
-        "job_type": job_type,
-        "position": job_type.replace('_', ' ').title()
+        "job_id": job_id,
+        "position": job_id.replace('_', ' ').title()
     }
 
 
@@ -202,11 +216,17 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
     
     session = sessions[session_id]
     thread_id = session["thread_id"]
-    job_type = session["job_type"]
+    job_id = session["job_id"]
     location = session["location"]
-    job_config = JOB_CONFIGS[job_type]
 
-    job = set_job_address(job_config, location)
+    if sys.platform == 'win32':
+        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+
+    job_config = await read_job_config_from_db(job_id)
+
+    # job_config = JOB_CONFIGS[job_id]
+
+    # job = set_job_address(job_config, location)
 
 
     global brand_name
@@ -217,15 +237,15 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
     try:
         initial_state = ChatbotState(
             messages=[],
-            questions=job["questions"],
-            scoring_model=job["scoring_model"],
+            questions=job_config["questions"],
+            scoring_model=job_config["scoring_model"],
             current_question_index=0,
             answers={},
             personal_details={},
             ready_confirmed=False,
             knockout_answers={},
             current_knockout_question_index=0,
-            knockout_questions=job["knockout_questions"],
+            knockout_questions=job_config["knockout_questions"],
             
             email_attempt_count=0,
             phone_attempt_count=0,
