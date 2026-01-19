@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Job Details</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #1e2a47 0%, #0f1823 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .job-card {
+            max-width: 600px;
+            width: 100%;
+            background: #1a2332;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+        }
+
+        .job-header {
+            background: linear-gradient(135deg, #7c6fd4 0%, #9d88ea 100%);
+            padding: 40px 30px;
+            color: white;
+        }
+
+        .job-title {
+            font-size: 42px;
+            font-weight: 700;
+            margin-bottom: 15px;
+            letter-spacing: -0.5px;
+        }
+
+        .job-meta {
+            display: flex;
+            gap: 20px;
+            font-size: 16px;
+            font-weight: 500;
+        }
+
+        .meta-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .meta-item svg {
+            width: 18px;
+            height: 18px;
+        }
+
+        .job-body {
+            padding: 35px 30px;
+            color: #e4e8f0;
+        }
+
+        .job-section {
+            margin-bottom: 28px;
+        }
+
+        .section-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #fff;
+            margin-bottom: 8px;
+            letter-spacing: 0.3px;
+        }
+
+        .section-content {
+            font-size: 15px;
+            color: #b8c1d4;
+            line-height: 1.6;
+        }
+
+        .job-description ul {
+            padding-left: 20px;
+            margin-top: 12px;
+        }
+
+        .job-description li {
+            margin-bottom: 12px;
+            line-height: 1.7;
+            color: #b8c1d4;
+        }
+
+        .apply-button-container {
+            padding: 0 30px 35px;
+            text-align: center;
+        }
+
+        .apply-button {
+            background: linear-gradient(135deg, #7c6fd4 0%, #9d88ea 100%);
+            color: white;
+            border: none;
+            padding: 16px 40px;
+            font-size: 16px;
+            font-weight: 600;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 8px 24px rgba(124, 111, 212, 0.3);
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .apply-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 32px rgba(124, 111, 212, 0.4);
+        }
+
+        .apply-button:active {
+            transform: translateY(0);
+        }
+
+        .loading {
+            text-align: center;
+            padding: 60px 20px;
+            color: #b8c1d4;
+            font-size: 18px;
+        }
+
+        .error {
+            text-align: center;
+            padding: 60px 20px;
+            color: #ff6b6b;
+            font-size: 16px;
+        }
+
+        .spinner {
+            border: 3px solid rgba(124, 111, 212, 0.2);
+            border-top: 3px solid #7c6fd4;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="job-card" id="jobCard">
+        <div class="loading">
+            <div class="spinner"></div>
+            <p>Loading job details...</p>
+        </div>
+    </div>
+
+    <!-- Cleo Chatbot Integration --> 
+    <div id="cleo-chatbot"></div> 
+     
+    <!-- Load the chatbot script --> 
+    <script src="./config.js"></script>
+    <script> 
+        const script = document.createElement("script"); 
+        script.src = `${window.apiBaseUrl}/cleoAssistant.js`; 
+        document.body.appendChild(script); 
+    </script>
+
+    <script>
+        // Get job_id from URL parameters
+        function getJobIdFromURL() {
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get('job_id');
+        }
+
+        // Format date
+        function formatDate(dateString) {
+            if (!dateString) return 'Not specified';
+            const date = new Date(dateString);
+            return date.toLocaleDateString('en-US', { 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+            });
+        }
+
+        // Fetch job details from Xano
+        async function fetchJobDetails(jobId) {
+            try {
+                const response = await fetch(`https://xoho-w3ng-km3o.n7e.xano.io/api:L-QNLSmb/job/${jobId}`);
+                
+                if (!response.ok) {
+                    throw new Error('Failed to fetch job details');
+                }
+
+                const job = await response.json();
+                
+                if (!job) {
+                    throw new Error('Job not found');
+                }
+
+                return job;
+            } catch (error) {
+                console.error('Error fetching job details:', error);
+                throw error;
+            }
+        }
+
+        // Render job details
+        function renderJobDetails(job) {
+            const jobCard = document.getElementById('jobCard');
+            
+            // Parse job description into bullet points
+            const descriptionPoints = job.description 
+                ? job.description.split('\n').filter(line => line.trim())
+                : ['No description available'];
+
+            jobCard.innerHTML = `
+                <div class="job-header">
+                    <h1 class="job-title">${job.job_title || 'Job Title'}</h1>
+                    <div class="job-meta">
+                        <div class="meta-item">
+                            <svg fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd"/>
+                            </svg>
+                            <span>${job.job_location || 'Location'}</span>
+                        </div>
+                        <div class="meta-item">
+                            <svg fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M6 6V5a3 3 0 013-3h2a3 3 0 013 3v1h2a2 2 0 012 2v3.57A22.952 22.952 0 0110 13a22.95 22.95 0 01-8-1.43V8a2 2 0 012-2h2zm2-1a1 1 0 011-1h2a1 1 0 011 1v1H8V5zm1 5a1 1 0 011-1h.01a1 1 0 110 2H10a1 1 0 01-1-1z" clip-rule="evenodd"/>
+                                <path d="M2 13.692V16a2 2 0 002 2h12a2 2 0 002-2v-2.308A24.974 24.974 0 0110 15c-2.796 0-5.487-.46-8-1.308z"/>
+                            </svg>
+                            <span>${job.job_type || 'Full-Time'}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="job-body">
+                    <div class="job-section">
+                        <div class="section-title">Shift</div>
+                        <div class="section-content">${job.Shift || 'Morning'}</div>
+                    </div>
+
+                    <div class="job-section">
+                        <div class="section-title">Starting Date</div>
+                        <div class="section-content">${formatDate(job.Starting_Date)}</div>
+                    </div>
+
+                    <div class="job-section job-description">
+                        <div class="section-title">Job Description</div>
+                        <ul>
+                            ${descriptionPoints.map(point => `<li>${point}</li>`).join('')}
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="apply-button-container">
+                    <button class="apply-button" onclick="openChatbot()">Apply for this Position</button>
+                </div>
+            `;
+        }
+
+        // Show error
+        function showError(message) {
+            const jobCard = document.getElementById('jobCard');
+            jobCard.innerHTML = `
+                <div class="error">
+                    <p>${message}</p>
+                    <p style="margin-top: 10px; font-size: 14px;">Please check the job ID and try again.</p>
+                </div>
+            `;
+        }
+
+        // Open chatbot when apply button is clicked
+        function openChatbot() {
+            // Trigger the chatbot widget
+            if (window.CleoChatbot && window.CleoChatbot.openChat) {
+                window.CleoChatbot.openChat();
+            } else {
+                // If chatbot is not loaded yet, click the widget button
+                const widgetButton = document.getElementById('cleo-widget-button');
+                if (widgetButton) {
+                    widgetButton.click();
+                }
+            }
+        }
+
+        // Initialize page
+        async function init() {
+            const jobId = getJobIdFromURL();
+
+            if (!jobId) {
+                showError('No job ID provided in URL');
+                return;
+            }
+
+            try {
+                const job = await fetchJobDetails(jobId);
+                renderJobDetails(job);
+            } catch (error) {
+                showError('Failed to load job details. Please try again later.');
+            }
+        }
+
+        // Load job details when page loads
+        init();
+    </script>
+</body>
+</html>

@@ -103,6 +103,11 @@ async def root():
     with open("./client-websites/big_chicken_frontend/index.html", "r") as f:
         return HTMLResponse(content=f.read())
 
+@app.get("/job-details")
+async def job_details():
+    """Serve job details page"""
+    return FileResponse("job_details.html", media_type="text/html")
+    
 
 @app.get("/cleoAssistant.js")
 async def serve_embed_script():
