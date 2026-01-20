@@ -57,3 +57,5 @@ langgraph-checkpoint-postgres==2.0.23
 # OTP Verification Services (NEW)
 sendgrid>=6.11.0
 twilio>=8.10.0
+
+reportlab==4.4.7
