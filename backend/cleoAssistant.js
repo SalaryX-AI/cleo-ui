@@ -171,7 +171,7 @@
                 this.updateStatus('Connecting...', 'connecting');
 
                 const params = new URLSearchParams(window.location.search);
-                const location = params.get("location");
+                const location = params.get("location") || "unknown";
                 
                 const response = await fetch(
                     `${this.config.apiUrl}/start-session?job_id=${this.config.jobID}&api_key=${this.config.apiKey}&location=${location}`,
