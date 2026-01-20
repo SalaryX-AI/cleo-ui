@@ -3,6 +3,7 @@
 import os
 import random
 import time
+import requests
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail
 from twilio.rest import Client
@@ -13,9 +14,10 @@ load_dotenv()
 
 llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.5)
 
-# SendGrid Configuration
-SENDGRID_API_KEY = os.getenv("SENDGRID_API_KEY")
-SENDGRID_FROM_EMAIL = os.getenv("SENDGRID_FROM_EMAIL")
+# Brevo Configuration
+BREVO_API_KEY = os.getenv("BREVO_API_KEY")
+BREVO_FROM_EMAIL = os.getenv("BREVO_FROM_EMAIL")
+BREVO_FROM_NAME = os.getenv("BREVO_FROM_NAME")
 
 # Twilio Configuration
 TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID")
@@ -23,7 +25,6 @@ TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN")
 TWILIO_PHONE_NUMBER = os.getenv("TWILIO_PHONE_NUMBER")
 
 # OTP Configuration
-# OTP_EXPIRY_MINUTES = 2  # OTP expiry time in minutes
 OTP_EXPIRY_MINUTES_SMS = 4  # OTP expiry time in minutes
 OTP_EXPIRY_MINUTES_Email = 15  # OTP expiry time in minutes
 
@@ -35,51 +36,76 @@ def generate_otp() -> str:
 
 def send_email_otp(email: str, code: str, brand_name: str, user_name: str = "there") -> bool:
     """
-    Send OTP code via email using SendGrid
+    Send OTP code via email using Brevo
     
     Args:
         email: Recipient email address
         code: 6-digit OTP code
+        brand_name: Brand name for email
         user_name: User's first name for personalization
         
     Returns:
         bool: True if sent successfully, False otherwise
     """
     try:
-        if not SENDGRID_API_KEY:
-            print("ERROR: SENDGRID_API_KEY not configured")
+        if not BREVO_API_KEY:
+            print("ERROR: BREVO_API_KEY not configured")
             return False
         
-        # Create email message
-        message = Mail(
-            from_email=SENDGRID_FROM_EMAIL,
-            to_emails=email,
-            subject=f'Your {brand_name} Verification Code',
-            html_content=f"""
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-                <h2 style="color: #667eea;">{brand_name} Application</h2>
-                <p>Hi {user_name},</p>
-                <p>Thank you for applying! Here's your verification code:</p>
-                <div style="background: #f3f4f6; padding: 20px; border-radius: 8px; text-align: center; margin: 20px 0;">
-                    <h1 style="color: #667eea; font-size: 36px; letter-spacing: 8px; margin: 0;">{code}</h1>
-                </div>
-                <p>This code will expire in {OTP_EXPIRY_MINUTES_Email} minutes.</p>
-                <p>If you didn't request this code, please ignore this email.</p>
-                <br>
-                <p style="color: #666; font-size: 12px;">Best regards,<br>{brand_name} Hiring Team</p>
+        # Brevo API endpoint
+        url = "https://api.brevo.com/v3/smtp/email"
+        
+        # Request headers
+        headers = {
+            "accept": "application/json",
+            "api-key": BREVO_API_KEY,
+            "content-type": "application/json"
+        }
+        
+        # Email HTML content
+        html_content = f"""
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <h2 style="color: #667eea;">{brand_name} Application</h2>
+            <p>Hi {user_name},</p>
+            <p>Thank you for applying! Here's your verification code:</p>
+            <div style="background: #f3f4f6; padding: 20px; border-radius: 8px; text-align: center; margin: 20px 0;">
+                <h1 style="color: #667eea; font-size: 36px; letter-spacing: 8px; margin: 0;">{code}</h1>
             </div>
-            """
-        )
+            <p>This code will expire in {OTP_EXPIRY_MINUTES_Email} minutes.</p>
+            <p>If you didn't request this code, please ignore this email.</p>
+            <br>
+            <p style="color: #666; font-size: 12px;">Best regards,<br>{brand_name} Hiring Team</p>
+        </div>
+        """
         
-        # Send email
-        sg = SendGridAPIClient(SENDGRID_API_KEY)
-        response = sg.send(message)
+        # Request payload
+        payload = {
+            "sender": {
+                "name": BREVO_FROM_NAME,
+                "email": BREVO_FROM_EMAIL
+            },
+            "to": [
+                {
+                    "email": email,
+                    "name": user_name
+                }
+            ],
+            "subject": f"Your {brand_name} Verification Code",
+            "htmlContent": html_content
+        }
         
-        print(f"Email OTP sent to {email}: Status {response.status_code}")
-        return response.status_code in [200, 201, 202]
+        # Send email via Brevo API
+        response = requests.post(url, json=payload, headers=headers)
+        
+        if response.status_code == 201:
+            print(f"Email OTP sent to {email} via Brevo: Status {response.status_code}")
+            return True
+        else:
+            print(f"Failed to send email via Brevo: {response.status_code} - {response.text}")
+            return False
         
     except Exception as e:
-        print(f"Error sending email OTP: {e}")
+        print(f"Error sending email OTP via Brevo: {e}")
         return False
 
 

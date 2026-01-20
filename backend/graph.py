@@ -568,8 +568,8 @@ def send_email_otp_node(state: ChatbotState) -> ChatbotState:
     user_name = state["personal_details"].get("name")
     
     # Generate OTP
-    # otp_code = generate_otp()
-    otp_code = "123456"  # For testing
+    otp_code = generate_otp()
+    # otp_code = "123456"  # For testing
     
     # Store in state
     state["email_otp_code"] = otp_code
@@ -577,15 +577,15 @@ def send_email_otp_node(state: ChatbotState) -> ChatbotState:
     brand_name = state.get("brand_name")
     
     # Send email
-    # success = send_email_otp(email, otp_code, brand_name, user_name)
-    success = True  # For testing
+    success = send_email_otp(email, otp_code, brand_name, user_name)
+    # success = True  # For testing
     
     if success:
         message = f"Okay, I've just sent a 6-digit verification code to {email}. Please check your inbox (and spam folder)"
     else:
         message = cleo_engagement.otp_failure_message
     
-    # state["messages"].append(AIMessage(content=message))
+    state["messages"].append(AIMessage(content=message))
     
     return state
 
@@ -595,7 +595,7 @@ def ask_email_otp_node(state: ChatbotState) -> ChatbotState:
     
     print("ask_email_otp_node called")
 
-    state["messages"].append(AIMessage(content=cleo_engagement.ask_email_otp))
+    # state["messages"].append(AIMessage(content=cleo_engagement.ask_email_otp))
     
     return state
 
@@ -690,23 +690,23 @@ def send_phone_otp_node(state: ChatbotState) -> ChatbotState:
     phone = state["personal_details"].get("phone", "")
     
     # Generate OTP
-    # otp_code = generate_otp()
-    otp_code = "123456"  # For testing
+    otp_code = generate_otp()
+    # otp_code = "123456"  # For testing
     
     # Store in state
     state["phone_otp_code"] = otp_code
     state["phone_otp_timestamp"] = time.time()
     
     # Send SMS
-    # success = send_sms_otp(phone, otp_code, state.get("brand_name"))
-    success = True  # For testing
+    success = send_sms_otp(phone, otp_code, state.get("brand_name"))
+    # success = True  # For testing
     
     if success:
         message = f"I'm sending a verification text with a 6-digit code to {phone} now. Please check your messages."
     else:
         message = cleo_engagement.otp_failure_message
     
-    # state["messages"].append(AIMessage(content=message))
+    state["messages"].append(AIMessage(content=message))
     
     return state
 
@@ -716,7 +716,7 @@ def ask_phone_otp_node(state: ChatbotState) -> ChatbotState:
     
     print("ask_phone_otp_node called")
     
-    state["messages"].append(AIMessage(content=cleo_engagement.ask_phone_otp))
+    # state["messages"].append(AIMessage(content=cleo_engagement.ask_phone_otp))
     return state
 
 
@@ -1119,16 +1119,16 @@ def build_graph(checkpointer):
     workflow.add_conditional_edges("store_email", email_router)  # Check email validity
     
     # Email OTP verification flow
-    workflow.add_edge("send_email_otp", "ask_email_otp")
-    workflow.add_edge("ask_email_otp", "verify_email_otp")
+    workflow.add_edge("send_email_otp", "verify_email_otp")
+    # workflow.add_edge("ask_email_otp", "verify_email_otp")
     workflow.add_conditional_edges("verify_email_otp", email_otp_router)
     
     workflow.add_edge("ask_phone", "store_phone")
     workflow.add_conditional_edges("store_phone", phone_router)  # Check phone validity
     
     # Phone OTP verification flow
-    workflow.add_edge("send_phone_otp", "ask_phone_otp")
-    workflow.add_edge("ask_phone_otp", "verify_phone_otp")
+    workflow.add_edge("send_phone_otp", "verify_phone_otp")
+    # workflow.add_edge("ask_phone_otp", "verify_phone_otp")
     workflow.add_conditional_edges("verify_phone_otp", phone_otp_router)
  
     # Questions loop
@@ -1142,7 +1142,7 @@ def build_graph(checkpointer):
     
     app = workflow.compile(
         checkpointer=checkpointer,
-        interrupt_after=["delay_messages", "ask_knockout_question", "ask_name", "ask_email", "ask_email_otp", "ask_phone", "ask_phone_otp", "ask_question"]
+        interrupt_after=["delay_messages", "ask_knockout_question", "ask_name", "ask_email", "send_email_otp", "ask_phone", "send_phone_otp", "ask_question"]
     )
     
     return app

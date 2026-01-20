@@ -1,7 +1,7 @@
 """FastAPI WebSocket server for screening chatbot"""
 
 import sys
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Query, Response
+from fastapi import FastAPI, Response, WebSocket, WebSocketDisconnect, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, FileResponse
 from langchain.schema import HumanMessage, AIMessage
@@ -9,7 +9,7 @@ import json
 import uuid
 from graph import build_graph, ChatbotState
 # from job_configs import JOB_CONFIGS
-from xano_jobs import get_all_jobs, read_job_config_from_db
+from xano_jobs import read_job_config_from_db
 
 from contextlib import asynccontextmanager
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
@@ -61,7 +61,7 @@ app = FastAPI(title="Screening Chatbot API", lifespan=lifespan)
 # CORS configuration
 app.add_middleware(
     CORSMiddleware,
-   allow_origins=["https://scanandhire.com", "http://localhost:8000", "http://localhost:3000", "https://bigchicken.vercel.app", "https://burgerking-olive.vercel.app", "https://mcdonald-eta.vercel.app", "https://popeyes-ten.vercel.app", "https://starbucks-virid-three.vercel.app"],
+   allow_origins=["https://scanandhire.com", "http://localhost:8000", "http://localhost:3000", "http://127.0.0.1:5500" ,"https://bigchicken.vercel.app", "https://burgerking-olive.vercel.app", "https://mcdonald-eta.vercel.app", "https://popeyes-ten.vercel.app", "https://starbucks-virid-three.vercel.app"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -229,6 +229,9 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
     job_id = session["job_id"]
     location = session["location"]
 
+    if sys.platform == 'win32':
+        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+
     job_config = await read_job_config_from_db(job_id)
 
     # job_config = JOB_CONFIGS[job_id]
@@ -392,9 +395,6 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
 
 
 if __name__ == "__main__":
-    import uvicorn 
-
+    import uvicorn
     # uvicorn.run(app, host="0.0.0.0", port=8000)
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
-
- 
