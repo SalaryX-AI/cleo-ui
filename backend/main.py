@@ -1,7 +1,7 @@
 """FastAPI WebSocket server for screening chatbot"""
 
 import sys
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Query
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Query, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, FileResponse
 from langchain.schema import HumanMessage, AIMessage
@@ -97,6 +97,11 @@ API_KEY = "test_key_secure_123"
 # Store active sessions
 sessions = {}
 
+@app.get("/favicon.ico")
+async def favicon():
+    """Return empty response for favicon"""
+    return Response(status_code=204)
+
 @app.get("/")
 async def root():
     """Serve test page"""
@@ -166,11 +171,11 @@ async def start_session(job_id: str = Query(...), api_key: str = Query(...), loc
 
     print(f"Starting session for job_id: {job_id} at location: {location}")
 
-    # job_configs = await read_job_config_from_db()
+    job_configs = await read_job_config_from_db()
 
     # Validate job_id exists
-    # if job_id not in job_configs:
-    #     raise HTTPException(status_code=404, detail="Job id not found")
+    if job_id not in job_configs:
+        raise HTTPException(status_code=404, detail="Job id not found")
     
     # Validate API key
     if api_key != API_KEY:
@@ -387,12 +392,7 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
 
 
 if __name__ == "__main__":
-    import uvicorn
-
-    if sys.platform == 'win32':
-        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
-
-    # asyncio.run(get_all_jobs())   
+    import uvicorn 
 
     # uvicorn.run(app, host="0.0.0.0", port=8000)
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

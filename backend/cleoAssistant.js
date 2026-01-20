@@ -147,7 +147,10 @@
         
         openChat: function() {
             const chatContainer = document.getElementById('cleo-chat-container');
+            const widgetBtn = document.getElementById('cleo-widget-button');
+            
             chatContainer.style.display = 'block';
+            widgetBtn.style.display = 'none';  // Hide widget button
             this.isOpen = true;
             
             // Start chat if not already started
@@ -158,7 +161,10 @@
         
         closeChat: function() {
             const chatContainer = document.getElementById('cleo-chat-container');
+            const widgetBtn = document.getElementById('cleo-widget-button');
+            
             chatContainer.style.display = 'none';
+            widgetBtn.style.display = 'flex';  // Show widget button again
             this.isOpen = false;
         },
         
