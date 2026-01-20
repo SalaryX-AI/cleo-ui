@@ -9,7 +9,7 @@ import json
 import uuid
 from graph import build_graph, ChatbotState
 # from job_configs import JOB_CONFIGS
-from xano_jobs import read_job_config_from_db
+from xano_jobs import get_all_jobs, read_job_config_from_db
 
 from contextlib import asynccontextmanager
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
@@ -224,9 +224,6 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
     job_id = session["job_id"]
     location = session["location"]
 
-    if sys.platform == 'win32':
-        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
-
     job_config = await read_job_config_from_db(job_id)
 
     # job_config = JOB_CONFIGS[job_id]
@@ -391,5 +388,13 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
 
 if __name__ == "__main__":
     import uvicorn
+
+    if sys.platform == 'win32':
+        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+
+    asyncio.run(get_all_jobs())   
+
     # uvicorn.run(app, host="0.0.0.0", port=8000)
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+
+ 

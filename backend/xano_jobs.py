@@ -151,7 +151,7 @@ if __name__ == "__main__":
     if sys.platform == 'win32':
         asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
     
-    # asyncio.run(get_all_jobs())
+    asyncio.run(get_all_jobs())
  
-    print("Read job config from DB:", asyncio.run(read_job_config_from_db()))
+    # print("Read job config from DB:", asyncio.run(read_job_config_from_db()))
     # print("Read job config from DB:", asyncio.run(read_job_config_from_db("b44fbf2b-8f12-49c0-8e91-3b564f98e7c1")))
