@@ -61,7 +61,7 @@ app = FastAPI(title="Screening Chatbot API", lifespan=lifespan)
 # CORS configuration
 app.add_middleware(
     CORSMiddleware,
-   allow_origins=["https://scanandhire.com", "http://localhost:8000", "http://localhost:3000", "https://bigchicken.vercel.app/", "https://burgerking-olive.vercel.app/", "https://mcdonald-eta.vercel.app/", "https://popeyes-ten.vercel.app/", "https://starbucks-virid-three.vercel.app/"],
+   allow_origins=["https://scanandhire.com", "http://localhost:8000", "http://localhost:3000", "https://bigchicken.vercel.app", "https://burgerking-olive.vercel.app", "https://mcdonald-eta.vercel.app", "https://popeyes-ten.vercel.app", "https://starbucks-virid-three.vercel.app"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
