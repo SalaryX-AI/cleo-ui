@@ -168,9 +168,7 @@
     <!-- Load the chatbot script --> 
     <script src="./config.js"></script>
     <script> 
-        const script = document.createElement("script"); 
-        script.src = `${window.apiBaseUrl}/cleoAssistant.js`; 
-        document.body.appendChild(script); 
+
     </script>
 
     <script>
@@ -303,6 +301,19 @@
 
             try {
                 const job = await fetchJobDetails(jobId);
+
+                console.log('Job Type:', job.job_template);
+                console.log('Location:', job.job_location);
+               
+                // Set job_type and job_location in the chatbot container
+                document.getElementById('cleo-chatbot').setAttribute('data-job-type', job.job_template);
+                document.getElementById('cleo-chatbot').setAttribute('data-job-location', job.job_location);
+                
+                // Load Cleo Assistant script
+                const script = document.createElement("script"); 
+                script.src = `${window.apiBaseUrl}/cleoAssistant.js`; 
+                document.body.appendChild(script);
+                
                 renderJobDetails(job);
             } catch (error) {
                 showError('Failed to load job details. Please try again later.');

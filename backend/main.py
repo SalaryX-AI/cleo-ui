@@ -8,8 +8,8 @@ from langchain.schema import HumanMessage, AIMessage
 import json
 import uuid
 from graph import build_graph, ChatbotState
-# from job_configs import JOB_CONFIGS
-from xano_jobs import read_job_config_from_db
+from job_configs import JOB_CONFIGS
+# from xano_jobs import read_job_config_from_db
 
 from contextlib import asynccontextmanager
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
@@ -166,16 +166,16 @@ async def validate_domain(
 
 
 @app.post("/start-session")
-async def start_session(job_id: str = Query(...), api_key: str = Query(...), location: str = Query(...)):
+async def start_session(job_type: str = Query(...), api_key: str = Query(...), location: str = Query(...)):
     """Create new screening session for a specific job type"""
 
-    print(f"Starting session for job_id: {job_id} at location: {location}")
+    print(f"Starting session for job_type: {job_type} at location: {location}")
 
-    job_configs = await read_job_config_from_db()
+    # job_configs = await read_job_config_from_db()
 
     # Validate job_id exists
-    if job_id not in job_configs:
-        raise HTTPException(status_code=404, detail="Job id not found")
+    if job_type not in JOB_CONFIGS:
+        raise HTTPException(status_code=404, detail="Job type not found")
     
     # Validate API key
     if api_key != API_KEY:
@@ -183,19 +183,19 @@ async def start_session(job_id: str = Query(...), api_key: str = Query(...), loc
     
     # Create session
     session_id = str(uuid.uuid4())
-    thread_id = f"thread_{job_id}_{session_id}"
+    thread_id = f"thread_{job_type}_{session_id}"
     
     sessions[session_id] = {
         "thread_id": thread_id,
-        "job_id": job_id,
+        "job_type": job_type,
         "location": location,
         "active": True
     }
     
     return {
         "session_id": session_id,
-        "job_id": job_id,
-        "position": job_id.replace('_', ' ').title()
+        "job_type": job_type,
+        "position": job_type.replace('_', ' ').title()
     }
 
 
@@ -226,17 +226,17 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
     
     session = sessions[session_id]
     thread_id = session["thread_id"]
-    job_id = session["job_id"]
+    job_type = session["job_type"]
     location = session["location"]
 
     if sys.platform == 'win32':
         asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
-    job_config = await read_job_config_from_db(job_id)
+    # job_config = await read_job_config_from_db(job_id)
 
-    # job_config = JOB_CONFIGS[job_id]
+    job_config = JOB_CONFIGS[job_type]
 
-    # job = set_job_address(job_config, location)
+    job = set_job_address(job_config, location)
 
 
     global brand_name
@@ -247,15 +247,15 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
     try:
         initial_state = ChatbotState(
             messages=[],
-            questions=job_config["questions"],
-            scoring_model=job_config["scoring_model"],
+            questions=job["questions"],
+            scoring_model=job["scoring_model"],
             current_question_index=0,
             answers={},
             personal_details={},
             ready_confirmed=False,
             knockout_answers={},
             current_knockout_question_index=0,
-            knockout_questions=job_config["knockout_questions"],
+            knockout_questions=job["knockout_questions"],
             
             email_attempt_count=0,
             phone_attempt_count=0,

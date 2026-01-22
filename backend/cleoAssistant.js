@@ -18,8 +18,8 @@
          * This is called internally after server validation
          */
         init: function(options) {
-            if (!options.jobID || !options.apiKey) {
-                console.error('CleoChatbot: jobID and apiKey are required');
+            if (!options.jobType || !options.apiKey) {
+                console.error('CleoChatbot: jobType and apiKey are required');
                 return;
             }
             
@@ -28,7 +28,8 @@
             
             // Store configuration
             this.config = {
-                jobID: options.jobID,
+                jobType: options.jobType,
+                jobLocation: options.jobLocation,
                 apiKey: options.apiKey,
                 apiUrl: CHATBOT_CONFIG.apiBaseUrl,
                 wsUrl: CHATBOT_CONFIG.wsBaseUrl,
@@ -176,11 +177,11 @@
             try {
                 this.updateStatus('Connecting...', 'connecting');
 
-                const params = new URLSearchParams(window.location.search);
-                const location = params.get("location") || "unknown";
+                // Use stored job location from config
+                const location = this.config.jobLocation;
                 
                 const response = await fetch(
-                    `${this.config.apiUrl}/start-session?job_id=${this.config.jobID}&api_key=${this.config.apiKey}&location=${location}`,
+                    `${this.config.apiUrl}/start-session?job_type=${this.config.jobType}&api_key=${this.config.apiKey}&location=${location}`,
                     { method: 'POST' }
                 );
                 
@@ -354,7 +355,7 @@
     /**
      * Auto-initialize chatbot when script loads
      * Implements domain-based validation:
-     * 1. Reads job_id from data-job-id attribute
+     * 1. Reads job_type from data-job-type attribute
      * 2. Calls server to validate domain and get API key
      * 3. Initializes chatbot with validated configuration
      */
@@ -362,34 +363,46 @@
         
         // Find the chatbot container element
         const container = document.getElementById('cleo-chatbot') || 
-                         document.querySelector('[data-job-id]');
+                         document.querySelector('[data-job-type]');
 
         if (!container) {
-            console.error('CleoChatbot: Container element with data-job-id attribute not found');
+            console.error('CleoChatbot: Container element with data-job-type attribute not found');
             return;
         }
 
-        // Get job_id from data attribute
-        // const jobID = container.dataset.jobID;
+        // const jobType = container.dataset.jobType;
+    
+        // Read job location from data attribute
+        const jobLocation = container.getAttribute('data-job-location') ||'unknown';
+
+        console.log('CleoChatbot: jobType from data attribute:', container.getAttribute('data-job-type'));
+        console.log('CleoChatbot: jobLocation from data attribute:', container.getAttribute('data-job-location'));
+
+        // Read job_type from data attribute
+        const jobType = container.getAttribute('data-job-type') || 'Position';
         
         // Get job_id from URL parameters
-        const urlParams = new URLSearchParams(window.location.search);
-        const jobID = urlParams.get('job_id');
+        // const urlParams = new URLSearchParams(window.location.search);
+        // const jobID = urlParams.get('job_id');
 
-        if (!jobID) {
-            console.error('CleoChatbot: job_id is required to initialize the chatbot');
+        // Get job location from URL parameter
+        // const urlParams = new URLSearchParams(window.location.search);
+        // const jobLocation = urlParams.get('location')
+
+        if (!jobType) {
+            console.error('CleoChatbot: job_type is required to initialize the chatbot');
             return;
         }
 
         // if (!jobID) {
-        //     console.error('CleoChatbot: data-job-id attribute is required on container element');
+        //     console.error('CleoChatbot: job_id is required to initialize the chatbot');
         //     return;
         // }
 
         try {
             // Get current domain for validation
             const domain = window.location.hostname;
-            console.log('CleoChatbot: Validating domain', domain, 'for job id', jobID);
+            console.log('CleoChatbot: Validating domain', domain, 'for job type', jobType);
 
             // Call server to validate domain and get API key
             const response = await fetch(
@@ -405,13 +418,14 @@
 
             // Initialize chatbot with validated configuration
             CleoChatbot.init({
-                jobID: jobID,  // Use jobID from URL parameter
+                jobType: jobType,  // Use jobType from data attribute
+                jobLocation: jobLocation,
                 apiKey: config.apiKey,
                 apiUrl: CHATBOT_CONFIG.apiBaseUrl,
                 wsUrl: CHATBOT_CONFIG.wsBaseUrl
             });
 
-            console.log('CleoChatbot initialized successfully for job id:', jobID);
+            console.log('CleoChatbot initialized successfully for job type:', jobType);
 
         } catch (error) {
             console.error('CleoChatbot initialization failed:', error.message);

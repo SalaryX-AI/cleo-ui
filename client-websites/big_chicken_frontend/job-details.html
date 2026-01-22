@@ -180,7 +180,7 @@
         </div>
     </div>
 
-    <!-- Chatbot will be embedded here dynamically based on job_id -->
+    <!-- Chatbot will be embedded here dynamically based on job_type -->
     <div id="cleo-chatbot"></div>
     
     <!-- Load the chatbot script -->
@@ -192,9 +192,9 @@
     </script>
 
     <script>
-        // Get job_id from URL parameters
+        // Get job_type from URL parameters
         const urlParams = new URLSearchParams(window.location.search);
-        const jobID = urlParams.get('job_id');
+        const jobType = urlParams.get('job_type');
 
         const jobDetails = {
     'cashier': {
@@ -212,7 +212,7 @@
         ]
     },
 
-    'de37fb7c-9633-43f3-be9b-8e15581ccdb8': {
+    'cook': {
         title: 'Cook',
         icon: '🍳',
         payRate: '$13-$18',
@@ -334,8 +334,9 @@
         }
 
         // Display job details
-        if (jobID && jobDetails[jobID]) {
-            const job = jobDetails[jobID];
+        if (jobType && jobDetails[jobType]) {
+            const job = jobDetails[jobType];
+            
             const params = new URLSearchParams(window.location.search);
             const location = params.get('location') || 'Various Locations';
 
@@ -353,8 +354,12 @@
                 requirementsList.appendChild(li);
             });
 
-            // Set job_id in the chatbot container
-            document.getElementById('cleo-chatbot').setAttribute('data-job-id', jobID);
+            console.log('Job Type:', jobType);
+            console.log('Location:', location);
+            
+            // Set job_type in the chatbot container
+            document.getElementById('cleo-chatbot').setAttribute('data-job-type', jobType);
+            document.getElementById('cleo-chatbot').setAttribute('data-job-location', location);
         } else {
             document.getElementById('job-title').textContent = 'Job Not Found';
             document.getElementById('job-meta').textContent = 'The requested position is not available.';

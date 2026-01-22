@@ -244,8 +244,8 @@ def ask_knockout_question_node(state: ChatbotState) -> ChatbotState:
             previous_question = knockout_questions[idx-1] if idx > 0 else "None",
             previous_answer = state["knockout_answers"][knockout_questions[idx-1]] if idx > 0 else "None",
             )
-        
-        if idx == 1:
+
+        if idx == 0 or idx == 1:
             #  response = llm.invoke(prompt)
              state["messages"].append(AIMessage(content=knockout_question))
         else:
@@ -595,7 +595,7 @@ def ask_email_otp_node(state: ChatbotState) -> ChatbotState:
     
     print("ask_email_otp_node called")
 
-    # state["messages"].append(AIMessage(content=cleo_engagement.ask_email_otp))
+    state["messages"].append(AIMessage(content=cleo_engagement.ask_email_otp))
     
     return state
 
@@ -693,6 +693,7 @@ def send_phone_otp_node(state: ChatbotState) -> ChatbotState:
     otp_code = generate_otp()
     # otp_code = "123456"  # For testing
     
+    print("Generated phone OTP code:", otp_code)  # Debug
     # Store in state
     state["phone_otp_code"] = otp_code
     state["phone_otp_timestamp"] = time.time()
@@ -716,7 +717,7 @@ def ask_phone_otp_node(state: ChatbotState) -> ChatbotState:
     
     print("ask_phone_otp_node called")
     
-    # state["messages"].append(AIMessage(content=cleo_engagement.ask_phone_otp))
+    state["messages"].append(AIMessage(content=cleo_engagement.ask_phone_otp))
     return state
 
 
@@ -1119,16 +1120,16 @@ def build_graph(checkpointer):
     workflow.add_conditional_edges("store_email", email_router)  # Check email validity
     
     # Email OTP verification flow
-    workflow.add_edge("send_email_otp", "verify_email_otp")
-    # workflow.add_edge("ask_email_otp", "verify_email_otp")
+    workflow.add_edge("send_email_otp", "ask_email_otp")
+    workflow.add_edge("ask_email_otp", "verify_email_otp")
     workflow.add_conditional_edges("verify_email_otp", email_otp_router)
     
     workflow.add_edge("ask_phone", "store_phone")
     workflow.add_conditional_edges("store_phone", phone_router)  # Check phone validity
     
     # Phone OTP verification flow
-    workflow.add_edge("send_phone_otp", "verify_phone_otp")
-    # workflow.add_edge("ask_phone_otp", "verify_phone_otp")
+    workflow.add_edge("send_phone_otp", "ask_phone_otp")
+    workflow.add_edge("ask_phone_otp", "verify_phone_otp")
     workflow.add_conditional_edges("verify_phone_otp", phone_otp_router)
  
     # Questions loop
@@ -1142,7 +1143,7 @@ def build_graph(checkpointer):
     
     app = workflow.compile(
         checkpointer=checkpointer,
-        interrupt_after=["delay_messages", "ask_knockout_question", "ask_name", "ask_email", "send_email_otp", "ask_phone", "send_phone_otp", "ask_question"]
+        interrupt_after=["delay_messages", "ask_knockout_question", "ask_name", "ask_email", "ask_email_otp", "ask_phone", "ask_phone_otp", "ask_question"]
     )
     
     return app

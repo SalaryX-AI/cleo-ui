@@ -141,49 +141,49 @@
         <div class="jobs-grid">
             
         <!-- Restaurant Roles -->
-        <a href="job-details.html?job_type=cashier" class="job-card" data-location="Boston" data-job-id="fffd50b3-0589-4722-b771-9edc72259b35">
+        <a href="job-details.html?job_type=cashier" class="job-card" data-location="Boston" data-job-type="cashier">
             <div class="job-icon">💳</div>
             <div class="job-title">Cashier</div>
             <div class="job-description">Handles orders, payments, and guest service.</div>
             <button class="apply-btn">Apply Now</button>
         </a>
 
-        <a href="job-details.html?job_type=cook" class="job-card" data-location="Cambridge" data-job-id="de37fb7c-9633-43f3-be9b-8e15581ccdb8">
+        <a href="job-details.html?job_type=cook" class="job-card" data-location="Cambridge" data-job-type="cook">
             <div class="job-icon">🍳</div>
             <div class="job-title">Cook</div>
             <div class="job-description">Prepares food, operates grill/fryer.</div>
             <button class="apply-btn">Apply Now</button>
         </a>
 
-        <a href="job-details.html?job_type=prep_cook" class="job-card" data-location="Newton" data-job-id="7b4d8549-bad6-4aad-ab93-199dba0f6458">
+        <a href="job-details.html?job_type=prep_cook" class="job-card" data-location="Newton" data-job-type="prep_cook">
             <div class="job-icon">🔪</div>
             <div class="job-title">Prep Cook</div>
             <div class="job-description">Prepares ingredients and stations.</div>
             <button class="apply-btn">Apply Now</button>
         </a>
 
-        <a href="job-details.html?job_type=drive_thru" class="job-card" data-location="Quincy" data-job-id="a916d1d2-cf3a-45d0-94ca-efb918d48903">
+        <a href="job-details.html?job_type=drive_thru" class="job-card" data-location="Quincy" data-job-type="drive_thru">
             <div class="job-icon">🚗</div>
             <div class="job-title">Drive-Thru Team Member</div>
             <div class="job-description">Handles drive-thru orders and customer service.</div>
             <button class="apply-btn">Apply Now</button>
         </a>
 
-        <a href="job-details.html?job_type=dishwasher" class="job-card" data-location="Plainville" data-job-id="e0d0fe9d-fdfb-4390-bba8-8b4889b3cc22">
+        <a href="job-details.html?job_type=dishwasher" class="job-card" data-location="Plainville" data-job-type="dishwasher">
             <div class="job-icon">🧽</div>
             <div class="job-title">Dishwasher</div>
             <div class="job-description">Cleans dishes and kitchen equipment.</div>
             <button class="apply-btn">Apply Now</button>
         </a>
 
-        <a href="job-details.html?job_type=dining_room" class="job-card" data-location="Wrentham" data-job-id="53c9eafa-e939-46b5-b40f-9daa67b5f28e">
+        <a href="job-details.html?job_type=dining_room" class="job-card" data-location="Wrentham" data-job-type="dining_room">
             <div class="job-icon">🧹</div>
             <div class="job-title">Dining Room Attendant</div>
             <div class="job-description">Cleans dining area and supports guests.</div>
             <button class="apply-btn">Apply Now</button>
         </a>
 
-        <a href="job-details.html?job_type=assistant_manager" class="job-card" data-location="Boston" data-job-id="e05af919-8f83-4d2a-8438-d6cd6c4cedf6">
+        <a href="job-details.html?job_type=assistant_manager" class="job-card" data-location="Boston" data-job-type="assistant_manager">
             <div class="job-icon">👔</div>
             <div class="job-title">Assistant Manager</div>
             <div class="job-description">Supports GM, manages daily operations.</div>
@@ -194,7 +194,7 @@
 
 
     <!-- Cleo Chatbot Integration -->
-    <div id="cleo-chatbot" data-job-id="null"></div>
+    <div id="cleo-chatbot" data-job-type="null"></div>
     
     <!-- Load the chatbot script -->
     <script src="./config.js"></script>
@@ -228,12 +228,12 @@
                 e.preventDefault(); // Prevent default navigation
                 
                 const selectedLocation = locationSelect.value;
-                const jobID = this.getAttribute('data-job-id');
+                const jobType = this.getAttribute('data-job-type');
                 const jobLocation = this.getAttribute('data-location');
 
                 // Build URL with job_type and location
                 const url = new URL('job-details.html', window.location.href);
-                url.searchParams.set('job_id', jobID);
+                url.searchParams.set('job_type', jobType);
                 url.searchParams.set('location', selectedLocation || jobLocation);
 
                 // Navigate to job details
