@@ -89,6 +89,7 @@ Brand_names = {
     "starbucks.vercel.app": "Starbucks",
     "127.0.0.1": "Big Chicken",
     "scanandhire.com": "Big Chicken",
+    "localhost": "Big Chicken"
 }
 
 # API key for authenticated requests
@@ -157,7 +158,10 @@ async def validate_domain(
             )
     
     global brand_name
-    brand_name = Brand_names.get(domain, "")
+    if domain == "scanandhire.com":
+        brand_name = "Big Chicken"
+    else:
+        brand_name = Brand_names.get(domain, "")
 
     # Return API key if validation passes
     return {
@@ -166,7 +170,7 @@ async def validate_domain(
 
 
 @app.post("/start-session")
-async def start_session(job_type: str = Query(...), api_key: str = Query(...), location: str = Query(...)):
+async def start_session(job_type: str = Query(...), api_key: str = Query(...), location: str = Query(...), job_id: str = Query(...), company_id: str = Query(...)):
     """Create new screening session for a specific job type"""
 
     print(f"Starting session for job_type: {job_type} at location: {location}")
@@ -189,6 +193,8 @@ async def start_session(job_type: str = Query(...), api_key: str = Query(...), l
         "thread_id": thread_id,
         "job_type": job_type,
         "location": location,
+        "job_id": job_id,
+        "company_id": company_id,
         "active": True
     }
     
@@ -228,6 +234,8 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
     thread_id = session["thread_id"]
     job_type = session["job_type"]
     location = session["location"]
+    job_id = session["job_id"]
+    company_id = session["company_id"]
 
     if sys.platform == 'win32':
         asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
@@ -279,7 +287,9 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
             phone_verified=False,
             phone_otp_attempts=0,
 
-            session_id = session_id
+            session_id = session_id,
+            job_id = job_id,
+            company_id = company_id
         )
         
         # Start workflow with streaming

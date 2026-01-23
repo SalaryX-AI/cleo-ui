@@ -14,6 +14,8 @@ import os
 from dotenv import load_dotenv
 from langchain.prompts import ChatPromptTemplate
 import time
+from xano import send_applicant_to_xano    
+
 
 from otp_verification import (
     generate_otp, 
@@ -21,8 +23,13 @@ from otp_verification import (
     send_sms_otp, 
     verify_otp,
     is_otp_expired,
+)
+
+from candidate_helpers import (
     extract_email_from_text,
-    extract_phone_from_text
+    extract_phone_from_text,
+    extract_age_from_text,
+    generate_json_report
 )
 
 import cleo_engagement
@@ -103,6 +110,10 @@ class ChatbotState(MessagesState):
     phone_otp_attempts: int = 0
 
     session_id: str = ""
+    job_id: str = ""
+    company_id: str = ""
+
+    applicant_age: str = ""
 
 
 # ==================== Acknowledgement ====================
@@ -272,6 +283,16 @@ def store_kq_answer_node(state: ChatbotState) -> ChatbotState:
         idx = state["current_knockout_question_index"]
         if idx < len(state["knockout_questions"]):
             knockout_question = state["knockout_questions"][idx]
+            
+            if idx == 1:
+                age = extract_age_from_text(last_message.content)
+                print(f"Extracted age: {age}")
+                state["knockout_answers"][knockout_question] = age
+                state["applicant_age"] = age
+                state["current_knockout_question_index"] += 1
+
+                return state
+            
             state["knockout_answers"][knockout_question] = last_message.content
             state["current_knockout_question_index"] += 1
     
@@ -910,7 +931,11 @@ def summary_node(state: ChatbotState) -> ChatbotState:
     name = state["personal_details"].get("name", "Candidate")
     email = state["personal_details"].get("email", "")
     phone = state["personal_details"].get("phone", "")
+    
+    age = state.get("applicant_age", "")
     session_id = state.get("session_id", "")
+    job_id = state.get("job_id", "")
+    company_id = state.get("company_id", "")
     
     knockout_answers = state.get("knockout_answers", {})
     answers = state.get("answers", {})
@@ -927,125 +952,35 @@ def summary_node(state: ChatbotState) -> ChatbotState:
         f"Q: {q}\nA: {a}" for q, a in answers.items()
     ])
     
-    
-    prompt = JSON_REPORT_PROMPT.format(
-        name=name,
-        email=email,
-        phone=phone,
-        session_id=session_id,
-        knockout_answers=knockout_text,
-        answers=answers_text,
-        total_score=f"{total_score:.1f}",
-        max_score=f"{max_score:.1f}"
-    )
-    
-    print("Generating JSON report...")
-    response = llm.invoke(prompt)
-    
-    # Parse JSON response
-    try:
-        # Clean response (remove markdown if present)
-        json_text = response.content.strip()
-        if json_text.startswith("```json"):
-            json_text = json_text.replace("```json", "").replace("```", "").strip()
-        elif json_text.startswith("```"):
-            json_text = json_text.replace("```", "").strip()
-        
-        json_report = json.loads(json_text)
-        print("Successfully generated below JSON report...")
-        print(json_report)
-        
-    except json.JSONDecodeError as e:
-        print(f"Failed to parse JSON report: {e}")
-        print(f"Response was: {response.content[:500]}")
-        
-        # Fallback: Create basic JSON structure
-        json_report = create_fallback_report(
-            name, email, phone, session_id, 
-            knockout_answers, answers, total_score, max_score
-        )
+    data = {
+        "name": name,
+        "email": email,
+        "phone": phone,
+        "session_id": session_id,
+        "knockout_answers": knockout_text,
+        "answers": answers_text,
+        "total_score": total_score,
+        "max_score": max_score
+    }
+
+    json_report = generate_json_report(data)
     
     # Send to XANO
-    from xano import send_applicant_to_xano
-    
-    # job_id = state.get("job_id", "")
-    
     send_applicant_to_xano(
         name=name,
         email=email,
         phone=phone,
+        age = age,
         score=total_score,
         max_score=max_score,
         json_report=json_report,
         answers=answers,
-        session_id=session_id
+        session_id=session_id,
+        job_id=job_id,
+        company_id=company_id
     )
     
     return state
-
-
-def create_fallback_report(name, email, phone, session_id, knockout_answers, answers, total_score, max_score):
-    """
-    Create a fallback JSON report if LLM generation fails
-    """
-    from datetime import datetime
-    
-    percentage = (total_score / max_score * 100) if max_score > 0 else 0
-    
-    return {
-        "report_metadata": {
-            "session_id": session_id,
-            "generated_at": datetime.now().isoformat(),
-            "report_version": "1.0"
-        },
-        "applicant_information": {
-            "full_name": name,
-            "email": email,
-            "phone_number": phone,
-            "address": None
-        },
-        "qualification": {
-            "requirements": [
-                {
-                    "criterion": q,
-                    "met": True,  
-                    "evidence": a,
-                    "importance": "High"
-                }
-                for q, a in knockout_answers.items()
-            ],
-            "overall_qualified": True
-        },
-        "experiences": [
-            {
-                "years_experience": 0,
-                "job_title": None,
-                "employer": None,
-                "duration": None,
-                "skills": None,
-                "relevant_experience": "See screening answers for details"
-            }
-        ],
-        "education": [],
-        "fit_score": {
-            "total_score": int(total_score),
-            "qualification_score": 100,
-            "experience_score": int(percentage),
-            "personality_score": 80,
-            "rating": "Good" if percentage >= 60 else "Fair",
-            "explanation": f"Candidate scored {total_score:.1f} out of {max_score:.1f} ({percentage:.1f}%)"
-        },
-        "summary": {
-            "eligibility_status": "Eligible" if total_score > 50 else "Not Eligible",
-            "recommendation": "Recommend for interview" if total_score > 50 else "Do not recommend",
-            "key_strengths": ["Completed screening process"],
-            "concerns": [] if total_score > 50 else ["Score below threshold"]
-        },
-        "interview_notes": {
-            "notable_responses": [f"{q}: {a}" for q, a in list(answers.items())[:2]],
-            "overall_impression": "Candidate completed the screening process."
-        }
-    }
 
 
 

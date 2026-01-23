@@ -304,10 +304,14 @@
 
                 console.log('Job Type:', job.job_template);
                 console.log('Location:', job.job_location);
+                console.log('Job ID:', job.id);
+                console.log('Company ID:', job.related_company);
                
                 // Set job_type and job_location in the chatbot container
                 document.getElementById('cleo-chatbot').setAttribute('data-job-type', job.job_template);
                 document.getElementById('cleo-chatbot').setAttribute('data-job-location', job.job_location);
+                document.getElementById('cleo-chatbot').setAttribute('data-job-id', job.id);
+                document.getElementById('cleo-chatbot').setAttribute('data-company-id', job.related_company);
                 
                 // Load Cleo Assistant script
                 const script = document.createElement("script"); 

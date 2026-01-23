@@ -199,6 +199,7 @@
         const jobDetails = {
     'cashier': {
         title: 'Cashier',
+        id: 'fffd50b3-0589-4722-b771-9edc72259b35',
         icon: '💳',
         payRate: '$12-$16',
         level: 'Entry',
@@ -214,6 +215,7 @@
 
     'cook': {
         title: 'Cook',
+        id: "de37fb7c-9633-43f3-be9b-8e15581ccdb8",
         icon: '🍳',
         payRate: '$13-$18',
         level: 'Entry-Mid',
@@ -335,6 +337,7 @@
 
         // Display job details
         if (jobType && jobDetails[jobType]) {
+            
             const job = jobDetails[jobType];
             
             const params = new URLSearchParams(window.location.search);
@@ -356,10 +359,13 @@
 
             console.log('Job Type:', jobType);
             console.log('Location:', location);
+            console.log('Job ID:', job.id);
             
-            // Set job_type in the chatbot container
+            // Set Attributes in the chatbot container
             document.getElementById('cleo-chatbot').setAttribute('data-job-type', jobType);
             document.getElementById('cleo-chatbot').setAttribute('data-job-location', location);
+            document.getElementById('cleo-chatbot').setAttribute('data-job-id', job.id);
+            document.getElementById('cleo-chatbot').setAttribute('data-company-id', "cfe2f6b2-c866-4c18-b978-e15939ee47c6");
         } else {
             document.getElementById('job-title').textContent = 'Job Not Found';
             document.getElementById('job-meta').textContent = 'The requested position is not available.';

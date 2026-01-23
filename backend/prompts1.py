@@ -292,7 +292,7 @@ GENERATE_JOB_CONFIG_PROMPT = PromptTemplate(
 
 
 JSON_REPORT_PROMPT = PromptTemplate(
-    input_variables=["name", "email", "phone", "session_id", "knockout_answers", "answers", "total_score", "max_score"],
+    input_variables=["name", "email", "phone", "session_id", "knockout_answers", "answers", "total_score", "max_score", "current_time"],
     template="""
     You are an expert HR analyst. Generate a comprehensive JSON report for the hiring manager based on the candidate's screening interview.
 
@@ -317,7 +317,7 @@ JSON_REPORT_PROMPT = PromptTemplate(
     {{
       "report_metadata": {{
         "session_id": "{session_id}",
-        "generated_at": "ISO 8601 timestamp (current time)",
+        "generated_at": "{current_time}",
         "report_version": "1.0"
       }},
       "applicant_information": {{
@@ -381,8 +381,7 @@ JSON_REPORT_PROMPT = PromptTemplate(
     3. Use actual data from the candidate's answers
     4. Be objective and professional
     5. Ensure all boolean values are lowercase (true/false not True/False)
-    6. Use ISO 8601 format for timestamp: YYYY-MM-DDTHH:MM:SS.mmmmmm
-
+    
     Generate the JSON report now:
     """
 )

@@ -14,6 +14,7 @@ import os
 
 load_dotenv()
 
+# from backend.otp_verification import generate_session_id
 from prompts1 import GENERATE_JOB_CONFIG_PROMPT
 
 
@@ -22,11 +23,14 @@ def send_applicant_to_xano(
     name: str,
     email: str,
     phone: str,
+    age: str,
     score: float,
     max_score: float,
     json_report: dict,
     answers: dict,
     session_id: str,
+    job_id: str,
+    company_id: str,
 ):
     """
     Generate PDF and send applicant data to XANO
@@ -35,9 +39,9 @@ def send_applicant_to_xano(
     print(f"send_applicant_to_xano function called...")
     print(f"Applicant Name: {name}, Email: {email}, Phone: {phone}, Score: {score}, Max Score: {max_score}, Session ID: {session_id}")
     
-    # Static company ID and job ID
-    COMPANY_ID = "92b8f778-8b2f-4758-81d3-20c13d411334"  
-    JOB_ID = "8ad4624e-9f8c-47f6-a449-5998af5c27fa"   
+    # Dynamic company ID and job ID
+    COMPANY_ID = company_id
+    JOB_ID = job_id   
     
     XANO_API_URL = "https://xoho-w3ng-km3o.n7e.xano.io/api:6skoiMBa/candidate_new_api"
 
@@ -51,7 +55,7 @@ def send_applicant_to_xano(
         # Determine status
         status = "Short Listed" if percentage >= 50 else "Rejected"
 
-          # Generate PDF (using summary from JSON report)
+        # Generate PDF (using summary from JSON report)
         summary = json_report.get("fit_score", {}).get("explanation", "No summary available")
                 
         # Generate PDF
@@ -77,15 +81,18 @@ def send_applicant_to_xano(
         
         data = {
             'Name': name,
-            'Score': int(score),
             'Email': email,
             'Phone': phone,
+            'Age': age,
+            'Score': int(score),
+            'Report_pdf': ('applicant_report.pdf', pdf_buffer, 'application/pdf'),
             'job_id': JOB_ID,
             'company_id': COMPANY_ID,
             'Status': status,
+            'session_id': 2,
             'ProfileSummary': profile_summary_json,
             'my_session_id': session_id,
-            'Report_pdf': ('applicant_report.pdf', pdf_buffer, 'application/pdf')
+            
         }
 
         # Send POST request

@@ -33,6 +33,10 @@ def generate_otp() -> str:
     """Generate a random 6-digit OTP code"""
     return str(random.randint(100000, 999999))
 
+def generate_session_id() -> int:
+    """Generate a random 3-digit id"""
+    return random.randint(100, 999)
+
 
 def send_email_otp(email: str, code: str, brand_name: str, user_name: str = "there") -> bool:
     """
@@ -199,42 +203,3 @@ def verify_otp(user_input: str, stored_code: str, timestamp: float, otp_channel:
     return False, "incorrect"
 
 
-def extract_email_from_text(text: str) -> str:
-    """Extract email address from natural language using LLM"""
-    prompt = f"""Extract ONLY the email address from this text. 
-    If no email is found, return 'NONE'.
-    Return only the email address, nothing else.
-
-    Text: "{text}"
-
-    Email:"""
-        
-    response = llm.invoke(prompt)
-    email = response.content.strip()
-        
-    # If LLM couldn't find email, return original text
-    if email.upper() == "NONE" or email == "":
-        return text.strip()
-        
-    return email
-
-
-
-def extract_phone_from_text(text: str) -> str:
-    """Extract phone number from natural language using LLM"""
-    prompt = f"""Extract ONLY the phone number from this text.
-    If no phone number is found, return 'NONE'.
-    Return only the phone number, nothing else.
-
-    Text: "{text}"
-
-    Phone:"""
-    
-    response = llm.invoke(prompt)
-    phone = response.content.strip()
-    
-    # If LLM couldn't find phone, return original text
-    if phone.upper() == "NONE" or phone == "":
-        return text.strip()
-    
-    return phone
