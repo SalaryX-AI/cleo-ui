@@ -25,7 +25,7 @@ def send_applicant_to_xano(
     phone: str,
     age: str,
     score: float,
-    max_score: float,
+    total_score: float,
     json_report: dict,
     answers: dict,
     session_id: str,
@@ -37,7 +37,7 @@ def send_applicant_to_xano(
     """
     
     print(f"send_applicant_to_xano function called...")
-    print(f"Applicant Name: {name}, Email: {email}, Phone: {phone}, Score: {score}, Max Score: {max_score}, Session ID: {session_id}")
+    print(f"Applicant Name: {name}, Email: {email}, Phone: {phone}, Score: {score}, Total Score: {total_score}, Session ID: {session_id}")
     
     # Dynamic company ID and job ID
     COMPANY_ID = company_id
@@ -51,7 +51,7 @@ def send_applicant_to_xano(
         }
     
     try:
-        percentage = (score / max_score) * 100
+        percentage = (score / total_score) * 100
         # Determine status
         status = "Short Listed" if percentage >= 50 else "Rejected"
 
@@ -64,7 +64,7 @@ def send_applicant_to_xano(
             email=email,
             phone=phone,
             score=score,
-            max_score=max_score,
+            total_score=total_score,
             summary=summary,
             answers=answers,
             status=status
@@ -123,7 +123,7 @@ def generate_applicant_pdf(
     email: str,
     phone: str,
     score: float,
-    max_score: float,
+    total_score: float,
     summary: str,
     answers: dict,
     status: str
@@ -169,8 +169,8 @@ def generate_applicant_pdf(
     
     y -= 0.3*inch
     c.setFont("Helvetica", 11)
-    percentage = (score / max_score * 100) if max_score > 0 else 0
-    c.drawString(1*inch, y, f"Score: {score:.1f} / {max_score:.1f} ({percentage:.1f}%)")
+    percentage = (score / total_score * 100) if total_score > 0 else 0
+    c.drawString(1*inch, y, f"Score: {score:.1f} / {total_score:.1f} ({percentage:.1f}%)")
     
     y -= 0.25*inch
     c.setFont("Helvetica-Bold", 11)

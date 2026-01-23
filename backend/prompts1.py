@@ -193,29 +193,28 @@ SCORING_PROMPT = PromptTemplate(
     {scoring_model}
 
     Apply the scoring rules exactly as specified:
-    - For age: Check if >= 18, if yes give the specified score, otherwise 0
     - For yes/no questions: Apply the specified scores for Yes or No answers
 
     Return ONLY a JSON object in this exact format:
     {{
         "scores": {{"question1": score1, "question2": score2, ...}},
-        "total_score": total_sum,
-        "max_possible_score": maximum_possible_total
+        "score": total_sum,
+        "total_score": maximum_possible_total
     }}
 
-    Be precise with numbers and ensure total_score is the sum of all individual scores."""
+    Be precise with numbers and ensure score is the sum of all individual scores."""
 )
 
 # Summary prompt
 SUMMARY_PROMPT = PromptTemplate(
-    input_variables=["name", "answers", "total_score", "max_score"],
+    input_variables=["name", "answers", "score", "total_score"],
     template="""
     Generate a professional summary report for the hiring manager about candidate {name}.
     
     Candidate's responses:
     {answers}
     
-    Score: {total_score} out of {max_score} ({total_score}/{max_score}*100)%
+    Score: {score} out of {total_score} ({score}/{total_score}*100)%
     
     Create a concise employer-focused summary that includes:
     1. Overall impression of the candidate
@@ -292,7 +291,7 @@ GENERATE_JOB_CONFIG_PROMPT = PromptTemplate(
 
 
 JSON_REPORT_PROMPT = PromptTemplate(
-    input_variables=["name", "email", "phone", "session_id", "knockout_answers", "answers", "total_score", "max_score", "current_time"],
+    input_variables=["name", "email", "phone", "session_id", "knockout_answers", "answers", "score", "total_score", "current_time"],
     template="""
     You are an expert HR analyst. Generate a comprehensive JSON report for the hiring manager based on the candidate's screening interview.
 
@@ -309,8 +308,8 @@ JSON_REPORT_PROMPT = PromptTemplate(
     {answers}
 
     SCORES:
-    - Total Score: {total_score} out of {max_score}
-    - Percentage: {total_score}/{max_score} * 100
+    - Total Score: {score} out of {total_score}
+    - Percentage: {score}/{total_score} * 100
 
     Generate a JSON report with the following exact structure:
 
@@ -345,17 +344,17 @@ JSON_REPORT_PROMPT = PromptTemplate(
           "employer": null (if not mentioned),
           "duration": null (if not mentioned),
           "skills": null (if not mentioned),
-          "relevant_experience": "Summary of candidate's experience from their answers"
+          "relevant_experience": "Summary of candidate's experience from their answers (2-3 sentences)"
         }}
       ],
       "education": [],
       "fit_score": {{
-        "total_score": {total_score} as integer,
+        "total_score": {score} as integer,
         "qualification_score": 0-100 based on knockout answers,
         "experience_score": 0-100 based on screening answers,
         "personality_score": 0-100 based on communication quality,
         "rating": "Excellent" if >80, "Good" if 60-80, "Fair" if 40-60, "Poor" if <40,
-        "explanation": "2-3 sentence explanation of the scores"
+        "explanation": "explanation of the scores (2-3 sentences)"
       }},
       "summary": {{
         "eligibility_status": "Eligible" or "Not Eligible",
@@ -371,7 +370,7 @@ JSON_REPORT_PROMPT = PromptTemplate(
         "notable_responses": [
           "2-3 notable quotes or responses from candidate"
         ],
-        "overall_impression": "1-2 sentence overall impression"
+        "overall_impression": "overall impression (2-3 sentences)"
       }}
     }}
 

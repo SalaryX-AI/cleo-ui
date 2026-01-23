@@ -110,8 +110,6 @@ def extract_age_from_text(text: str) -> str:
 def generate_json_report(data: dict) -> str:
     """Generate JSON report from data using LLM"""
 
-    percentage = (data["total_score"] / data["max_score"]) * 100
-
     prompt = JSON_REPORT_PROMPT.format(
         name = data["name"],
         email = data["email"],
@@ -119,8 +117,8 @@ def generate_json_report(data: dict) -> str:
         session_id = data["session_id"],
         knockout_answers = data["knockout_answers"],
         answers = data["answers"],
-        total_score = percentage,
-        max_score = 100,
+        score = data["score"],
+        total_score = data["total_score"],
         current_time = datetime.now().isoformat()
     )
     
@@ -157,20 +155,19 @@ def generate_json_report(data: dict) -> str:
             data["session_id"],
             data["knockout_answers"],
             data["answers"],
-            data["total_score"],
-            data["max_score"]
+            data["score"],
+            data["total_score"]
         ) 
         
     return json_report
 
 
-def create_fallback_report(name, email, phone, session_id, knockout_answers, answers, total_score, max_score):
+def create_fallback_report(name, email, phone, session_id, knockout_answers, answers, score, total_score):
     """
     Create a fallback JSON report if LLM generation fails
     """
     from datetime import datetime
     
-    percentage = (total_score / max_score * 100) if max_score > 0 else 0
     
     return {
         "report_metadata": {
@@ -208,18 +205,18 @@ def create_fallback_report(name, email, phone, session_id, knockout_answers, ans
         ],
         "education": [],
         "fit_score": {
-            "total_score": int(total_score),
+            "score": int(score),
             "qualification_score": 100,
-            "experience_score": int(percentage),
+            "experience_score": 70,
             "personality_score": 80,
-            "rating": "Good" if percentage >= 60 else "Fair",
-            "explanation": f"Candidate scored {total_score:.1f} out of {max_score:.1f} ({percentage:.1f}%)"
+            "rating": "Good" if score >= 60 else "Fair",
+            "explanation": f"Candidate scored {score:.1f} out of {total_score:.1f} based on their responses."
         },
         "summary": {
-            "eligibility_status": "Eligible" if total_score > 50 else "Not Eligible",
-            "recommendation": "Recommend for interview" if total_score > 50 else "Do not recommend",
+            "eligibility_status": "Eligible" if score > 50 else "Not Eligible",
+            "recommendation": "Recommend for interview" if score > 50 else "Do not recommend",
             "key_strengths": ["Completed screening process"],
-            "concerns": [] if total_score > 50 else ["Score below threshold"]
+            "concerns": [] if score > 50 else ["Score below threshold"]
         },
         "interview_notes": {
             "notable_responses": [f"{q}: {a}" for q, a in list(answers.items())[:2]],

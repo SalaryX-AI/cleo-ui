@@ -51,6 +51,9 @@ def send_email_otp(email: str, code: str, brand_name: str, user_name: str = "the
     Returns:
         bool: True if sent successfully, False otherwise
     """
+    
+    print("send_email_otp function called...")
+
     try:
         if not BREVO_API_KEY:
             print("ERROR: BREVO_API_KEY not configured")

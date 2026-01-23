@@ -77,8 +77,8 @@ class ChatbotState(MessagesState):
     
     scoring_model: Dict[str, Dict] = {}
     scores: Dict[str, float] = {}
+    score: float = 0
     total_score: float = 0
-    max_possible_score: float = 0
 
     personal_details: Dict[str, str] = {}
     ready_confirmed: bool = False
@@ -99,12 +99,16 @@ class ChatbotState(MessagesState):
 
     # Email OTP fields
     email_otp_code: str = ""
+    email_otp_sent: bool = False
+    email_otp_sent_failed: bool = False
     email_otp_timestamp: float = 0
     email_verified: bool = False
     email_otp_attempts: int = 0
     
     # Phone OTP fields
     phone_otp_code: str = ""
+    phone_otp_sent: bool = False
+    phone_otp_sent_failed: bool = False
     phone_otp_timestamp: float = 0
     phone_verified: bool = False
     phone_otp_attempts: int = 0
@@ -420,6 +424,12 @@ def ask_email_node(state: ChatbotState) -> ChatbotState:
                 invalid_attempt=state.get("invalid_email_attempt")
             )
     else:
+        if state.get("email_otp_sent_failed") == True:
+            state["messages"].append(AIMessage(content="Kindly enter your email address again (example: john.doe@example.com)"))
+
+            state["email_otp_sent_failed"] = False
+            return state
+        
         # Use normal ask prompt
         prompt = PERSONAL_DETAIL_ASK_PROMPT.format(
             detail_type="email",
@@ -522,6 +532,15 @@ def ask_phone_node(state: ChatbotState) -> ChatbotState:
             
             state["messages"].append(AIMessage(content=response.content))
     else:
+        
+        if state.get("phone_otp_sent_failed") == True:
+            print("Re-asking for phone due to previous OTP send failure.")
+            state["messages"].append(AIMessage(content="Kindly enter your phone number again with country code (example: +1-234-567-8900)"))
+
+            state["phone_otp_sent_failed"] = False
+
+            return state
+        
         # Use normal ask prompt
         ask_phone = cleo_engagement.ask_phone
         state["messages"].append(AIMessage(content=ask_phone))
@@ -603,8 +622,10 @@ def send_email_otp_node(state: ChatbotState) -> ChatbotState:
     
     if success:
         message = f"Okay, I've just sent a 6-digit verification code to {email}. Please check your inbox (and spam folder)"
+        state["email_otp_sent"] = True
     else:
         message = cleo_engagement.otp_failure_message
+        state["email_otp_sent_failed"] = True
     
     state["messages"].append(AIMessage(content=message))
     
@@ -672,6 +693,9 @@ def email_otp_router(state: ChatbotState) -> Literal["ask_phone", "send_email_ot
     """Route based on email OTP verification status"""
     
     print("email_otp_router called")
+
+    if state.get("email_otp_sent_failed") == True:
+        return "ask_email"
     
     # Check if verified
     if state.get("email_verified"):
@@ -725,8 +749,10 @@ def send_phone_otp_node(state: ChatbotState) -> ChatbotState:
     
     if success:
         message = f"I'm sending a verification text with a 6-digit code to {phone} now. Please check your messages."
+        state["phone_otp_sent"] = True
     else:
         message = cleo_engagement.otp_failure_message
+        state["phone_otp_sent_failed"] = True
     
     state["messages"].append(AIMessage(content=message))
     
@@ -792,7 +818,11 @@ def phone_otp_router(state: ChatbotState) -> Literal["acknowledgement", "send_ph
     """Route based on phone OTP verification status"""
     
     print("phone_otp_router called")
-    
+
+    if state.get("phone_otp_sent_failed") == True:
+        print("Phone OTP not sent yet, asking for phone again.")
+        return "ask_phone"
+
     # Check if verified
     if state.get("phone_verified", False):
         return "acknowledgement"
@@ -908,15 +938,15 @@ def score_node(state: ChatbotState) -> ChatbotState:
         result = json.loads(score_text)
         
         state["scores"] = result["scores"]
-        state["total_score"] = result["total_score"]
-        state["max_possible_score"] = result.get("max_possible_score")
+        state["score"] = result["score"]
+        state["total_score"] = result.get("total_score")
         
-        print("Calculated total_score:", result["total_score"])
-        print("Calculated max_possible_score:", result.get("max_possible_score"))
+        print("Calculated score:", result["score"])
+        print("Calculated total_score:", result.get("total_score"))
     except json.JSONDecodeError:
         state["scores"] = {}
-        state["total_score"] = 0
-        state["max_possible_score"] = 100
+        state["score"] = 0
+        state["total_score"] = 100
     
     return state
 
@@ -939,9 +969,17 @@ def summary_node(state: ChatbotState) -> ChatbotState:
     
     knockout_answers = state.get("knockout_answers", {})
     answers = state.get("answers", {})
-    total_score = state.get("total_score", 0)
-    max_score = state.get("max_possible_score", 100)
     
+    score = state.get("score", 0)
+    total_score = state.get("total_score", 100)
+    
+    # Convert score to percentage
+    score = (score / total_score) * 100 if total_score > 0 else 0
+    total_score = 100
+
+    if score > 100:
+        score = 100
+
     # Format knockout answers for prompt
     knockout_text = "\n".join([
         f"Q: {q}\nA: {a}" for q, a in knockout_answers.items()
@@ -959,8 +997,8 @@ def summary_node(state: ChatbotState) -> ChatbotState:
         "session_id": session_id,
         "knockout_answers": knockout_text,
         "answers": answers_text,
-        "total_score": total_score,
-        "max_score": max_score
+        "score": score,
+        "total_score": total_score
     }
 
     json_report = generate_json_report(data)
@@ -971,8 +1009,8 @@ def summary_node(state: ChatbotState) -> ChatbotState:
         email=email,
         phone=phone,
         age = age,
-        score=total_score,
-        max_score=max_score,
+        score=score,
+        total_score=total_score,
         json_report=json_report,
         answers=answers,
         session_id=session_id,
@@ -981,8 +1019,6 @@ def summary_node(state: ChatbotState) -> ChatbotState:
     )
     
     return state
-
-
 
 def end_node(state: ChatbotState) -> ChatbotState:
     """End conversation"""
@@ -1055,7 +1091,7 @@ def build_graph(checkpointer):
     workflow.add_conditional_edges("store_email", email_router)  # Check email validity
     
     # Email OTP verification flow
-    workflow.add_edge("send_email_otp", "ask_email_otp")
+    workflow.add_conditional_edges("send_email_otp", email_otp_router)
     workflow.add_edge("ask_email_otp", "verify_email_otp")
     workflow.add_conditional_edges("verify_email_otp", email_otp_router)
     
@@ -1063,7 +1099,7 @@ def build_graph(checkpointer):
     workflow.add_conditional_edges("store_phone", phone_router)  # Check phone validity
     
     # Phone OTP verification flow
-    workflow.add_edge("send_phone_otp", "ask_phone_otp")
+    workflow.add_conditional_edges("send_phone_otp", phone_otp_router)
     workflow.add_edge("ask_phone_otp", "verify_phone_otp")
     workflow.add_conditional_edges("verify_phone_otp", phone_otp_router)
  

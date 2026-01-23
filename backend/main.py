@@ -279,10 +279,15 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
             brand_name=brand_name,
 
             email_otp_code="",
+            email_otp_sent=False,
+            email_otp_sent_failed=False,
             email_otp_timestamp=0,
             email_verified=False,
             email_otp_attempts=0,
+            
             phone_otp_code="",
+            phone_otp_sent=False,
+            phone_otp_sent_failed=False,
             phone_otp_timestamp=0,
             phone_verified=False,
             phone_otp_attempts=0,
