@@ -84,7 +84,7 @@ def send_applicant_to_xano(
             'Email': email,
             'Phone': phone,
             'Age': age,
-            'Score': int(score),
+            'Score': int(percentage),
             'Report_pdf': ('applicant_report.pdf', pdf_buffer, 'application/pdf'),
             'job_id': JOB_ID,
             'company_id': COMPANY_ID,
