@@ -192,16 +192,29 @@ SCORING_PROMPT = PromptTemplate(
     Scoring Rules:
     {scoring_model}
 
-    Apply the scoring rules exactly as specified:
-    - For yes/no questions: Apply the specified scores for Yes or No answers
+    INSTRUCTIONS:
+      1. Extract numbers from text answers:
+        - "6 years" -> 6
+        - "twenty years" -> 20
+        - "yes" or "no" -> boolean
+
+      2. Apply formulas EXACTLY:
+        - "Score = years * 5" with "6 years" -> 6 * 5 = 30
+        - "Score = min(years, 5) * 5" with "6 years" -> min(6, 5) * 5 = 5 * 5 = 25
+        - "Score = months / 2" with "12 months" -> 12 / 2 = 6
+
+      3. For Yes/No rules:
+        - "Yes -> 10, No -> 0" with "yes" -> 10
+        - "Yes -> 10, No -> 0" with "no" -> 0
 
     Return ONLY a JSON object in this exact format:
     {{
         "scores": {{"question1": score1, "question2": score2, ...}},
         "score": total_sum,
-        "total_score": maximum_possible_total
+        "total_score": 45
     }}
 
+    CRITICAL: Apply min(), max(), and other functions correctly in formulas!
     Be precise with numbers and ensure score is the sum of all individual scores."""
 )
 
