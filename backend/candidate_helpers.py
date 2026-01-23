@@ -110,6 +110,8 @@ def extract_age_from_text(text: str) -> str:
 def generate_json_report(data: dict) -> str:
     """Generate JSON report from data using LLM"""
 
+    percentage = (data["total_score"] / data["max_score"]) * 100
+
     prompt = JSON_REPORT_PROMPT.format(
         name = data["name"],
         email = data["email"],
@@ -117,8 +119,8 @@ def generate_json_report(data: dict) -> str:
         session_id = data["session_id"],
         knockout_answers = data["knockout_answers"],
         answers = data["answers"],
-        total_score = data["total_score"],
-        max_score = data["max_score"],
+        total_score = percentage,
+        max_score = 100,
         current_time = datetime.now().isoformat()
     )
     
