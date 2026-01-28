@@ -54,8 +54,10 @@ psycopg==3.2.12
 psycopg-binary==3.2.12
 langgraph-checkpoint-postgres==2.0.23
 
-# OTP Verification Services (NEW)
+# OTP Verification Services
 sendgrid>=6.11.0
 twilio>=8.10.0
 
 reportlab==4.4.7
+
+python-multipart==0.0.6
