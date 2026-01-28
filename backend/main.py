@@ -307,21 +307,31 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                     if node_name == "delay_messages":
                         print("Processing delay_messages stage start...")
                         
-                        await asyncio.sleep(3)  # Initial delay before starting
-                        
                         for msg in messages[-2:]:   # only last two messages
+
+                            # Show typing for 1.5 seconds
+                            await websocket.send_json({"type": "typing"})
+                            await asyncio.sleep(1.5)
+                            
                             print(msg.content)
+                            await asyncio.sleep(3)  # 3 second delay
+                            
                             if isinstance(msg, AIMessage):
                                 await websocket.send_json({
                                     "type": "ai_message",
                                     "content": msg.content,
                                     "messageType": "body"
                                 })
-                                await asyncio.sleep(3)  # 3 second delay
+
                     else:
                         # Normal processing - send last message only
                         msg = messages[-1]
                         print(msg.content)
+                        
+                        # Show typing for 1.5 seconds
+                        await websocket.send_json({"type": "typing"})
+                        await asyncio.sleep(1.5)  
+                        
                         if isinstance(msg, AIMessage):
                             await websocket.send_json({
                                 "type": "ai_message",
@@ -366,23 +376,33 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                         # Check if this is delay_messages_node
                         if node_name == "delay_messages":
                             print("Processing delay_messages stage end...")
-                            await asyncio.sleep(3)  # Initial delay before starting
-                            
+
                             for msg in messages[-2:]:   # only last two messages
+                                
+                                # Show typing for 1.5 seconds
+                                await websocket.send_json({"type": "typing"})
+                                await asyncio.sleep(1.5)  
+                                
                                 print(msg.content)
+                                await asyncio.sleep(3)  # 3 second delay
+                                
                                 if isinstance(msg, AIMessage):
                                     await websocket.send_json({
                                         "type": "ai_message",
                                         "content": msg.content,
                                         "messageType": "body"
                                     })
-                                    await asyncio.sleep(5)  # 5 second delay
                         else:
-                            # Check if this is delay_messages_node
+                            
                             messageType = "body"
+                            
                             if node_name == "ask_knockout_question" or node_name ==  "ask_name" or node_name == "ask_email" or node_name == "ask_phone" or node_name == "ask_question":
                                 messageType = "questions"
-
+                            
+                            # Show typing for 1.5 seconds
+                            await websocket.send_json({"type": "typing"})
+                            await asyncio.sleep(1.5)  
+                            
                             # Normal processing - send last message only
                             msg = messages[-1]
                             print(msg.content)

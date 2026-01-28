@@ -109,6 +109,100 @@
             `;
             
             chatContainer.innerHTML = `
+
+                <style>
+                    
+                    /* ✅ Smooth fade for AI messages */
+                   /* AI: Slide from left */
+                    
+                    .message-container.ai {
+                        animation: aiSlideUp 0.6s ease-out forwards;
+                    }
+
+                    @keyframes aiSlideUp {
+                        from {
+                            opacity: 0;
+                            transform: translateY(20px);
+                        }
+                        to {
+                            opacity: 1;
+                            transform: translateY(0);
+                        }
+                    }
+
+                    /* User: Slide from right */
+                    .message-container.user {
+                        animation: userSlideUp 0.6s ease-out forwards;
+                    }
+
+                    @keyframes userSlideUp {
+                        from {
+                            opacity: 0;
+                            transform: translateY(20px);
+                        }
+                        to {
+                            opacity: 1;
+                            transform: translateY(0);
+                        }
+                    }
+
+                    #typing-indicator {
+                        animation: none !important;
+                    }
+                    
+                    /* ✅ Typing indicator - NO animation */
+                    .typing-indicator {
+                        display: flex;
+                        align-items: center;
+                        padding: 12px 16px;
+                        background-color: #EFEFF0;
+                        border-radius: 18px;
+                        width: fit-content;
+                        margin: 8px 0;
+                        /* ❌ Remove this line: */
+                        /* animation: messageFadeSlideIn 0.3s ease-out forwards; */
+                    }
+
+                    .typing-indicator span {
+                        height: 8px;
+                        width: 8px;
+                        background-color: #999;
+                        border-radius: 50%;
+                        display: inline-block;
+                        margin: 0 2px;
+                        animation: typing 1.4s infinite;
+                    }
+
+                    .typing-indicator span:nth-child(2) {
+                        animation-delay: 0.2s;
+                    }
+
+                    .typing-indicator span:nth-child(3) {
+                        animation-delay: 0.4s;
+                    }
+
+                    @keyframes typing {
+                        0%, 60%, 100% {
+                            transform: translateY(0);
+                            opacity: 0.7;
+                        }
+                        30% {
+                            transform: translateY(-10px);
+                            opacity: 1;
+                        }
+                    }
+                    
+                    /* ✅ Smooth transitions for message bubbles */
+                    .cleo-bubble, .user-bubble {
+                        transition: all 0.2s ease;
+                    }
+                    
+                    .cleo-bubble:hover, .user-bubble:hover {
+                        transform: translateY(-1px);
+                        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+                    }
+                </style>
+                    
                 <div style="height: 100%; display: flex; flex-direction: column; background: white; border-radius: 16px; overflow: hidden;">
                     <!-- Header -->
                     <div id="cleo-chat-header">
@@ -170,6 +264,40 @@
             widgetBtn.style.display = 'flex';  // Show widget button again
             this.isOpen = false;
         },
+
+        showTypingIndicator() {
+            const messagesDiv = document.getElementById('chatbot-messages');
+            
+            // Remove any existing typing indicator
+            this.hideTypingIndicator();
+            
+            // Create typing indicator
+            const typingDiv = document.createElement('div');
+            typingDiv.id = 'typing-indicator';
+            typingDiv.className = 'message-container ai';
+            typingDiv.innerHTML = `
+                <div class="typing-indicator">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </div>
+            `;
+            
+            messagesDiv.appendChild(typingDiv);
+            
+            // Scroll to bottom
+            messagesDiv.scrollTo({
+                top: messagesDiv.scrollHeight,
+                behavior: 'smooth'
+            });
+        },
+
+        hideTypingIndicator() {
+            const typingIndicator = document.getElementById('typing-indicator');
+            if (typingIndicator) {
+                typingIndicator.remove();
+            }
+        },
         
         /**
          * Start a new chat session with the server
@@ -202,6 +330,9 @@
                 
                 this.ws.onopen = () => {
                     this.updateStatus('Online', 'connected');
+                    
+                    // Show typing for initial messages
+                    this.showTypingIndicator();
                     this.enableInput();
                 };
                 
@@ -211,31 +342,44 @@
                 };
                 
                 this.ws.onerror = () => {
+                    this.hideTypingIndicator();  // Hide on error
                     this.updateStatus('Connection error', 'disconnected');
                     this.disableInput();
                 };
                 
                 this.ws.onclose = () => {
+                    this.hideTypingIndicator();  // Hide on close
                     this.updateStatus('Disconnected', 'disconnected');
                     this.disableInput();
                 };
                 
             } catch (error) {
+                this.hideTypingIndicator();  // Hide on error
                 this.updateStatus('Failed to connect', 'disconnected');
                 console.error('Connection error:', error);
             }
         },
         
         handleMessage(data) {
+            
+            if (data.type === 'typing') {
+                this.showTypingIndicator();
+                return;
+            }
+            
             if (data.type === 'ai_message') {
-                // messageType comes from backend: "intro", "questions", or "body"
+                // Hide typing indicator when message arrives
+                this.hideTypingIndicator();
+                
                 const messageType = data.messageType || 'body';
                 this.addMessage(data.content, true, messageType);
                 this.enableInput();
             } else if (data.type === 'workflow_complete') {
+                this.hideTypingIndicator();  // Hide on completion
                 this.updateStatus('Complete', 'complete');
                 this.disableInput();
             } else if (data.type === 'error') {
+                this.hideTypingIndicator();  // Hide on error
                 this.updateStatus('Error occurred', 'disconnected');
                 this.addMessage(`Error: ${data.message}`, true, 'body');
             }
@@ -271,12 +415,14 @@
                 
                 if (messageType === 'intro') {
                     messageClass = 'cleo-intro';
-                } else if (messageType === 'questions') {
+                } 
+                else if (messageType === 'questions') {
                     messageClass = 'cleo-question';
                 }
                 
                 messageBubble.className = `cleo-bubble ai-message ${messageClass}`;
-            } else {
+            } 
+            else {
                 messageBubble.className = 'user-bubble';
             }
             
@@ -292,11 +438,20 @@
             messageContainer.appendChild(timestamp);
             messagesDiv.appendChild(messageContainer);
             
+            if (messageType === 'intro' || messageType === 'questions') 
+            {
+                // Smooth scroll to bottom
+                messagesDiv.scrollTo({
+                    top: messagesDiv.scrollHeight,
+                    behavior: 'smooth'
+                });
+            }
+                    
             // Smooth scroll to bottom
-            messagesDiv.scrollTo({
-                top: messagesDiv.scrollHeight,
-                behavior: 'smooth'
-            });
+            // messagesDiv.scrollTo({
+            //     top: messagesDiv.scrollHeight,
+            //     behavior: 'smooth'
+            // });
         },
         
         sendMessage() {
@@ -314,6 +469,9 @@
             
             input.value = '';
             this.disableInput();
+
+            // Show typing indicator
+            this.showTypingIndicator();
         },
         
         updateStatus(message, type = 'info') {

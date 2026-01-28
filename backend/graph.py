@@ -943,6 +943,7 @@ def score_node(state: ChatbotState) -> ChatbotState:
         
         print("Calculated score:", result["score"])
         print("Calculated total_score:", result.get("total_score"))
+    
     except json.JSONDecodeError:
         state["scores"] = {}
         state["score"] = 0
