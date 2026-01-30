@@ -61,7 +61,7 @@ def extract_age_from_text(text: str) -> str:
     print(f"extracting_age_from_text called...")
     prompt = f"""Extract the age from this text response. Follow these rules:
 
-        1. If the person confirms they are 18 or older with affirmative words (yes, yeah, sure, yep, of course, definitely, absolutely), return exactly: 18+
+        1. If the person confirms they are 18 or older with affirmative words (yes, I'm, I am, yeah, sure, yep, of course, definitely, absolutely), return exactly: 18+
         2. If the person mentions a specific age in numbers (e.g., "I am 33", "33 years old"), return only the number: 33
         3. If the person mentions age in words (e.g., "thirty-three", "twenty five"), convert to number: 33
         4. If the response is negative (no, nope, not yet), return: NONE
@@ -71,6 +71,7 @@ def extract_age_from_text(text: str) -> str:
 
         Examples:
         "yes I am" -> 18+
+        "I'm" -> 18+
         "yes I am 20 years old" -> 20
         "I'm 25" -> 25
         "twenty-five years old" -> 25
@@ -119,7 +120,10 @@ def generate_json_report(data: dict) -> str:
         answers = data["answers"],
         score = data["score"],
         total_score = data["total_score"],
-        current_time = datetime.now().isoformat()
+        work_experience = data.get("work_experience"),
+        education = data.get("education"),
+        current_time = datetime.now().isoformat(),
+
     )
     
     print("Generating JSON report...")

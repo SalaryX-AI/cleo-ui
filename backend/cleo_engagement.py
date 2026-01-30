@@ -10,7 +10,7 @@ failure_message = "Thank you for your interest! Unfortunately, based on your res
 ask_name = "Awesome! Let's get your application file started. To begin, what is your first and last name?"
 ask_phone = "And finally, what is your phone number in case we need to call you for an interview?"
 
-otp_failure_message = "I'm having trouble sending the otp on your phone number."
+otp_failure_message = "We're currently unable to send an OTP to your phone number. Please try again shortly."
 
 ask_email_otp = "Please enter the 6-digit code from your email:"
 

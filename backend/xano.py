@@ -51,9 +51,8 @@ def send_applicant_to_xano(
         }
     
     try:
-        percentage = (score / total_score) * 100
         # Determine status
-        status = "Short Listed" if percentage >= 50 else "Rejected"
+        status = "Short Listed" if score >= 50 else "Rejected"
 
         # Generate PDF (using summary from JSON report)
         summary = json_report.get("fit_score", {}).get("explanation", "No summary available")
@@ -84,7 +83,7 @@ def send_applicant_to_xano(
             'Email': email,
             'Phone': phone,
             'Age': age,
-            'Score': int(percentage),
+            'Score': int(score),
             'Report_pdf': ('applicant_report.pdf', pdf_buffer, 'application/pdf'),
             'job_id': JOB_ID,
             'company_id': COMPANY_ID,

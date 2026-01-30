@@ -54,11 +54,12 @@ def validate_email(email: str) -> bool:
     return bool(re.match(pattern, email.strip()))
 
 def validate_phone(phone: str) -> bool:
-    """Validate phone number (10+ digits)"""
+    """Validate phone number with country code (+1, +92, etc.) and 10+ digits"""
     # Remove common separators
     cleaned = re.sub(r'[\s\-\(\)\.]', '', phone)
-    # Check if it has 10+ digits
-    return bool(re.match(r'^\+?\d{10,}$', cleaned))
+
+    # Must start with + and contain only digits after, total digits >= 10
+    return bool(re.match(r'^\+\d{10,}$', cleaned))
 
 
 
@@ -74,6 +75,7 @@ class ChatbotState(MessagesState):
     knockout_questions: List[str] = []
     knockout_answers: Dict[str, str] = {}
     knockout_passed: bool = False
+    current_knockout_failed: bool = False
     
     scoring_model: Dict[str, Dict] = {}
     scores: Dict[str, float] = {}
@@ -118,6 +120,14 @@ class ChatbotState(MessagesState):
     company_id: str = ""
 
     applicant_age: str = ""
+
+    # Add work experience tracking
+    work_experience: List[Dict[str, str]] = []
+    show_work_experience_ui: bool = False
+
+    # Add education field
+    education_level: str = ""
+    show_education_ui: bool = False
 
 
 # ==================== Acknowledgement ====================
@@ -254,23 +264,26 @@ def ask_knockout_question_node(state: ChatbotState) -> ChatbotState:
     
     if idx < len(knockout_questions):
         knockout_question = knockout_questions[idx]
-        prompt = ASK_KNOCKOUT_QUESTION_PROMPT.format(
-            question=knockout_question,
-            previous_question = knockout_questions[idx-1] if idx > 0 else "None",
-            previous_answer = state["knockout_answers"][knockout_questions[idx-1]] if idx > 0 else "None",
-            )
+        
+        # prompt = ASK_KNOCKOUT_QUESTION_PROMPT.format(
+        #     question=knockout_question,
+        #     previous_question = knockout_questions[idx-1] if idx > 0 else "None",
+        #     previous_answer = state["knockout_answers"][knockout_questions[idx-1]] if idx > 0 else "None",
+        #     )
 
-        if idx == 0 or idx == 1:
-            #  response = llm.invoke(prompt)
-             state["messages"].append(AIMessage(content=knockout_question))
-        else:
-            # Use the chat template
-            messages = chat_template.format_messages(user_input=prompt)
-            response = llm.invoke(messages)
+        # if idx == 0 or idx == 1:
+        #     #  response = llm.invoke(prompt)
+        #      state["messages"].append(AIMessage(content=knockout_question))
+        # else:
+        #     # Use the chat template
+        #     messages = chat_template.format_messages(user_input=prompt)
+        #     response = llm.invoke(messages)
 
-            prompt = prompt + "\n(Note: This is the first question.)"
+        #     prompt = prompt + "\n(Note: This is the first question.)"
     
-            state["messages"].append(AIMessage(content=response.content))
+        #     state["messages"].append(AIMessage(content=response.content))
+
+        state["messages"].append(AIMessage(content=knockout_question))
     
     return state
 
@@ -303,72 +316,171 @@ def store_kq_answer_node(state: ChatbotState) -> ChatbotState:
     return state
 
 
-def knockout_question_router(state: ChatbotState) -> Literal["ask_knockout_question", "evaluate_knockout"]:
-    """Route to next knockout_question or evaluation"""
+# def knockout_question_router(state: ChatbotState) -> Literal["ask_knockout_question", "evaluate_knockout"]:
+#     """Route to next knockout_question or evaluation"""
     
-    print("knockout_question_router called")
+#     print("knockout_question_router called")
     
-    if state["current_knockout_question_index"] < len(state["knockout_questions"]):
-        return "ask_knockout_question"
-    return "evaluate_knockout"
+#     if state["current_knockout_question_index"] < len(state["knockout_questions"]):
+#         return "ask_knockout_question"
+#     return "evaluate_knockout"
 
 
-# ==================== KNOCKOUT EVALUATION ====================
+# ==================== KNOCKOUT EVALUATION (Per Question) ====================
 
-def evaluate_knockout_node(state: ChatbotState) -> ChatbotState:
-    """Evaluate knockout answers using LLM"""
+def evaluate_single_knockout_node(state: ChatbotState) -> ChatbotState:
+    """Evaluate the most recent knockout answer"""
     
-    print("evaluate_knockout_node called")
+    print("evaluate_single_knockout_node called")
     
     knockout_questions = state["knockout_questions"]
     knockout_answers = state["knockout_answers"]
+    current_index = state["current_knockout_question_index"] - 1  # We just stored it
     
-    # Format questions and answers for prompt
-    qa_pairs = []
-    for question in knockout_questions:
-        answer = knockout_answers.get(question, "No answer")
-        qa_pairs.append(f"Q: {question}\nA: {answer}")
+    if current_index < 0 or current_index >= len(knockout_questions):
+        return state
     
-    qa_text = "\n\n".join(qa_pairs)
+    current_question = knockout_questions[current_index]
+    current_answer = knockout_answers.get(current_question, "No answer")
+    
+    print(f"Evaluating Q{current_index + 1}: {current_question}")
+    print(f"Answer: {current_answer}")
     
     # Evaluate using LLM
-    prompt = KNOCKOUT_EVALUATION_PROMPT.format(
-        knockout_questions="",
-        knockout_answers=qa_text
-    )
+    prompt = f"""
+    Evaluate if this answer is positive (YES) or negative (NO).
     
-    # Use chat template
-    messages = chat_template.format_messages(user_input=prompt)
-    response = llm.invoke(messages)
+    Question: {current_question}
+    Answer: {current_answer}
     
-    # Get decision (should be "PASS" or "FAIL")
+    Rules:
+    - Positive responses: "yes", "yeah", "yep", "sure", "I am", "I have", "I can", "available", numbers ≥18, "definitely", "of course"
+    - Negative responses: "no", "not", "don't", "can't", "unavailable", numbers <18, "nope"
+    - Incomplete but positive intent: "I'm", "yes I", "I do" → treat as YES
+    
+    Return ONLY "YES" or "NO". Nothing else.
+    
+    Decision:
+    """
+    
+    response = llm.invoke(prompt)
     decision = response.content.strip().upper()
     
-    print(f"Knockout evaluation: {decision}")
+    print(f"Decision: {decision}")
     
-    if decision == "PASS":
-        state["knockout_passed"] = True
-    else:
-        state["knockout_passed"] = False
-        failure_message = cleo_engagement.failure_message
+    if decision == "NO":
+        state["current_knockout_failed"] = True
         
-        # Add failure message to conversation
+        # Add specific failure message based on question index
+        failure_messages = [
+            "I understand. Unfortunately, we can only proceed with applicants who are legally eligible to work in the U.S. Thank you for your time!",
+            "I understand. Unfortunately, the minimum age requirement is 18, so we can't move forward right now. Thank you for your time!",
+            "I see. While we appreciate your interest, we currently only have openings for those specific shifts. Thank you for your time today.",
+            "I see. Reliable transportation is crucial for those evening and weekend shifts, which can sometimes be difficult to reach. Unfortunately, this is a firm requirement for the role at this time. Thank you so much for taking the time to chat with me today!"
+        ]
+        
+        failure_message = failure_messages[current_index] if current_index < len(failure_messages) else failure_messages[-1]
         state["messages"].append(AIMessage(content=failure_message))
+    else:
+        state["current_knockout_failed"] = False
+        
+        # Add specific acknowledgment based on question index
+        acknowledgment_messages = [
+            "Got it, thank you.",
+            "Great, almost done with the requirements.",
+            "Perfect! That sounds like a good fit for our team.",
+            ""  # No acknowledgment for last question - just continue
+        ]
+        
+        ack_message = acknowledgment_messages[current_index] if current_index < len(acknowledgment_messages) else ""
+        
+        if ack_message:
+            state["messages"].append(AIMessage(content=ack_message))
     
     return state
 
 
-def knockout_evaluation_router(state: ChatbotState) -> Literal["ask_name", "__end__"]:
-    """Route based on knockout evaluation"""
+def single_knockout_router(state: ChatbotState) -> Literal["ask_knockout_question", "ask_work_experience", "__end__"]:
+    """Route based on single knockout evaluation"""
     
-    print("knockout_evaluation_router called")
+    print("single_knockout_router called")
     
-    if state.get("knockout_passed"):
-        return "ask_name"  # Continue to personal details
-    return "__end__"       # go directly to END
+    # Check if current question failed
+    if state.get("current_knockout_failed", False):
+        return "__end__"  # End conversation
+    
+    # Check if more questions remain
+    if state["current_knockout_question_index"] < len(state["knockout_questions"]):
+        return "ask_knockout_question"  # Ask next question
+    
+    # All questions passed
+    return "ask_work_experience"  # Continue to work experience
 
 
+# ==================== WORK EXPERIENCE COLLECTION ====================
 
+def ask_work_experience_node(state: ChatbotState) -> ChatbotState:
+    """Ask about prior work experience"""
+    
+    print("ask_work_experience_node called")
+    
+    question = "Do you have prior work experience?"
+    state["messages"].append(AIMessage(content=question))
+    
+    return state
+
+
+def store_work_experience_response_node(state: ChatbotState) -> ChatbotState:
+    """Store yes/no response and set flag for UI"""
+    
+    print("store_work_experience_response_node called")
+    
+    messages = state["messages"]
+    last_message = messages[-1] if messages else None
+    
+    if isinstance(last_message, HumanMessage):
+        user_input = last_message.content.lower().strip()
+        
+        # Store the answer in knockout_answers
+        state["knockout_answers"]["Do you have prior work experience?"] = last_message.content
+        
+        # Check if user said yes
+        if any(word in user_input for word in ["yes", "yeah", "yep", "sure", "definitely", "of course"]):
+            state["show_work_experience_ui"] = True
+            # Add a message that will trigger the UI
+            state["messages"].append(AIMessage(content="Great! Please provide your most recent work experience details below."))
+        else:
+            state["show_work_experience_ui"] = False
+    
+    return state
+
+# ==================== EDUCATION COLLECTION ====================
+
+def ask_education_node(state: ChatbotState) -> ChatbotState:
+    """Ask about education level"""
+    
+    print("ask_education_node called")
+    
+    question = "What is your highest level of education completed?"
+    state["messages"].append(AIMessage(content=question))
+    state["show_education_ui"] = True  # Signal to show checkbox UI
+    
+    return state
+
+
+def store_education_node(state: ChatbotState) -> ChatbotState:
+    """Store education level from user selection"""
+    
+    print("store_education_node called")
+    
+    messages = state["messages"]
+    last_message = messages[-1] if messages else None
+    
+    if isinstance(last_message, HumanMessage):
+        state["education_level"] = last_message.content
+    
+    print(f"Stored education level: {state['education_level']}")
+    return state
 
 # ==================== PERSONAL DETAILS COLLECTION ====================
 
@@ -506,12 +618,12 @@ def ask_phone_node(state: ChatbotState) -> ChatbotState:
     if state.get("phone_validation_failed"):
          
         # Check attempt count
-        if state.get("phone_attempt_count", 0) >= 3:
+        if state.get("phone_attempt_count") >= 3:
             # After 3 attempts, show example
             prompt = PERSONAL_DETAIL_REASK_WITH_EXAMPLE_PROMPT.format(
                 detail_type="phone number",
                 invalid_attempt=state.get("invalid_phone_attempt"),
-                example="+1-234-567-8900 or 2345678900"
+                example="+1-234-567-8900"
             )
 
             # Use the chat template
@@ -533,13 +645,13 @@ def ask_phone_node(state: ChatbotState) -> ChatbotState:
             state["messages"].append(AIMessage(content=response.content))
     else:
         
-        if state.get("phone_otp_sent_failed") == True:
-            print("Re-asking for phone due to previous OTP send failure.")
-            state["messages"].append(AIMessage(content="Kindly enter your phone number again with country code (example: +1-234-567-8900)"))
+        # if state.get("phone_otp_sent_failed") == True:
+        #     print("Re-asking for phone due to previous OTP send failure.")
+        #     state["messages"].append(AIMessage(content="Kindly enter your phone number again with country code (example: +1-234-567-8900)"))
 
-            state["phone_otp_sent_failed"] = False
+        #     state["phone_otp_sent_failed"] = False
 
-            return state
+        #     return state
         
         # Use normal ask prompt
         ask_phone = cleo_engagement.ask_phone
@@ -814,14 +926,14 @@ def verify_phone_otp_node(state: ChatbotState) -> ChatbotState:
     return state
 
 
-def phone_otp_router(state: ChatbotState) -> Literal["acknowledgement", "send_phone_otp", "ask_phone", "ask_phone_otp"]:
+def phone_otp_router(state: ChatbotState) -> Literal["acknowledgement", "send_phone_otp", "ask_phone", "ask_phone_otp", "__end__"]:
     """Route based on phone OTP verification status"""
     
     print("phone_otp_router called")
 
     if state.get("phone_otp_sent_failed") == True:
         print("Phone OTP not sent yet, asking for phone again.")
-        return "ask_phone"
+        return "acknowledgement"
 
     # Check if verified
     if state.get("phone_verified", False):
@@ -973,6 +1085,9 @@ def summary_node(state: ChatbotState) -> ChatbotState:
     
     score = state.get("score", 0)
     total_score = state.get("total_score", 100)
+
+    work_experience = state.get("work_experience", {})
+    education_level = state.get("education_level", "")
     
     # Convert score to percentage
     score = (score / total_score) * 100 if total_score > 0 else 0
@@ -999,7 +1114,9 @@ def summary_node(state: ChatbotState) -> ChatbotState:
         "knockout_answers": knockout_text,
         "answers": answers_text,
         "score": score,
-        "total_score": total_score
+        "total_score": total_score,
+        "work_experience": work_experience,
+        "education": education_level
     }
 
     json_report = generate_json_report(data)
@@ -1046,13 +1163,23 @@ def build_graph(checkpointer):
     workflow.add_node("delay_messages", delay_messages_node)
     workflow.add_node("check_ready", check_ready_node)
     workflow.add_node("acknowledgement", acknowledge_node)
+    
     workflow.add_node("ask_knockout_question", ask_knockout_question_node)
     workflow.add_node("store_kq_answer", store_kq_answer_node)
-    workflow.add_node("evaluate_knockout", evaluate_knockout_node)
+    
+    workflow.add_node("evaluate_single_knockout", evaluate_single_knockout_node)
+    
+    workflow.add_node("ask_work_experience", ask_work_experience_node)
+    workflow.add_node("store_work_experience_response", store_work_experience_response_node)
+    
+    workflow.add_node("ask_education", ask_education_node)
+    workflow.add_node("store_education", store_education_node)
+    
     workflow.add_node("ask_name", ask_name_node)
     workflow.add_node("store_name", store_name_node)
     workflow.add_node("ask_email", ask_email_node)
     workflow.add_node("store_email", store_email_node)
+    
     workflow.add_node("send_email_otp", send_email_otp_node)
     workflow.add_node("ask_email_otp", ask_email_otp_node)
     workflow.add_node("verify_email_otp", verify_email_otp_node)
@@ -1063,6 +1190,7 @@ def build_graph(checkpointer):
     workflow.add_node("verify_phone_otp", verify_phone_otp_node)
     workflow.add_node("ask_question", ask_question_node)
     workflow.add_node("store_answer", store_answer_node)
+    
     workflow.add_node("score", score_node)
     workflow.add_node("summary", summary_node)
     workflow.add_node("end", end_node)
@@ -1080,10 +1208,20 @@ def build_graph(checkpointer):
     workflow.add_conditional_edges("acknowledgement", post_acknowledgement_router)
     
     workflow.add_edge("ask_knockout_question", "store_kq_answer")
-    workflow.add_conditional_edges("store_kq_answer", knockout_question_router)
+    # workflow.add_conditional_edges("store_kq_answer", knockout_question_router)
 
-    #  knockout evaluation flow
-    workflow.add_conditional_edges("evaluate_knockout", knockout_evaluation_router)
+    workflow.add_edge("store_kq_answer", "evaluate_single_knockout")
+
+    # Route based on evaluation result
+    workflow.add_conditional_edges("evaluate_single_knockout", single_knockout_router)
+    
+    # Work experience flow
+    workflow.add_edge("ask_work_experience", "store_work_experience_response")
+    workflow.add_edge("store_work_experience_response", "ask_education")
+
+    # Education flow
+    workflow.add_edge("ask_education", "store_education")
+    workflow.add_edge("store_education", "ask_name")
     
     # Personal details flow with validation
     workflow.add_edge("ask_name", "store_name")
@@ -1115,7 +1253,7 @@ def build_graph(checkpointer):
     
     app = workflow.compile(
         checkpointer=checkpointer,
-        interrupt_after=["delay_messages", "ask_knockout_question", "ask_name", "ask_email", "ask_email_otp", "ask_phone", "ask_phone_otp", "ask_question"]
+        interrupt_after=["delay_messages", "ask_knockout_question", "ask_work_experience", "store_work_experience_response", "ask_education", "ask_name", "ask_email", "ask_email_otp", "ask_phone", "ask_phone_otp", "ask_question"]
     )
     
     return app

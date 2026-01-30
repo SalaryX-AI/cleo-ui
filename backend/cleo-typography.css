@@ -37,7 +37,7 @@ body,
    Visual priority: High (display-style text) */
 .cleo-intro {
     font-family: "SF Pro Display", -apple-system, BlinkMacSystemFont, sans-serif;
-    font-size: 20px;
+    font-size: 18px;
     font-weight: 600; /* Semibold */
     line-height: 1.4;
     letter-spacing: -0.3px;

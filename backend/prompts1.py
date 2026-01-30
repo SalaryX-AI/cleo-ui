@@ -82,14 +82,25 @@ KNOCKOUT_EVALUATION_PROMPT = PromptTemplate(
     
     Evaluation Rules:
     - These are CRITICAL eligibility questions
-    - If candidate answered "no", "not authorized", "don't have", or similar negative responses to ANY question → FAIL
-    - If candidate answered "yes", "authorized", "have", or similar positive responses to ALL questions → PASS
-    - Be strict: any single failure = overall FAIL
+    - For legal authorization, transportation, availability questions:
+      * "yes", "authorized", "have", "available", "can", "sure", "definitely" → PASS
+      * "no", "not authorized", "don't have", "unavailable", "cannot" → FAIL
+    
+    - For age questions (18 or older):
+      * "yes", "I'm", "I am", any number ≥18, "old enough", "adult" → PASS
+      * "no", "not", any number <18, "minor", "under 18" → FAIL
+      * Incomplete answers like "I'm", "yes I", "I am" → PASS (assume positive intent)
+    
+    - Be reasonably lenient: minor typos or incomplete responses that show positive intent → PASS
+    - Be strict only on clear negatives: explicit "no" or disqualifying information → FAIL
     
     Examples:
     Q: "Are you legally authorized to work in the U.S.?" A: "no" → FAIL
+    Q: "Are you 18 or older?" A: "I'm" → PASS (incomplete but positive intent)
+    Q: "Are you 18 or older?" A: "yes I am" → PASS
+    Q: "Are you 18 or older?" A: "I'm 17" → FAIL
     Q: "Do you have reliable transportation?" A: "no" → FAIL
-    Q: "Are you legally authorized to work in the U.S.?" A: "yes" + Q: "Do you have reliable transportation?" A: "yes" → PASS
+    Q: "All questions answered positively" → PASS
     
     CRITICAL: Return ONLY one word - either "PASS" or "FAIL". Nothing else.
     
@@ -128,6 +139,7 @@ PERSONAL_DETAIL_REASK_PROMPT = PromptTemplate(
 
     Instructions:
     - Gently point out the issue with their "{invalid_attempt}" directly.
+    - If the detail_type is phone number, remind them to include the country code (e.g., +1, +92).
     - Politely ask them to provide their {detail_type} again.
     - Avoid words like "Hey" or "Oops".
 
@@ -148,6 +160,7 @@ PERSONAL_DETAIL_REASK_WITH_EXAMPLE_PROMPT = PromptTemplate(
 
     Instructions:
     - Gently acknowledge they've had trouble with the format
+    - If the detail_type is phone number, remind them to include the country code (e.g., +1, +92).
     - Show them a clear example: {example}
     - Politely ask them to try again using the example format
     - Be patient, encouraging, and helpful
@@ -211,7 +224,7 @@ SCORING_PROMPT = PromptTemplate(
     {{
         "scores": {{"question1": score1, "question2": score2, ...}},
         "score": total_sum,
-        "total_score": 45
+        "total_score": 20
     }}
 
     CRITICAL: Apply min(), max(), and other functions correctly in formulas!
@@ -304,7 +317,7 @@ GENERATE_JOB_CONFIG_PROMPT = PromptTemplate(
 
 
 JSON_REPORT_PROMPT = PromptTemplate(
-    input_variables=["name", "email", "phone", "session_id", "knockout_answers", "answers", "score", "total_score", "current_time"],
+    input_variables=["name", "email", "phone", "session_id", "knockout_answers", "answers", "score", "total_score", "work_experience", "education", "current_time"],
     template="""
     You are an expert HR analyst. Generate a comprehensive JSON report for the hiring manager based on the candidate's screening interview.
 
@@ -319,6 +332,12 @@ JSON_REPORT_PROMPT = PromptTemplate(
 
     SCREENING QUESTIONS (Skills & Experience):
     {answers}
+
+    WORK EXPERIENCE (job_title, employer, years_experience, duration, skills, relevant_experience):
+    {work_experience}
+
+    EDUCATION:
+    {education}
 
     SCORES:
     - Total Score: {score} out of {total_score}
@@ -352,15 +371,15 @@ JSON_REPORT_PROMPT = PromptTemplate(
       }},
       "experiences": [
         {{
-          "years_experience": Extract number from answers,
+          "years_experience": Calculate total_experience (years and months) from duration,
           "job_title": null (if not mentioned),
           "employer": null (if not mentioned),
-          "duration": null (if not mentioned),
-          "skills": null (if not mentioned),
+          "duration": null (if not mentioned) format should be (start date - end date),
+          "skills": any 2-3 skills based on relevant_experience,
           "relevant_experience": "Summary of candidate's experience from their answers (2-3 sentences)"
         }}
       ],
-      "education": [],
+      "education": {education},
       "fit_score": {{
         "total_score": {score} as integer,
         "qualification_score": 0-100 based on knockout answers,

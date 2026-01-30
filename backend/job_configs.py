@@ -80,12 +80,10 @@ JOB_CONFIGS = {
             "Do you have reliable transportation to and from our store located at {address}?"
         ],
         "questions": [
-            "How many years of cashier or POS system experience do you have?",
             "Are you comfortable with basic math and giving accurate change?",
             "Have you worked with point-of-sale systems before?"
         ],
         "scoring_model": {
-            "How many years of cashier or POS system experience do you have?": {"rule": "Score = min(years, 5) * 5"},
             "Are you comfortable with basic math and giving accurate change?": {"rule": "Yes -> 10, No -> 0"},
             "Have you worked with point-of-sale systems before?": {"rule": "Yes -> 10, No -> 0"}
         }
@@ -116,12 +114,10 @@ JOB_CONFIGS = {
             "Do you have reliable transportation to and from our store located at {address}?"
         ],
         "questions": [
-            "How many years of cooking experience do you have?",
             "Are you comfortable operating grills and fryers?",
             "Have you worked in a professional kitchen before?"
         ],
         "scoring_model": {
-            "How many years of cooking experience do you have?": {"rule": "Score = years * 3"},
             "Are you comfortable operating grills and fryers?": {"rule": "Yes -> 10, No -> 0"},
             "Have you worked in a professional kitchen before?": {"rule": "Yes -> 10, No -> 0"}
         }

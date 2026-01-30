@@ -217,6 +217,7 @@ def set_job_address(job_config: dict, location: str):
 
     return job
 
+
 @app.websocket("/ws/{session_id}")
 async def websocket_endpoint(websocket: WebSocket, session_id: str):
     """WebSocket connection for chat"""
@@ -237,8 +238,8 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
     job_id = session["job_id"]
     company_id = session["company_id"]
 
-    if sys.platform == 'win32':
-        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+    # if sys.platform == 'win32':
+    #     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
     # job_config = await read_job_config_from_db(job_id)
 
@@ -246,10 +247,8 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
 
     job = set_job_address(job_config, location)
 
-
     global brand_name
     
-    # graph_app = build_graph()
     config = {"configurable": {"thread_id": thread_id}}
     
     try:
@@ -276,6 +275,7 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
             delay_node_type="",
             
             knockout_passed=False,
+            current_knockout_failed=False,
             brand_name=brand_name,
 
             email_otp_code="",
@@ -292,9 +292,15 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
             phone_verified=False,
             phone_otp_attempts=0,
 
-            session_id = session_id,
-            job_id = job_id,
-            company_id = company_id
+            session_id=session_id,
+            job_id=job_id,
+            company_id=company_id,
+            applicant_age="",
+            
+            work_experience=[],
+            show_work_experience_ui=False,
+            education_level="",
+            show_education_ui=False
         )
         
         # Start workflow with streaming
@@ -308,13 +314,12 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                         print("Processing delay_messages stage start...")
                         
                         for msg in messages[-2:]:   # only last two messages
-
-                            # Show typing for 1.5 seconds
+                            # Show typing for 1 second
                             await websocket.send_json({"type": "typing"})
-                            await asyncio.sleep(1.5)
+                            await asyncio.sleep(1)
                             
                             print(msg.content)
-                            await asyncio.sleep(3)  # 3 second delay
+                            await asyncio.sleep(2)  # 3 second delay
                             
                             if isinstance(msg, AIMessage):
                                 await websocket.send_json({
@@ -322,25 +327,25 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                                     "content": msg.content,
                                     "messageType": "body"
                                 })
-
                     else:
                         # Normal processing - send last message only
                         msg = messages[-1]
                         print(msg.content)
                         
-                        # Show typing for 1.5 seconds
+                        # Show typing for 1 second
                         await websocket.send_json({"type": "typing"})
-                        await asyncio.sleep(1.5)  
+                        await asyncio.sleep(1)
                         
                         if isinstance(msg, AIMessage):
+                            
                             await websocket.send_json({
                                 "type": "ai_message",
                                 "content": msg.content,
-                                "messageType": "intro"
+                                "messageType": "intro",
                             })
         
         while True:
-            
+    
             # Check if workflow completed
             snapshot = await graph_app.aget_state(config)
             if not snapshot.next:
@@ -349,27 +354,119 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                 })
                 break
             
+            # print(f"[DEBUG] Waiting for message. Next nodes: {snapshot.next}")  # ADD DEBUG
+            
             data = await websocket.receive_text()
             message_data = json.loads(data)
             
+            print(f"[DEBUG] Received message: {message_data}")  # ADD DEBUG
+            
+            # Handle work experience data submission
+            if message_data.get("type") == "work_experience_data":
+                work_exp_data = message_data.get("data", {})
+                
+                print(f"Received work experience: {work_exp_data}")
+                
+                # Get current state
+                current_state = await graph_app.aget_state(config)
+                work_experiences = current_state.values.get("work_experience", [])
+                work_experiences.append(work_exp_data)
+                current_messages = current_state.values.get("messages", [])
+                
+                # Format work experience message
+                work_exp_message = f"Added: {work_exp_data['role']} at {work_exp_data['company']} ({work_exp_data['start_date']} to {work_exp_data['end_date']})"
+                
+                # Update state
+                await graph_app.aupdate_state(
+                    config,
+                    {
+                        "work_experience": work_experiences,
+                        "messages": current_messages + [HumanMessage(content=work_exp_message)]
+                    }
+                )
+                
+                # print(f"[DEBUG] Resuming workflow after work experience")  # ADD DEBUG
+                
+                # Continue workflow
+                async for event in graph_app.astream(None, config=config, stream_mode="updates"):
+                    for node_name, node_data in event.items():
+                        print(f"[DEBUG] Processing node: {node_name}")  # ADD DEBUG
+                        
+                        if node_data and "messages" in node_data:
+                            messages = node_data["messages"]
+                            
+                            if node_name == "delay_messages":
+                                print("Processing delay_messages after work exp...")
+                                
+                                for msg in messages[-2:]:
+                                    await websocket.send_json({"type": "typing"})
+                                    await asyncio.sleep(1)
+                                    print(msg.content)
+                                    await asyncio.sleep(2)
+                                    
+                                    if isinstance(msg, AIMessage):
+                                        await websocket.send_json({
+                                            "type": "ai_message",
+                                            "content": msg.content,
+                                            "messageType": "body"
+                                        })
+                            else:
+                                messageType = "body"
+                                if node_name in ["ask_knockout_question", "ask_name", "ask_email", "ask_phone", "ask_question", "ask_work_experience", "ask_education"]:
+                                    messageType = "questions"
+                                
+                                await websocket.send_json({"type": "typing"})
+                                await asyncio.sleep(1)
+                                
+                                msg = messages[-1]
+                                print(msg.content)
+                                if isinstance(msg, AIMessage):
+                                    
+                                    # Check if we should show work experience UI and education UI
+                                    show_ui = (node_name == "store_work_experience_response" and node_data.get("show_work_experience_ui", False))
+                                    show_edu_ui = (node_name == "ask_education" and node_data.get("show_education_ui", False))
+                                    
+                                    await websocket.send_json({
+                                        "type": "ai_message",
+                                        "content": msg.content,
+                                        "messageType": messageType,
+                                        "show_work_experience_ui": show_ui,
+                                        "show_education_ui": show_edu_ui
+                                    })
+                
+                continue  # Skip normal message processing
+            
             if message_data.get("type") != "user_message":
+                print(f"[DEBUG] Skipping non-user message type: {message_data.get('type')}")  # ADD DEBUG
                 continue
             
-            user_input = message_data.get("content", "").strip()
+            # Convert to string first
+            user_input = str(message_data.get("content") or "").strip()
+            
+            # print(f"[DEBUG] Processing user input: '{user_input}'")  # ADD DEBUG
+            
             if not user_input:
+                print(f"[DEBUG] Empty user input, skipping")  # ADD DEBUG
                 continue
             
             current_state = await graph_app.aget_state(config)
             current_messages = current_state.values.get("messages", [])
             
+            # print(f"[DEBUG] Current messages count: {len(current_messages)}")  # ADD DEBUG
+                        
+            # Normal message processing
             await graph_app.aupdate_state(
                 config,
                 {"messages": current_messages + [HumanMessage(content=user_input)]}
             )
             
+            print(f"[DEBUG] Resuming workflow after user message")  # ADD DEBUG
+            
             # Resume workflow with streaming
             async for event in graph_app.astream(None, config=config, stream_mode="updates"):
                 for node_name, node_data in event.items():
+                    print(f"[DEBUG] Processing node: {node_name}")  # ADD DEBUG
+                    
                     if node_data and "messages" in node_data:
                         messages = node_data["messages"]
                         
@@ -379,12 +476,12 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
 
                             for msg in messages[-2:]:   # only last two messages
                                 
-                                # Show typing for 1.5 seconds
+                                # Show typing for 1 second
                                 await websocket.send_json({"type": "typing"})
-                                await asyncio.sleep(1.5)  
+                                await asyncio.sleep(1)
                                 
                                 print(msg.content)
-                                await asyncio.sleep(3)  # 3 second delay
+                                await asyncio.sleep(2)  # 3 second delay
                                 
                                 if isinstance(msg, AIMessage):
                                     await websocket.send_json({
@@ -393,24 +490,29 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                                         "messageType": "body"
                                     })
                         else:
-                            
                             messageType = "body"
                             
-                            if node_name == "ask_knockout_question" or node_name ==  "ask_name" or node_name == "ask_email" or node_name == "ask_phone" or node_name == "ask_question":
+                            if node_name in ["ask_knockout_question", "ask_name", "ask_email", "ask_phone", "ask_question", "ask_work_experience", "ask_education"]:
                                 messageType = "questions"
                             
-                            # Show typing for 1.5 seconds
+                            # Show typing for 1 second
                             await websocket.send_json({"type": "typing"})
-                            await asyncio.sleep(1.5)  
+                            await asyncio.sleep(1)
                             
-                            # Normal processing - send last message only
                             msg = messages[-1]
                             print(msg.content)
                             if isinstance(msg, AIMessage):
+                                
+                                # Check if we should show work experience UI and education UI
+                                show_ui = (node_name == "store_work_experience_response" and node_data.get("show_work_experience_ui", False))
+                                show_edu_ui = (node_name == "ask_education" and node_data.get("show_education_ui", False))
+                                
                                 await websocket.send_json({
                                     "type": "ai_message",
                                     "content": msg.content,
-                                    "messageType": messageType
+                                    "messageType": messageType,
+                                    "show_work_experience_ui": show_ui,
+                                    "show_education_ui": show_edu_ui
                                 })
     
     except WebSocketDisconnect:
