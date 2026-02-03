@@ -431,7 +431,7 @@ def ask_work_experience_node(state: ChatbotState) -> ChatbotState:
 
 
 def store_work_experience_response_node(state: ChatbotState) -> ChatbotState:
-    """Store yes/no response and set flag for UI"""
+    """Store yes/no response and set flag for UI using LLM evaluation"""
     
     print("store_work_experience_response_node called")
     
@@ -439,18 +439,48 @@ def store_work_experience_response_node(state: ChatbotState) -> ChatbotState:
     last_message = messages[-1] if messages else None
     
     if isinstance(last_message, HumanMessage):
-        user_input = last_message.content.lower().strip()
+        user_input = last_message.content.strip()
         
         # Store the answer in knockout_answers
         state["knockout_answers"]["Do you have prior work experience?"] = last_message.content
         
-        # Check if user said yes
-        if any(word in user_input for word in ["yes", "yeah", "yep", "sure", "definitely", "of course"]):
+        # Use LLM to evaluate the response
+        prompt = f"""
+        Evaluate if this answer indicates YES (has work experience) or NO (no work experience).
+        
+        Question: "Do you have prior work experience?"
+        Answer: "{user_input}"
+        
+        Rules:
+        - Positive responses (indicating YES): "yes", "yeah", "yep", "sure", "I have", "I do", "I worked", "definitely", "of course", mentions of specific jobs or companies
+        - Negative responses (indicating NO): "no", "nope", "not", "don't", "never", "haven't", "no experience", "fresh graduate"
+        - Unclear/Incomplete: treat as NO (user can provide details if needed)
+        
+        Examples:
+        - "yes I have" → YES
+        - "I worked at McDonald's" → YES
+        - "yeah, 2 years" → YES
+        - "no" → NO
+        - "I'm a student" → NO (unclear, assume no)
+        - "not really" → NO
+        
+        Return ONLY "YES" or "NO". Nothing else.
+        
+        Decision:
+        """
+        
+        response = llm.invoke(prompt)
+        decision = response.content.strip().upper()
+        
+        print(f"Work experience evaluation: {decision}")
+        
+        if decision == "YES":
             state["show_work_experience_ui"] = True
             # Add a message that will trigger the UI
             state["messages"].append(AIMessage(content="Great! Please provide your most recent work experience details below."))
         else:
             state["show_work_experience_ui"] = False
+            # No work experience - continue normally without UI
     
     return state
 

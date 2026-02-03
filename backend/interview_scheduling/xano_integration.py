@@ -17,7 +17,9 @@ def submit_interview_to_xano(
     job_id: str,             
     interview_date: str,     
     interview_time: str,     
-    location: str,           
+    location: str,   
+    interview_type: str = "Onsite",     
+    meeting_link: str = ""                      
 ) -> bool:
     """
     Submit confirmed interview schedule to Xano
@@ -95,6 +97,8 @@ def submit_with_retry(
     interview_date: str,    
     interview_time: str,    
     location: str,          
+    interview_type: str = "Onsite",     
+    meeting_link: str = "",             
     max_retries: int = 3
 ) -> bool:
     """
@@ -121,7 +125,9 @@ def submit_with_retry(
             job_id=job_id,                
             interview_date=interview_date,
             interview_time=interview_time,
-            location=location             
+            location=location,
+            interview_type=interview_type,      
+            meeting_link=meeting_link                       
         )
         
         if success:

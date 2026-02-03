@@ -15,6 +15,8 @@ class SchedulingRequest(BaseModel):
     job_id: str = Field(..., min_length=1, max_length=100)           
     candidate_id: int = Field(..., gt=0)    
     location: str = Field(..., min_length=1, max_length=255)
+    interview_type: str = Field(..., min_length=1, max_length=50)     
+    meeting_link: str = Field(default="", max_length=500)             
     slots: Dict[str, List[str]] = Field(..., description="Available interview slots by date")
     
     @validator('applicant_phone')
@@ -101,6 +103,8 @@ class SessionData(BaseModel):
     job_id: str              
     candidate_id: int      
     location: str    
+    interview_type: str              
+    meeting_link: str   
     available_slots: dict
     conversation_history: List[dict]
     selected_date: Optional[str] = None

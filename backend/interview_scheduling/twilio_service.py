@@ -40,11 +40,12 @@ def send_sms(to_phone: str, message: str) -> bool:
             to=to_phone
         )
         
-        print(f"✓ SMS sent to {to_phone}: SID {twilio_message.sid}")
+        print(f"SMS sent to {to_phone}: SID {twilio_message.sid}")
         return twilio_message.sid is not None
         
     except Exception as e:
-        print(f"✗ Error sending SMS to {to_phone}: {e}")
+        print
+        print(f"Error sending SMS to {to_phone}: {e}")
         return False
 
 

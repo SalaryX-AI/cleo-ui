@@ -8,13 +8,14 @@ import json
 from datetime import datetime, timedelta
 
 # Configuration
-BASE_URL = "http://localhost:8003"
+# BASE_URL = "https://scanandhire.com/scheduling"
+BASE_URL = "http://localhost:8001"  # Local testing
 API_KEY = "scheduling_key_456"  # Replace with your actual key
 
 # Test data
 TEST_APPLICANT = {
-    "applicant_name": "Muaaz",
-    "applicant_phone": "+923400371987",
+    "applicant_name": "Zubier",
+    "applicant_phone": "+15082237081",
     "company_name": "Big Chicken",
     "position": "Shift Manager",
     "slots": {
@@ -23,7 +24,9 @@ TEST_APPLICANT = {
     },
     "job_id": "job_12345",
     "candidate_id": 67890, 
-    "location": "any location"
+    "location": "any location",
+    "interview_type": "Online Meeting",
+    "meeting_link": "https://meet.google.com/abc-defg-hij"
 }
 
 

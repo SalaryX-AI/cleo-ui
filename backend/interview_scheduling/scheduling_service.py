@@ -32,6 +32,8 @@ async def create_scheduling_session(
     job_id: str,           
     candidate_id: int,    
     location: str,  
+    interview_type: str,     
+    meeting_link: str,       
     available_slots: dict
 ) -> str:
     """
@@ -53,8 +55,9 @@ async def create_scheduling_session(
     query = """
         INSERT INTO interview_scheduling_sessions 
         (session_id, applicant_name, applicant_phone, company_name, position, 
-        job_id, candidate_id, location, available_slots, status)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        job_id, candidate_id, location, interview_type, meeting_link, 
+        available_slots, status)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         RETURNING session_id
     """
     
@@ -69,7 +72,9 @@ async def create_scheduling_session(
                 position,                      
                 job_id,                        
                 candidate_id,                  
-                location,                      
+                location,      
+                interview_type,                
+                meeting_link,                   
                 json.dumps(available_slots),   
                 'pending'                      
             )
@@ -114,6 +119,8 @@ async def get_session_by_phone(conn: AsyncConnection, phone: str) -> Optional[Se
         job_id=row['job_id'],              
         candidate_id=row['candidate_id'],  
         location=row['location'],          
+        interview_type=row['interview_type'],      
+        meeting_link=row['meeting_link'],          
         available_slots=row['available_slots'],
         conversation_history=row['conversation_history'] or [],
         selected_date=row['selected_date'],
@@ -154,6 +161,8 @@ async def get_session_by_id(conn: AsyncConnection, session_id: str) -> Optional[
         job_id=row['job_id'],              
         candidate_id=row['candidate_id'],  
         location=row['location'],         
+        interview_type=row['interview_type'],      
+        meeting_link=row['meeting_link'],          
         available_slots=row['available_slots'],
         conversation_history=row['conversation_history'] or [],
         selected_date=row['selected_date'],
@@ -397,7 +406,9 @@ async def handle_scheduling_response(
                 job_id=session_data.job_id,                   
                 interview_date=llm_response.analysis.selected_date,
                 interview_time=llm_response.analysis.selected_time,
-                location=session_data.location                
+                location=session_data.location,
+                interview_type=session_data.interview_type,    
+                meeting_link=session_data.meeting_link                
             )
             
         elif llm_response.action == "mark_custom_request":

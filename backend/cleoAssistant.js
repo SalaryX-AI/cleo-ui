@@ -872,6 +872,12 @@
             const ui = this.render();
             messagesDiv.appendChild(ui);
             this.attachEventListeners();
+
+            // Scroll to show Work UI
+            messagesDiv.scrollTo({
+                top: messagesDiv.scrollHeight,
+                behavior: 'smooth'
+            });
             
             // Disable normal input
             window.CleoChatbot.disableInput();
@@ -1037,7 +1043,7 @@
         },
         
         attachEventListeners() {
-            // ✅ Store reference to self to avoid 'this' context issues
+            // Store reference to self to avoid 'this' context issues
             const self = this;
             
             const optionsList = document.getElementById('edu-options-list');
@@ -1065,7 +1071,7 @@
                 // Select clicked option
                 option.classList.add('selected');
                 
-                // ✅ Store in self to maintain reference
+                // Store in self to maintain reference
                 self.selectedOption = value;
                 
                 console.log('[EducationUI] Selected option stored:', self.selectedOption);
@@ -1101,7 +1107,7 @@
                 // Show user's selection
                 window.CleoChatbot.addMessage(selectedValue, false, 'body');
                 
-                // ✅ Create message object and log it
+                // Create message object and log it
                 const message = {
                     type: 'user_message',
                     content: selectedValue
@@ -1132,16 +1138,16 @@
             const ui = this.render();
             messagesDiv.appendChild(ui);
             
-            // ✅ Reset selected option before showing
+            // Reset selected option before showing
             this.selectedOption = null;
             
             this.attachEventListeners();
             
-            // Scroll to show UI
-            // messagesDiv.scrollTo({
-            //     top: messagesDiv.scrollHeight,
-            //     behavior: 'smooth'
-            // });
+            // Scroll to show Education UI
+            messagesDiv.scrollTo({
+                top: messagesDiv.scrollHeight,
+                behavior: 'smooth'
+            });
             
             // Disable normal input
             if (window.CleoChatbot) {

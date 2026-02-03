@@ -34,7 +34,7 @@ load_dotenv()
 db_conn = None
 
 # API Key for authentication
-API_KEY = os.getenv("SCHEDULING_API_KEY", "scheduling_key_secure_456")
+API_KEY = os.getenv("SCHEDULING_API_KEY", "scheduling_key_456")
 
 
 @asynccontextmanager
@@ -129,6 +129,8 @@ async def initiate_scheduling(
             job_id=request.job_id,              
             candidate_id=request.candidate_id,  
             location=request.location, 
+            interview_type=request.interview_type,    
+            meeting_link=request.meeting_link,        
             available_slots=request.slots
         )
         
@@ -348,6 +350,6 @@ if __name__ == "__main__":
     uvicorn.run(
         "scheduling_api:app",
         host="0.0.0.0",
-        port=8003,  # Different port from main Cleo app
+        port=8001,  # Different port from main Cleo app
         reload=True
     )
