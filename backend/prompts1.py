@@ -333,7 +333,7 @@ JSON_REPORT_PROMPT = PromptTemplate(
     SCREENING QUESTIONS (Skills & Experience):
     {answers}
 
-    WORK EXPERIENCE (job_title, employer, years_experience, duration, skills, relevant_experience):
+    WORK EXPERIENCE:
     {work_experience}
 
     EDUCATION:

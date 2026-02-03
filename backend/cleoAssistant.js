@@ -1,3 +1,9 @@
+const link = document.createElement("link");
+link.rel = "stylesheet";
+link.href = "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css";
+document.head.appendChild(link);
+
+
 (function(window) {
     'use strict';
     
@@ -530,13 +536,11 @@
         }
     };
 
-
     /**
-     * Work Experience Interactive UI Component
+     * Work Experience UI Component - Multiple Jobs Support
      */
     const WorkExperienceUI = {
         
-        // 28 job roles from your configs
         jobRoles: [
             'Assistant Manager', 'Assistant Store Manager', 'Barista', 'Cashier',
             'Coffee Specialist', 'Cook', 'Crew Member', 'Customer Support',
@@ -547,6 +551,7 @@
             'Store Support', 'Team Lead', 'Team Member', 'Trainer'
         ],
         
+        experiences: [],  // Store multiple experiences
         currentData: {
             company: '',
             role: '',
@@ -557,11 +562,11 @@
         render() {
             const container = document.createElement('div');
             container.id = 'work-experience-ui';
-            container.className = 'work-experience-container';
+            container.className = 'work-exp-container';
             
             container.innerHTML = `
                 <style>
-                    .work-experience-container {
+                    .work-exp-container {
                         background: #f0f0f5;
                         border-radius: 16px;
                         padding: 20px;
@@ -570,301 +575,459 @@
                     }
                     
                     @keyframes slideDown {
-                        from {
-                            opacity: 0;
-                            transform: translateY(-20px);
-                        }
-                        to {
-                            opacity: 1;
-                            transform: translateY(0);
-                        }
+                        from { opacity: 0; transform: translateY(-20px); }
+                        to { opacity: 1; transform: translateY(0); }
                     }
                     
-                    .we-header {
+                    .work-exp-header {
+                        font-size: 16px;
+                        font-weight: 600;
+                        color: #333;
+                        margin-bottom: 16px;
+                    }
+                    
+                    .work-exp-list {
+                        margin-bottom: 16px;
+                    }
+
+                    .work-exp-subheading {
+                        font-size: 12px;
+                        font-weight: 600;
+                        color: #667eea;
+                        text-transform: uppercase;
+                        letter-spacing: 0.5px;
+                        margin-bottom: 8px;
+                        margin-top: 8px;
+                    }
+                    
+                    .work-exp-card {
+                        background: white;
+                        border-radius: 12px;
+                        padding: 12px;
+                        margin-bottom: 10px;
+                        display: flex;
+                        align-items: center;
+                        gap: 12px;
+                        border: 1px solid #e0e0e0;
+                    }
+                    
+                    .work-exp-logo {
+                        width: 40px;
+                        height: 40px;
+                        background: #667eea;
+                        border-radius: 50%;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        color: white;
+                        font-weight: bold;
+                        font-size: 18px;
+                        flex-shrink: 0;
+                    }
+                    
+                    .work-exp-details {
+                        flex: 1;
+                    }
+                    
+                    .work-exp-role {
+                        font-weight: 600;
+                        font-size: 14px;
+                        color: #333;
+                    }
+                    
+                    .work-exp-company {
+                        font-size: 13px;
+                        color: #666;
+                    }
+                    
+                    .work-exp-dates {
+                        font-size: 12px;
+                        color: #999;
+                    }
+                    
+                    .work-exp-form {
+                        background: white;
+                        border-radius: 12px;
+                        padding: 16px;
+                        margin-bottom: 16px;
+                    }
+
+                    .work-exp-form-heading {
                         font-size: 14px;
                         font-weight: 600;
-                        color: #666;
-                        margin-bottom: 16px;
+                        color: #333;
+                        margin-bottom: 14px;
+                        padding-bottom: 10px;
+                        border-bottom: 1px solid #e5e5e5;
+                    }
+                    
+                    .work-exp-input-group {
+                        margin-bottom: 14px;
+                    }
+                    
+                    .work-exp-label {
+                        display: block;
+                        font-size: 13px;
+                        font-weight: 500;
+                        color: #555;
+                        margin-bottom: 6px;
+                    }
+                    
+                    .work-exp-input-wrapper {
+                        position: relative;
                         display: flex;
                         align-items: center;
                         gap: 8px;
                     }
                     
-                    .we-add-icon {
-                        width: 24px;
-                        height: 24px;
-                        background: #667eea;
-                        color: white;
-                        border-radius: 50%;
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
-                        font-size: 18px;
-                    }
-                    
-                    .we-input-group {
-                        background: white;
-                        border-radius: 12px;
-                        padding: 12px 16px;
-                        margin-bottom: 12px;
-                        display: flex;
-                        align-items: center;
-                        gap: 10px;
-                    }
-                    
-                    .we-input {
-                        flex: 1;
-                        border: none;
-                        outline: none;
-                        font-size: 15px;
-                        color: #333;
-                    }
-                    
-                    .we-input::placeholder {
-                        color: #999;
-                    }
-                    
-                    .we-voice-icon {
-                        width: 20px;
-                        height: 20px;
-                        cursor: pointer;
-                    }
-                    
-                    .we-card {
-                        background: white;
-                        border-radius: 12px;
-                        padding: 16px;
-                        margin-bottom: 12px;
-                        display: none;
-                    }
-                    
-                    .we-card.visible {
-                        display: block;
-                    }
-                    
-                    .we-card-header {
-                        display: flex;
-                        align-items: center;
-                        gap: 12px;
-                        margin-bottom: 12px;
-                    }
-                    
-                    .we-company-logo {
-                        width: 40px;
-                        height: 40px;
-                        background: #00704a;
-                        border-radius: 50%;
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
-                        color: white;
-                        font-weight: bold;
-                        font-size: 18px;
-                    }
-                    
-                    .we-company-name {
-                        font-size: 16px;
-                        font-weight: 600;
-                        color: #333;
-                    }
-                    
-                    .we-role-group {
-                        margin-bottom: 12px;
-                    }
-                    
-                    .we-label {
-                        font-size: 13px;
-                        color: #666;
-                        margin-bottom: 6px;
-                    }
-                    
-                    .we-select {
+                    .work-exp-input,
+                    .work-exp-select {
                         width: 100%;
-                        padding: 10px;
+                        padding: 10px 12px;
                         border: 1px solid #ddd;
                         border-radius: 8px;
                         font-size: 14px;
+                        font-family: inherit;
+                        transition: border-color 0.2s;
+                    }
+                    
+                    .work-exp-input:focus,
+                    .work-exp-select:focus {
                         outline: none;
+                        border-color: #667eea;
                     }
                     
-                    .we-date-group {
-                        display: flex;
-                        align-items: center;
-                        gap: 10px;
-                    }
-                    
-                    .we-date-input {
-                        flex: 1;
-                        padding: 10px;
+                    .work-exp-voice-btn {
+                        width: 36px;
+                        height: 36px;
+                        background: #f5f5f5;
                         border: 1px solid #ddd;
                         border-radius: 8px;
-                        font-size: 14px;
-                        outline: none;
-                    }
-                    
-                    .we-date-separator {
-                        color: #999;
-                        font-weight: bold;
-                    }
-                    
-                    .we-confirm-btn {
-                        width: 40px;
-                        height: 40px;
-                        background: #667eea;
-                        color: white;
-                        border: none;
-                        border-radius: 50%;
                         cursor: pointer;
                         display: flex;
                         align-items: center;
                         justify-content: center;
-                        margin: 16px auto 0;
-                        font-size: 20px;
-                        transition: all 0.2s ease;
+                        flex-shrink: 0;
+                        transition: all 0.2s;
                     }
                     
-                    .we-confirm-btn:hover {
+                    .work-exp-voice-btn:hover {
+                        background: #e8e8e8;
+                    }
+                    
+                    .work-exp-date-group {
+                        display: grid;
+                        grid-template-columns: 1fr 1fr;
+                        gap: 12px;
+                    }
+                    
+                    .work-exp-buttons {
+                        display: flex;
+                        gap: 10px;
+                        margin-top: 16px;
+                    }
+                    
+                    .work-exp-btn {
+                        flex: 1;
+                        padding: 12px;
+                        border: none;
+                        border-radius: 10px;
+                        font-size: 14px;
+                        font-weight: 600;
+                        cursor: pointer;
+                        transition: all 0.2s;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        gap: 6px;
+                    }
+                    
+                    .work-exp-btn-primary {
+                        background: #667eea;
+                        color: white;
+                    }
+                    
+                    .work-exp-btn-primary:hover:not(:disabled) {
                         background: #5568d3;
-                        transform: scale(1.1);
+                        transform: translateY(-1px);
                     }
                     
-                    .we-confirm-btn:disabled {
+                    .work-exp-btn-primary:disabled {
                         background: #ccc;
                         cursor: not-allowed;
                     }
+                    
+                    .work-exp-btn-secondary {
+                        background: white;
+                        color: #667eea;
+                        border: 2px solid #667eea;
+                    }
+                    
+                    .work-exp-btn-secondary:hover {
+                        background: #f8f8fc;
+                    }
                 </style>
                 
-                <div class="we-header">
-                    <div class="we-add-icon">+</div>
-                    <span>Most Recent</span>
-                </div>
+                <div class="work-exp-header">Work Experience</div>
                 
-                <div class="we-input-group">
-                    <input 
-                        type="text" 
-                        class="we-input" 
-                        id="we-company-input"
-                        placeholder="Company name..."
-                    />
-                    <svg class="we-voice-icon" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd" d="M7 4a3 3 0 016 0v4a3 3 0 11-6 0V4zm4 10.93A7.001 7.001 0 0017 8a1 1 0 10-2 0A5 5 0 015 8a1 1 0 00-2 0 7.001 7.001 0 006 6.93V17H6a1 1 0 100 2h8a1 1 0 100-2h-3v-2.07z" clip-rule="evenodd"/>
-                    </svg>
-                </div>
+                <!-- List of added experiences -->
+                <div class="work-exp-list" id="work-exp-list"></div>
                 
-                <div class="we-card" id="we-details-card">
-                    <div class="we-card-header">
-                        <div class="we-company-logo" id="we-company-logo">S</div>
-                        <div class="we-company-name" id="we-company-display">Starbucks</div>
+                <!-- Form for adding new experience -->
+                <div class="work-exp-form" id="work-exp-form">
+                    <div class="work-exp-form-heading" id="work-exp-form-heading">Most Recent</div>
+                    <div class="work-exp-input-group">
+                        <label class="work-exp-label">Company Name</label>
+                        <div class="work-exp-input-wrapper">
+                            <input 
+                                type="text" 
+                                id="work-exp-company" 
+                                class="work-exp-input" 
+                                placeholder="e.g., McDonald's"
+                            />
+                            <button class="work-exp-voice-btn" id="work-exp-voice-company" title="Voice input">
+                                <i class="fa fa-microphone"></i>
+                            </button>
+                        </div>
                     </div>
                     
-                    <div class="we-role-group">
-                        <div class="we-label">Your role:</div>
-                        <select class="we-select" id="we-role-select">
-                            <option value="">Select role...</option>
+                    <div class="work-exp-input-group">
+                        <label class="work-exp-label">Role</label>
+                        <select id="work-exp-role" class="work-exp-select">
+                            <option value="">Select role</option>
                             ${this.jobRoles.map(role => `<option value="${role}">${role}</option>`).join('')}
                         </select>
                     </div>
                     
-                    <div class="we-role-group">
-                        <div class="we-label">Dates (start - end):</div>
-                        <div class="we-date-group">
-                            <input type="date" class="we-date-input" id="we-start-date" />
-                            <span class="we-date-separator">-</span>
-                            <input type="date" class="we-date-input" id="we-end-date" />
+                    <div class="work-exp-date-group">
+                        <div class="work-exp-input-group">
+                            <label class="work-exp-label">Start Date</label>
+                            <input 
+                                type="month" 
+                                id="work-exp-start-date" 
+                                class="work-exp-input"
+                            />
                         </div>
+                        
+                        <div class="work-exp-input-group">
+                            <label class="work-exp-label">End Date</label>
+                            <input 
+                                type="month" 
+                                id="work-exp-end-date" 
+                                class="work-exp-input"
+                            />
+                        </div>
+                    </div>
+                    
+                    <div class="work-exp-buttons">
+                        <button class="work-exp-btn work-exp-btn-primary" id="work-exp-add-btn" disabled>
+                            ✓ Add Job
+                        </button>
                     </div>
                 </div>
                 
-                <button class="we-confirm-btn" id="we-confirm-btn" disabled>✓</button>
+                <!-- Action buttons (shown after at least one job added) -->
+                <div class="work-exp-buttons" id="work-exp-actions" style="display: none;">
+                    <button class="work-exp-btn work-exp-btn-secondary" id="work-exp-add-another-btn">
+                        + Add Previous Job
+                    </button>
+                    <button class="work-exp-btn work-exp-btn-primary" id="work-exp-done-btn">
+                        Continue →
+                    </button>
+                </div>
             `;
             
             return container;
         },
         
-        attachEventListeners() {
-            const companyInput = document.getElementById('we-company-input');
-            const roleSelect = document.getElementById('we-role-select');
-            const startDate = document.getElementById('we-start-date');
-            const endDate = document.getElementById('we-end-date');
-            const confirmBtn = document.getElementById('we-confirm-btn');
-            const detailsCard = document.getElementById('we-details-card');
-            const companyDisplay = document.getElementById('we-company-display');
-            const companyLogo = document.getElementById('we-company-logo');
+        renderExperienceList() {
+            const listDiv = document.getElementById('work-exp-list');
+            if (!listDiv) return;
             
-            // Show card when company name is entered
-            companyInput.addEventListener('input', (e) => {
-                const value = e.target.value.trim();
-                this.currentData.company = value;
+            if (this.experiences.length === 0) {
+                listDiv.innerHTML = '';
+                return;
+            }
+            
+            listDiv.innerHTML = this.experiences.map((exp, index) => {
+                const initial = exp.company.charAt(0).toUpperCase();
                 
-                if (value) {
-                    detailsCard.classList.add('visible');
-                    companyDisplay.textContent = value;
-                    companyLogo.textContent = value.charAt(0).toUpperCase();
-                    this.validateForm();
+                const heading = index === 0 ? '<div class="work-exp-subheading">Most Recent</div>' : '<div class="work-exp-subheading">Previous Experience</div>';
+                
+                return `
+                    ${heading}
+                    <div class="work-exp-card">
+                        <div class="work-exp-logo">${initial}</div>
+                        <div class="work-exp-details">
+                            <div class="work-exp-role">${exp.role}</div>
+                            <div class="work-exp-company">${exp.company}</div>
+                            <div class="work-exp-dates">${exp.startDate} to ${exp.endDate}</div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        },
+        
+        attachEventListeners() {
+            const companyInput = document.getElementById('work-exp-company');
+            const roleSelect = document.getElementById('work-exp-role');
+            const startDateInput = document.getElementById('work-exp-start-date');
+            const endDateInput = document.getElementById('work-exp-end-date');
+            const addBtn = document.getElementById('work-exp-add-btn');
+            const voiceBtn = document.getElementById('work-exp-voice-company');
+            const addAnotherBtn = document.getElementById('work-exp-add-another-btn');
+            const doneBtn = document.getElementById('work-exp-done-btn');
+            
+            // Validate form as user types
+            const validateForm = () => {
+                const isValid = 
+                    companyInput.value.trim() !== '' &&
+                    roleSelect.value !== '' &&
+                    startDateInput.value !== '' &&
+                    endDateInput.value !== '';
+                
+                addBtn.disabled = !isValid;
+            };
+            
+            companyInput.addEventListener('input', validateForm);
+            roleSelect.addEventListener('change', validateForm);
+            startDateInput.addEventListener('change', validateForm);
+            endDateInput.addEventListener('change', validateForm);
+            
+            // Voice input for company name
+            voiceBtn.addEventListener('click', () => {
+                if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+                    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                    const recognition = new SpeechRecognition();
+                    
+                    recognition.onresult = (event) => {
+                        const transcript = event.results[0][0].transcript;
+                        companyInput.value = transcript;
+                        validateForm();
+                    };
+                    
+                    recognition.start();
                 } else {
-                    detailsCard.classList.remove('visible');
+                    alert('Voice input not supported in this browser');
                 }
             });
             
-            roleSelect.addEventListener('change', (e) => {
-                this.currentData.role = e.target.value;
-                this.validateForm();
+            // Add job button
+            addBtn.addEventListener('click', () => {
+                this.addExperience();
             });
             
-            startDate.addEventListener('change', (e) => {
-                this.currentData.startDate = e.target.value;
-                this.validateForm();
-            });
-            
-            endDate.addEventListener('change', (e) => {
-                this.currentData.endDate = e.target.value;
-                this.validateForm();
-            });
-            
-            confirmBtn.addEventListener('click', () => {
-                this.submitWorkExperience();
-            });
-        },
-        
-        validateForm() {
-            const confirmBtn = document.getElementById('we-confirm-btn');
-            const isValid = this.currentData.company && 
-                        this.currentData.role && 
-                        this.currentData.startDate && 
-                        this.currentData.endDate;
-            
-            confirmBtn.disabled = !isValid;
-        },
-        
-        submitWorkExperience() {
-            // Send work experience data to backend
-            const data = {
-                company: this.currentData.company,
-                role: this.currentData.role,
-                start_date: this.currentData.startDate,
-                end_date: this.currentData.endDate
-            };
-
-            // Hide the UI FIRST
-            this.hide();
-            
-            // Send via WebSocket
-            if (window.CleoChatbot && window.CleoChatbot.ws) {
-                window.CleoChatbot.ws.send(JSON.stringify({
-                    type: 'work_experience_data',
-                    data: data
-                }));
+            // Add another job button
+            if (addAnotherBtn) {
+                addAnotherBtn.addEventListener('click', () => {
+                    this.showForm();
+                });
             }
             
+            // Done button
+            if (doneBtn) {
+                doneBtn.addEventListener('click', () => {
+                    this.submitAllExperiences();
+                });
+            }
+        },
+        
+        addExperience() {
+            const company = document.getElementById('work-exp-company').value.trim();
+            const role = document.getElementById('work-exp-role').value;
+            const startDate = document.getElementById('work-exp-start-date').value;
+            const endDate = document.getElementById('work-exp-end-date').value;
+            
+            if (!company || !role || !startDate || !endDate) {
+                return;
+            }
+            
+            // Add to experiences array
+            this.experiences.push({
+                company: company,
+                role: role,
+                startDate: startDate,
+                endDate: endDate
+            });
+            
+            console.log('[WorkExperienceUI] Added experience:', this.experiences[this.experiences.length - 1]);
+            
+            // Update the list
+            this.renderExperienceList();
+            
+            // Clear form
+            this.clearForm();
+            
+            // Hide form and show action buttons
+            this.hideForm();
+            this.showActionButtons();
+        },
+        
+        clearForm() {
+            document.getElementById('work-exp-company').value = '';
+            document.getElementById('work-exp-role').value = '';
+            document.getElementById('work-exp-start-date').value = '';
+            document.getElementById('work-exp-end-date').value = '';
+            document.getElementById('work-exp-add-btn').disabled = true;
+        },
+        
+        showForm() {
+            const form = document.getElementById('work-exp-form');
+            const heading = document.getElementById('work-exp-form-heading');
+            
+            if (form) {
+                form.style.display = 'block';
+            }
+            
+            // Update heading based on number of experiences
+            if (heading) {
+                heading.textContent = this.experiences.length === 0 ? 'Most Recent' : 'Previous Job Experience';
+            }
+        },
+        
+        hideForm() {
+            const form = document.getElementById('work-exp-form');
+            if (form) {
+                form.style.display = 'none';
+            }
+        },
+        
+        showActionButtons() {
+            const actions = document.getElementById('work-exp-actions');
+            if (actions) {
+                actions.style.display = 'flex';
+            }
+        },
+        
+        submitAllExperiences() {
+            if (this.experiences.length === 0) {
+                console.error('[WorkExperienceUI] No experiences to submit');
+                return;
+            }
+            
+            console.log('[WorkExperienceUI] Submitting all experiences:', this.experiences);
+            
             // Show confirmation message
+            const summary = this.experiences.map(exp => 
+                `${exp.role} at ${exp.company} (${exp.startDate} to ${exp.endDate})`
+            ).join(', ');
+            
             window.CleoChatbot.addMessage(
-                `My experience: ${data.role} at ${data.company} (${data.start_date} to ${data.end_date})`,
+                `My experience: ${summary}`,
                 false,
                 'body'
             );
             
-            // Re-enable input for next question
-            window.CleoChatbot.enableInput();
+            // Send all experiences via WebSocket
+            if (window.CleoChatbot && window.CleoChatbot.ws) {
+                window.CleoChatbot.ws.send(JSON.stringify({
+                    type: 'work_experience_data',
+                    data: this.experiences  // Send array of all experiences
+                }));
+            }
+
+            // Hide UI
+            this.hide();
         },
         
         show() {
@@ -872,8 +1035,8 @@
             const ui = this.render();
             messagesDiv.appendChild(ui);
             this.attachEventListeners();
-
-            // Scroll to show Work UI
+            
+            // Scroll to show UI
             messagesDiv.scrollTo({
                 top: messagesDiv.scrollHeight,
                 behavior: 'smooth'
@@ -886,13 +1049,14 @@
         hide() {
             const ui = document.getElementById('work-experience-ui');
             if (ui) {
-                ui.style.display = 'none';  // Hide immediately
+                ui.style.display = 'none';
                 setTimeout(() => {
-                    ui.remove();  // Remove from DOM after brief delay
+                    ui.remove();
                 }, 100);
             }
             
             // Reset data
+            this.experiences = [];
             this.currentData = {
                 company: '',
                 role: '',

@@ -877,8 +877,8 @@ def send_phone_otp_node(state: ChatbotState) -> ChatbotState:
     phone = state["personal_details"].get("phone", "")
     
     # Generate OTP
-    otp_code = generate_otp()
-    # otp_code = "123456"  # For testing
+    # otp_code = generate_otp()
+    otp_code = "123456"  # For testing
     
     print("Generated phone OTP code:", otp_code)  # Debug
     # Store in state
@@ -886,8 +886,8 @@ def send_phone_otp_node(state: ChatbotState) -> ChatbotState:
     state["phone_otp_timestamp"] = time.time()
     
     # Send SMS
-    success = send_sms_otp(phone, otp_code, state.get("brand_name"))
-    # success = True  # For testing
+    # success = send_sms_otp(phone, otp_code, state.get("brand_name"))
+    success = True  # For testing
     
     if success:
         message = f"I'm sending a verification text with a 6-digit code to {phone} now. Please check your messages."
@@ -1116,7 +1116,7 @@ def summary_node(state: ChatbotState) -> ChatbotState:
     score = state.get("score", 0)
     total_score = state.get("total_score", 100)
 
-    work_experience = state.get("work_experience", {})
+    work_experiences = state.get("work_experience", [])
     education_level = state.get("education_level", "")
     
     # Convert score to percentage
@@ -1135,6 +1135,19 @@ def summary_node(state: ChatbotState) -> ChatbotState:
     answers_text = "\n".join([
         f"Q: {q}\nA: {a}" for q, a in answers.items()
     ])
+
+    # Format work experiences for prompt
+    work_exp_text = ""
+    if work_experiences:
+        work_exp_text = "\n".join([
+            f"- {exp['role']} at {exp['company']} ({exp['startDate']} to {exp['endDate']})"
+            for exp in work_experiences
+        ])
+    else:
+        work_exp_text = "No prior work experience"
+
+    print(f"Work Experience in state variable: {work_experiences}") 
+    print(f"Work Experience formatted text:\n{work_exp_text}")
     
     data = {
         "name": name,
@@ -1145,7 +1158,7 @@ def summary_node(state: ChatbotState) -> ChatbotState:
         "answers": answers_text,
         "score": score,
         "total_score": total_score,
-        "work_experience": work_experience,
+        "work_experience": work_exp_text,
         "education": education_level
     }
 

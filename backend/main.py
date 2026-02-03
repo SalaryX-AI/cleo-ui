@@ -363,27 +363,35 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
             
             # Handle work experience data submission
             if message_data.get("type") == "work_experience_data":
-                work_exp_data = message_data.get("data", {})
+                work_exp_data = message_data.get("data", [])
                 
-                print(f"Received work experience: {work_exp_data}")
+                print(f"Received work experiences: {work_exp_data}")
                 
                 # Get current state
                 current_state = await graph_app.aget_state(config)
-                work_experiences = current_state.values.get("work_experience", [])
-                work_experiences.append(work_exp_data)
                 current_messages = current_state.values.get("messages", [])
                 
+                #Store all experiences (data is already an array)
                 # Format work experience message
-                work_exp_message = f"Added: {work_exp_data['role']} at {work_exp_data['company']} ({work_exp_data['start_date']} to {work_exp_data['end_date']})"
+                if isinstance(work_exp_data, list):
+                    experiences_text = ", ".join([
+                        f"{exp['role']} at {exp['company']} ({exp['startDate']} to {exp['endDate']})" 
+                        for exp in work_exp_data
+                    ])
+                    work_exp_message = f"Work experience: {experiences_text}"
+                else:
+                    # Fallback for single experience (backward compatibility)
+                    work_exp_message = f"Added: {work_exp_data['role']} at {work_exp_data['company']}"
                 
                 # Update state
                 await graph_app.aupdate_state(
                     config,
                     {
-                        "work_experience": work_experiences,
+                        "work_experience": work_exp_data if isinstance(work_exp_data, list) else [work_exp_data],
                         "messages": current_messages + [HumanMessage(content=work_exp_message)]
                     }
                 )
+    
                 
                 # print(f"[DEBUG] Resuming workflow after work experience")  # ADD DEBUG
                 

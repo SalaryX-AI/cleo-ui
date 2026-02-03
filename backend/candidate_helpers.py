@@ -111,6 +111,7 @@ def extract_age_from_text(text: str) -> str:
 def generate_json_report(data: dict) -> str:
     """Generate JSON report from data using LLM"""
 
+    
     prompt = JSON_REPORT_PROMPT.format(
         name = data["name"],
         email = data["email"],
