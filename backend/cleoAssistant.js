@@ -336,7 +336,7 @@ document.head.appendChild(link);
                     this.updateStatus('Online', 'connected');
                     
                     // Show typing for initial messages
-                    this.showTypingIndicator();
+                    // this.showTypingIndicator();
                     this.enableInput();
                 };
                 

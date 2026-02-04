@@ -31,6 +31,8 @@ def send_applicant_to_xano(
     session_id: str,
     job_id: str,
     company_id: str,
+    conversation_history: list
+
 ):
     """
     Generate PDF and send applicant data to XANO
@@ -53,6 +55,9 @@ def send_applicant_to_xano(
     try:
         # Determine status
         status = "Short Listed" if score >= 50 else "Rejected"
+
+        # Format conversation as JSON string
+        conversation_json = json.dumps(conversation_history)
 
         # Generate PDF (using summary from JSON report)
         summary = json_report.get("fit_score", {}).get("explanation", "No summary available")
@@ -88,9 +93,10 @@ def send_applicant_to_xano(
             'job_id': JOB_ID,
             'company_id': COMPANY_ID,
             'Status': status,
-            'session_id': 2,
+            'session_id': 100,
             'ProfileSummary': profile_summary_json,
             'my_session_id': session_id,
+            'ConversationHistory': conversation_json,
             
         }
 

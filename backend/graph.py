@@ -1148,6 +1148,24 @@ def summary_node(state: ChatbotState) -> ChatbotState:
 
     print(f"Work Experience in state variable: {work_experiences}") 
     print(f"Work Experience formatted text:\n{work_exp_text}")
+
+    # Extract all conversation messages
+    all_messages = state.get("messages", [])
+    conversation_history = []
+    
+    for msg in all_messages:
+        if isinstance(msg, HumanMessage):
+            conversation_history.append({
+                "role": "user",
+                "content": msg.content
+            })
+        elif isinstance(msg, AIMessage):
+            conversation_history.append({
+                "role": "ai",
+                "content": msg.content
+            })
+    
+    print(f"Conversation history length: {len(conversation_history)}")
     
     data = {
         "name": name,
@@ -1159,7 +1177,7 @@ def summary_node(state: ChatbotState) -> ChatbotState:
         "score": score,
         "total_score": total_score,
         "work_experience": work_exp_text,
-        "education": education_level
+        "education": education_level,
     }
 
     json_report = generate_json_report(data)
@@ -1176,7 +1194,8 @@ def summary_node(state: ChatbotState) -> ChatbotState:
         answers=answers,
         session_id=session_id,
         job_id=job_id,
-        company_id=company_id
+        company_id=company_id,
+        conversation_history=conversation_history
     )
     
     return state

@@ -8,8 +8,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Xano API Configuration
-XANO_API_URL = "https://xoho-w3ng-km3o.n7e.xano.io/api:NuF0C8Bg/interviews" 
-XANO_API_KEY = os.getenv("XANO_API_KEY", "")
+XANO_API_URL = "https://xoho-w3ng-km3o.n7e.xano.io/api:NuFOC8Bg/PostInterviewfromAI " 
+XANO_API_KEY = "sk_test_51QxA9F7C2E8B4D1A6F9C3E7B2A"
 
 
 def submit_interview_to_xano(
