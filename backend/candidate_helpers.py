@@ -123,8 +123,8 @@ def generate_json_report(data: dict) -> str:
         total_score = data["total_score"],
         work_experience = data.get("work_experience"),
         education = data.get("education"),
+        address = data.get("address"),
         current_time = datetime.now().isoformat(),
-
     )
     
     print("Generating JSON report...")

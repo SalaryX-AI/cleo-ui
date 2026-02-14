@@ -17,6 +17,7 @@ from psycopg import AsyncConnection
 from psycopg.rows import dict_row
 import os
 import asyncio
+from location_services import get_address_autocomplete, get_place_details
 
 
 
@@ -130,6 +131,31 @@ async def serve_config_script():
 async def serve_css():
     """Serve the CSS file"""
     return FileResponse("cleo-typography.css", media_type="text/css")
+
+
+@app.get("/places/autocomplete")
+async def places_autocomplete(input: str = Query(...), session_token: str = Query("")):
+    """
+    Proxy for Google Places Autocomplete.
+    Keeps the API key on the server (never exposed to frontend).
+    """
+    if len(input.strip()) < 3:
+        return {"predictions": []}
+
+    suggestions = get_address_autocomplete(input.strip(), session_token)
+    return {"predictions": suggestions}
+
+
+@app.get("/places/details")
+async def place_details(place_id: str = Query(...)):
+    """
+    Get structured address details from a Google place_id.
+    Returns: { street, city, state, zip, full, lat, lng }
+    """
+    details = get_place_details(place_id)
+    if not details:
+        raise HTTPException(status_code=404, detail="Place not found")
+    return details
 
 
 @app.get("/validate-domain")
@@ -300,7 +326,17 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
             work_experience=[],
             show_work_experience_ui=False,
             education_level="",
-            show_education_ui=False
+            show_education_ui=False,
+
+            address={},
+            show_address_ui=False,
+            gps_lat=0.0,
+            gps_lng=0.0,
+            gps_verified=False,
+            gps_flagged=False,
+            gps_flag_reason="",
+            gps_distance_miles=0.0,
+            show_gps_ui=False,
         )
         
         # Start workflow with streaming
@@ -360,6 +396,108 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
             message_data = json.loads(data)
             
             print(f"[DEBUG] Received message: {message_data}")  # ADD DEBUG
+
+            # Handle address data from frontend autocomplete UI
+            if message_data.get("type") == "address_data":
+                address_payload = message_data.get("data", {})
+
+                print(f"Received address data: {address_payload}")
+
+                current_state = await graph_app.aget_state(config)
+                current_messages = current_state.values.get("messages", [])
+
+                # Store address as JSON string in human message
+                import json as _json
+                address_message = _json.dumps(address_payload)
+
+                # Show friendly confirmation to user
+                display_address = address_payload.get("full", address_payload.get("street", "Address received"))
+
+                await graph_app.aupdate_state(
+                    config,
+                    {
+                        "address": address_payload,
+                        "messages": current_messages + [HumanMessage(content=address_message)]
+                    }
+                )
+
+                # Resume workflow
+                async for event in graph_app.astream(None, config=config, stream_mode="updates"):
+                    for node_name, node_data in event.items():
+                        print(f"[DEBUG] Processing node: {node_name}")
+
+                        if node_data and "messages" in node_data:
+                            messages = node_data["messages"]
+                            msg = messages[-1]
+
+                            messageType = "questions" if node_name in [
+                                "ask_gps_verification"
+                            ] else "body"
+
+                            show_gps_ui = (
+                                node_name == "ask_gps_verification" and
+                                node_data.get("show_gps_ui", False)
+                            )
+
+                            await websocket.send_json({"type": "typing"})
+                            await asyncio.sleep(1)
+
+                            if isinstance(msg, AIMessage):
+                                await websocket.send_json({
+                                    "type": "ai_message",
+                                    "content": msg.content,
+                                    "messageType": messageType,
+                                    "show_gps_ui": show_gps_ui
+                                })
+
+                continue   # skip normal message processing
+
+
+            # Handle GPS coordinates from frontend location button
+            if message_data.get("type") == "gps_data":
+                gps_payload = message_data.get("data", {})
+
+                print(f"Received GPS data: lat={gps_payload.get('lat')}, lng={gps_payload.get('lng')}")
+
+                current_state = await graph_app.aget_state(config)
+                current_messages = current_state.values.get("messages", [])
+
+                import json as _json
+                gps_message = _json.dumps(gps_payload)
+
+                await graph_app.aupdate_state(
+                    config,
+                    {
+                        "gps_lat": float(gps_payload.get("lat", 0)),
+                        "gps_lng": float(gps_payload.get("lng", 0)),
+                        "messages": current_messages + [HumanMessage(content=gps_message)]
+                    }
+                )
+
+                # Resume workflow
+                async for event in graph_app.astream(None, config=config, stream_mode="updates"):
+                    for node_name, node_data in event.items():
+                        print(f"[DEBUG] Processing node: {node_name}")
+
+                        if node_data and "messages" in node_data:
+                            messages = node_data["messages"]
+                            msg = messages[-1]
+
+                            messageType = "questions" if node_name in [
+                                "ask_question"
+                            ] else "body"
+
+                            await websocket.send_json({"type": "typing"})
+                            await asyncio.sleep(1)
+
+                            if isinstance(msg, AIMessage):
+                                await websocket.send_json({
+                                    "type": "ai_message",
+                                    "content": msg.content,
+                                    "messageType": messageType
+                                })
+
+                continue   # skip normal message processing
             
             # Handle work experience data submission
             if message_data.get("type") == "work_experience_data":
@@ -433,13 +571,17 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                                     # Check if we should show work experience UI and education UI
                                     show_ui = (node_name == "store_work_experience_response" and node_data.get("show_work_experience_ui", False))
                                     show_edu_ui = (node_name == "ask_education" and node_data.get("show_education_ui", False))
+                                    show_address_ui = (node_name == "ask_address" and node_data.get("show_address_ui", False))  
+                                    show_gps_ui = (node_name == "ask_gps_verification" and node_data.get("show_gps_ui", False))
                                     
                                     await websocket.send_json({
                                         "type": "ai_message",
                                         "content": msg.content,
                                         "messageType": messageType,
                                         "show_work_experience_ui": show_ui,
-                                        "show_education_ui": show_edu_ui
+                                        "show_education_ui": show_edu_ui,
+                                        "show_address_ui": show_address_ui,  
+                                        "show_gps_ui": show_gps_ui
                                     })
                 
                 continue  # Skip normal message processing
@@ -514,13 +656,17 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                                 # Check if we should show work experience UI and education UI
                                 show_ui = (node_name == "store_work_experience_response" and node_data.get("show_work_experience_ui", False))
                                 show_edu_ui = (node_name == "ask_education" and node_data.get("show_education_ui", False))
+                                show_address_ui = (node_name == "ask_address" and node_data.get("show_address_ui", False))  
+                                show_gps_ui = (node_name == "ask_gps_verification" and node_data.get("show_gps_ui", False))
                                 
                                 await websocket.send_json({
                                     "type": "ai_message",
                                     "content": msg.content,
                                     "messageType": messageType,
                                     "show_work_experience_ui": show_ui,
-                                    "show_education_ui": show_edu_ui
+                                    "show_education_ui": show_edu_ui,
+                                    "show_address_ui": show_address_ui,
+                                    "show_gps_ui": show_gps_ui 
                                 })
     
     except WebSocketDisconnect:

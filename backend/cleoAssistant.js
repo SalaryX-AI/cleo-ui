@@ -388,6 +388,16 @@ document.head.appendChild(link);
                 else if (data.show_education_ui) 
                 {
                     EducationUI.show();
+                }
+                // Show address autocomplete UI
+                else if (data.show_address_ui) 
+                {
+                    AddressUI.show();
+                }
+                // Show GPS verification button
+                else if (data.show_gps_ui) 
+                {
+                    LocationVerificationUI.show();
                 }  
                 else 
                 {
@@ -536,9 +546,9 @@ document.head.appendChild(link);
         }
     };
 
-    /**
-     * Work Experience UI Component - Multiple Jobs Support
-     */
+    // ─────────────────────────────────────────────────────────────────────────
+    //  Work Experience UI Component - Multiple Jobs Support
+    // ─────────────────────────────────────────────────────────────────────────
     const WorkExperienceUI = {
         
         jobRoles: [
@@ -1066,9 +1076,9 @@ document.head.appendChild(link);
         }
     };
     
-    /**
-     * Education Level Checkbox UI Component
-     */
+    // ─────────────────────────────────────────────────────────────────────────
+    //  Education Level Checkbox UI Component
+    // ─────────────────────────────────────────────────────────────────────────
 
     const EducationUI = {
         
@@ -1335,7 +1345,557 @@ document.head.appendChild(link);
         }
     };
 
-    
+    // ─────────────────────────────────────────────────────────────────────────
+    // AddressUI — Google Places Autocomplete
+    // ─────────────────────────────────────────────────────────────────────────
+
+    const AddressUI = {
+
+        selectedAddress: null,
+        sessionToken: null,
+        debounceTimer: null,
+
+        generateSessionToken() {
+            // Simple UUID v4 for Places API session billing
+            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+                const r = Math.random() * 16 | 0;
+                return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+            });
+        },
+
+        render() {
+            this.sessionToken = this.generateSessionToken();
+
+            const container = document.createElement('div');
+            container.id = 'address-ui';
+            container.innerHTML = `
+                <style>
+                    .address-container {
+                        background: #f0f0f5;
+                        border-radius: 16px;
+                        padding: 20px;
+                        margin: 16px 0;
+                        animation: slideDown 0.3s ease-out;
+                    }
+
+                    .address-input-wrapper {
+                        position: relative;
+                    }
+
+                    .address-input {
+                        width: 100%;
+                        padding: 12px 16px;
+                        border: 2px solid #ddd;
+                        border-radius: 12px;
+                        font-size: 15px;
+                        font-family: inherit;
+                        box-sizing: border-box;
+                        transition: border-color 0.2s;
+                        background: white;
+                    }
+
+                    .address-input:focus {
+                        outline: none;
+                        border-color: #667eea;
+                    }
+
+                    .address-suggestions {
+                        position: absolute;
+                        top: calc(100% + 4px);
+                        left: 0;
+                        right: 0;
+                        background: white;
+                        border: 1px solid #e0e0e0;
+                        border-radius: 12px;
+                        box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+                        z-index: 9999;
+                        max-height: 220px;
+                        overflow-y: auto;
+                    }
+
+                    .address-suggestion-item {
+                        padding: 12px 16px;
+                        cursor: pointer;
+                        font-size: 14px;
+                        color: #333;
+                        display: flex;
+                        align-items: center;
+                        gap: 10px;
+                        border-bottom: 1px solid #f5f5f5;
+                        transition: background 0.15s;
+                    }
+
+                    .address-suggestion-item:last-child {
+                        border-bottom: none;
+                    }
+
+                    .address-suggestion-item:hover {
+                        background: #f0f0f8;
+                    }
+
+                    .address-pin-icon {
+                        color: #667eea;
+                        font-size: 16px;
+                        flex-shrink: 0;
+                    }
+
+                    .address-confirm-btn {
+                        width: 100%;
+                        margin-top: 14px;
+                        padding: 13px;
+                        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                        color: white;
+                        border: none;
+                        border-radius: 12px;
+                        font-size: 15px;
+                        font-weight: 600;
+                        cursor: pointer;
+                        transition: all 0.2s;
+                        font-family: inherit;
+                    }
+
+                    .address-confirm-btn:disabled {
+                        background: #ccc;
+                        cursor: not-allowed;
+                    }
+
+                    .address-confirm-btn:hover:not(:disabled) {
+                        transform: translateY(-1px);
+                        box-shadow: 0 4px 12px rgba(102,126,234,0.4);
+                    }
+
+                    .address-selected-badge {
+                        margin-top: 10px;
+                        padding: 10px 14px;
+                        background: #e8f5e9;
+                        border: 1px solid #a5d6a7;
+                        border-radius: 10px;
+                        font-size: 13px;
+                        color: #2e7d32;
+                        display: none;
+                    }
+                </style>
+
+                <div class="address-container">
+                    <div class="address-input-wrapper">
+                        <input
+                            type="text"
+                            id="address-input"
+                            class="address-input"
+                            placeholder="Start typing your address..."
+                            autocomplete="off"
+                        />
+                        <div class="address-suggestions" id="address-suggestions" style="display:none;"></div>
+                    </div>
+
+                    <div class="address-selected-badge" id="address-selected-badge">
+                        <i class="fa fa-check-circle"></i> <span id="address-selected-text"></span>
+                    </div>
+
+                    <button class="address-confirm-btn" id="address-confirm-btn" disabled>
+                        Confirm Address
+                    </button>
+                </div>
+            `;
+
+            return container;
+        },
+
+        attachEventListeners() {
+            const input = document.getElementById('address-input');
+            const suggestionsDiv = document.getElementById('address-suggestions');
+            const confirmBtn = document.getElementById('address-confirm-btn');
+            const badge = document.getElementById('address-selected-badge');
+            const badgeText = document.getElementById('address-selected-text');
+
+            // Debounced autocomplete fetch
+            input.addEventListener('input', () => {
+                clearTimeout(this.debounceTimer);
+                this.selectedAddress = null;
+                confirmBtn.disabled = true;
+                badge.style.display = 'none';
+
+                const value = input.value.trim();
+                if (value.length < 3) {
+                    suggestionsDiv.style.display = 'none';
+                    return;
+                }
+
+                this.debounceTimer = setTimeout(() => this.fetchSuggestions(value), 300);
+            });
+
+            // Hide suggestions when clicking outside
+            document.addEventListener('click', (e) => {
+                if (!e.target.closest('#address-ui')) {
+                    suggestionsDiv.style.display = 'none';
+                }
+            });
+
+            confirmBtn.addEventListener('click', () => this.submitAddress());
+        },
+
+        async fetchSuggestions(query) {
+            try {
+                const apiUrl = window.CleoChatbot.config.apiUrl;
+                const res = await fetch(
+                    `${apiUrl}/places/autocomplete?input=${encodeURIComponent(query)}&session_token=${this.sessionToken}`
+                );
+                const data = await res.json();
+
+                this.renderSuggestions(data.predictions || []);
+            } catch (err) {
+                console.error('[AddressUI] Autocomplete fetch error:', err);
+            }
+        },
+
+        renderSuggestions(predictions) {
+            const suggestionsDiv = document.getElementById('address-suggestions');
+
+            if (!predictions.length) {
+                suggestionsDiv.style.display = 'none';
+                return;
+            }
+
+            suggestionsDiv.innerHTML = predictions.map(p => `
+                <div class="address-suggestion-item" data-place-id="${p.place_id}">
+                    <i class="fa fa-map-marker-alt address-pin-icon"></i>
+                    <span>${p.description}</span>
+                </div>
+            `).join('');
+
+            suggestionsDiv.style.display = 'block';
+
+            // Click handler for each suggestion
+            suggestionsDiv.querySelectorAll('.address-suggestion-item').forEach(item => {
+                item.addEventListener('click', async () => {
+                    const placeId = item.getAttribute('data-place-id');
+                    const description = item.querySelector('span').textContent;
+
+                    suggestionsDiv.style.display = 'none';
+
+                    // Fetch structured address details
+                    await this.selectAddress(placeId, description);
+                });
+            });
+        },
+
+        async selectAddress(placeId, description) {
+            try {
+                const input = document.getElementById('address-input');
+                const confirmBtn = document.getElementById('address-confirm-btn');
+                const badge = document.getElementById('address-selected-badge');
+                const badgeText = document.getElementById('address-selected-text');
+
+                input.value = description;
+
+                // Fetch structured address from backend
+                const apiUrl = window.CleoChatbot.config.apiUrl;
+                const res = await fetch(`${apiUrl}/places/details?place_id=${placeId}`);
+                const details = await res.json();
+
+                this.selectedAddress = details;
+
+                console.log('[AddressUI] Selected address details:', details);
+
+                // Show green badge
+                badge.style.display = 'block';
+                badgeText.textContent = details.full || description;
+
+                // Enable confirm button
+                confirmBtn.disabled = false;
+
+            } catch (err) {
+                console.error('[AddressUI] Error fetching place details:', err);
+                // Fallback to plain text
+                this.selectedAddress = { full: document.getElementById('address-input').value };
+                document.getElementById('address-confirm-btn').disabled = false;
+            }
+        },
+
+        submitAddress() {
+            if (!this.selectedAddress) return;
+
+            console.log('[AddressUI] Submitting address:', this.selectedAddress);
+
+            // Show user's address as a chat message
+            window.CleoChatbot.addMessage(
+                this.selectedAddress.full || 'Address provided',
+                false,
+                'body'
+            );
+
+            // Send to backend via WebSocket
+            if (window.CleoChatbot && window.CleoChatbot.ws) {
+                window.CleoChatbot.ws.send(JSON.stringify({
+                    type: 'address_data',
+                    data: this.selectedAddress
+                }));
+            }
+
+            window.CleoChatbot.showTypingIndicator();
+            this.hide();
+        },
+
+        show() {
+            const messagesDiv = document.getElementById('chatbot-messages');
+            const ui = this.render();
+            messagesDiv.appendChild(ui);
+            this.attachEventListeners();
+
+            messagesDiv.scrollTo({ top: messagesDiv.scrollHeight, behavior: 'smooth' });
+            window.CleoChatbot.disableInput();
+        },
+
+        hide() {
+            const ui = document.getElementById('address-ui');
+            if (ui) {
+                ui.style.display = 'none';
+                setTimeout(() => ui.remove(), 100);
+            }
+            this.selectedAddress = null;
+        }
+    };
+
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // LocationVerificationUI — GPS Share Button
+    // ─────────────────────────────────────────────────────────────────────────
+
+    const LocationVerificationUI = {
+
+        render() {
+            const container = document.createElement('div');
+            container.id = 'location-verification-ui';
+            container.innerHTML = `
+                <style>
+                    .location-verify-container {
+                        background: #f0f0f5;
+                        border-radius: 16px;
+                        padding: 20px;
+                        margin: 16px 0;
+                        text-align: center;
+                        animation: slideDown 0.3s ease-out;
+                    }
+
+                    .location-icon-circle {
+                        width: 64px;
+                        height: 64px;
+                        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                        border-radius: 50%;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        margin: 0 auto 16px;
+                        font-size: 28px;
+                        color: white;
+                    }
+
+                    .location-verify-title {
+                        font-size: 16px;
+                        font-weight: 600;
+                        color: #333;
+                        margin-bottom: 6px;
+                    }
+
+                    .location-verify-subtitle {
+                        font-size: 13px;
+                        color: #888;
+                        margin-bottom: 20px;
+                        line-height: 1.4;
+                    }
+
+                    .location-share-btn {
+                        width: 100%;
+                        padding: 14px;
+                        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                        color: white;
+                        border: none;
+                        border-radius: 12px;
+                        font-size: 15px;
+                        font-weight: 600;
+                        cursor: pointer;
+                        transition: all 0.2s;
+                        font-family: inherit;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        gap: 8px;
+                        margin-bottom: 10px;
+                    }
+
+                    .location-share-btn:hover:not(:disabled) {
+                        transform: translateY(-1px);
+                        box-shadow: 0 4px 12px rgba(102,126,234,0.4);
+                    }
+
+                    .location-share-btn:disabled {
+                        background: #ccc;
+                        cursor: not-allowed;
+                        transform: none;
+                    }
+
+                    .location-skip-btn {
+                        width: 100%;
+                        padding: 11px;
+                        background: transparent;
+                        color: #888;
+                        border: 1px solid #ddd;
+                        border-radius: 12px;
+                        font-size: 14px;
+                        cursor: pointer;
+                        font-family: inherit;
+                        transition: all 0.2s;
+                    }
+
+                    .location-skip-btn:hover {
+                        background: #f5f5f5;
+                        color: #555;
+                    }
+
+                    .location-status {
+                        margin-top: 14px;
+                        padding: 10px 14px;
+                        border-radius: 10px;
+                        font-size: 13px;
+                        display: none;
+                    }
+
+                    .location-status.loading {
+                        background: #e3f2fd;
+                        color: #1565c0;
+                        display: block;
+                    }
+
+                    .location-status.success {
+                        background: #e8f5e9;
+                        color: #2e7d32;
+                        display: block;
+                    }
+
+                    .location-status.error {
+                        background: #fce4ec;
+                        color: #c62828;
+                        display: block;
+                    }
+                </style>
+
+                <div class="location-verify-container">
+                    <div class="location-icon-circle">
+                        <i class="fa fa-map-marker-alt"></i>
+                    </div>
+                    <div class="location-verify-title">Location Verification</div>
+                    <div class="location-verify-subtitle">
+                        This helps confirm your proximity to our location.<br>
+                        Your GPS data is only used for this verification.
+                    </div>
+
+                    <button class="location-share-btn" id="location-share-btn">
+                        <i class="fa fa-crosshairs"></i>
+                        Share My Location
+                    </button>
+
+                    <button class="location-skip-btn" id="location-skip-btn">
+                        Skip for now
+                    </button>
+
+                    <div class="location-status" id="location-status"></div>
+                </div>
+            `;
+            return container;
+        },
+
+        attachEventListeners() {
+            const shareBtn = document.getElementById('location-share-btn');
+            const skipBtn = document.getElementById('location-skip-btn');
+            const status = document.getElementById('location-status');
+
+            shareBtn.addEventListener('click', () => {
+                if (!navigator.geolocation) {
+                    this.showStatus('error', 'Geolocation is not supported by your browser.');
+                    return;
+                }
+
+                shareBtn.disabled = true;
+                this.showStatus('loading', '📍 Getting your location...');
+
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        const lat = position.coords.latitude;
+                        const lng = position.coords.longitude;
+
+                        console.log('[LocationVerificationUI] GPS obtained:', { lat, lng });
+
+                        this.showStatus('success', '✓ Location captured successfully!');
+
+                        setTimeout(() => this.submitGPS(lat, lng), 800);
+                    },
+                    (error) => {
+                        shareBtn.disabled = false;
+                        const messages = {
+                            1: 'Location permission denied. Please allow location access and try again.',
+                            2: 'Could not determine your location. Please try again.',
+                            3: 'Location request timed out. Please try again.'
+                        };
+                        this.showStatus('error', messages[error.code] || 'Location error. Please try again.');
+                    },
+                    { timeout: 10000, enableHighAccuracy: true }
+                );
+            });
+
+            skipBtn.addEventListener('click', () => {
+                console.log('[LocationVerificationUI] User skipped GPS verification');
+                this.submitGPS(null, null, true);   // skipped = true
+            });
+        },
+
+        showStatus(type, message) {
+            const status = document.getElementById('location-status');
+            status.className = `location-status ${type}`;
+            status.textContent = message;
+        },
+
+        submitGPS(lat, lng, skipped = false) {
+            // Show user-facing message
+            const displayMsg = skipped
+                ? 'Location sharing skipped'
+                : `Location shared (${lat?.toFixed(4)}, ${lng?.toFixed(4)})`;
+
+            window.CleoChatbot.addMessage(displayMsg, false, 'body');
+
+            // Send to backend
+            if (window.CleoChatbot && window.CleoChatbot.ws) {
+                window.CleoChatbot.ws.send(JSON.stringify({
+                    type: 'gps_data',
+                    data: {
+                        lat: lat,
+                        lng: lng,
+                        skipped: skipped
+                    }
+                }));
+            }
+
+            window.CleoChatbot.showTypingIndicator();
+            this.hide();
+        },
+
+        show() {
+            const messagesDiv = document.getElementById('chatbot-messages');
+            const ui = this.render();
+            messagesDiv.appendChild(ui);
+            this.attachEventListeners();
+
+            messagesDiv.scrollTo({ top: messagesDiv.scrollHeight, behavior: 'smooth' });
+            window.CleoChatbot.disableInput();
+        },
+
+        hide() {
+            const ui = document.getElementById('location-verification-ui');
+            if (ui) {
+                ui.style.display = 'none';
+                setTimeout(() => ui.remove(), 100);
+            }
+        }
+    };
     
     
     

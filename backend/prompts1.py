@@ -317,7 +317,7 @@ GENERATE_JOB_CONFIG_PROMPT = PromptTemplate(
 
 
 JSON_REPORT_PROMPT = PromptTemplate(
-    input_variables=["name", "email", "phone", "session_id", "knockout_answers", "answers", "score", "total_score", "work_experience", "education", "current_time"],
+    input_variables=["name", "email", "phone", "session_id", "knockout_answers", "answers", "score", "total_score", "work_experience", "education", "address", "current_time"],
     template="""
     You are an expert HR analyst. Generate a comprehensive JSON report for the hiring manager based on the candidate's screening interview.
 
@@ -355,7 +355,7 @@ JSON_REPORT_PROMPT = PromptTemplate(
         "full_name": "{name}",
         "email": "{email}",
         "phone_number": "{phone}",
-        "address": null
+        "address": {address}
       }},
       "qualification": {{
         "requirements": [

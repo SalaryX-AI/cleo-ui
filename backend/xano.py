@@ -54,7 +54,7 @@ def send_applicant_to_xano(
     
     try:
         # Determine status
-        status = "Short Listed" if score >= 50 else "Rejected"
+        status = "HR Manager Review" if score >= 50 else "Rejected"
 
         # Format conversation as JSON string
         conversation_json = json.dumps(conversation_history)

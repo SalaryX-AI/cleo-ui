@@ -14,7 +14,8 @@ import os
 from dotenv import load_dotenv
 from langchain.prompts import ChatPromptTemplate
 import time
-from xano import send_applicant_to_xano    
+from xano import send_applicant_to_xano
+from location_services import verify_location    
 
 
 from otp_verification import (
@@ -129,6 +130,19 @@ class ChatbotState(MessagesState):
     education_level: str = ""
     show_education_ui: bool = False
 
+    # Address fields
+    address: Dict[str, str] = {}          # { street, city, state, zip, full }
+    show_address_ui: bool = False
+
+    # GPS verification fields
+    gps_lat: float = 0.0
+    gps_lng: float = 0.0
+    gps_verified: bool = False
+    gps_flagged: bool = False
+    gps_flag_reason: str = ""
+    gps_distance_miles: float = 0.0
+    show_gps_ui: bool = False
+
 
 # ==================== Acknowledgement ====================
 def acknowledge_node(state: ChatbotState) -> ChatbotState:
@@ -166,12 +180,12 @@ def delay_messages_node(state: ChatbotState) -> ChatbotState:
     
     delay_messages = {
         "greeting": [
-            "Thanks for your interest — we're a friendly, locally-owned team, and I'm here to make your application process smooth and fast.",
-            "I'll guide you through a quick screening. It takes less than 3 minutes in total, and we can begin whenever you're ready."
+            "Thanks for your interest — we're a friendly, locally-owned team. My job is to make your application process super fast and easy.",
+            "I just need to ask a few quick screening questions - it'll take less than 3 minutes total. Ready to jump in?"
         ],
         "end": [
             "Our hiring team will take it from here. Your application will be carefully reviewed. If you are selected to move forward, we will contact you via email or phone to schedule an interview or conduct a brief background check prior to scheduling the interview.",
-            f"You can expect to hear from us regarding your status within 1-2 business day. Thank you again for your time and interest in working with {state.get("brand_name")}."
+            f"You can expect to hear from us regarding your status within 1-2 business days. Thank you again for your time and interest in working with {state.get("brand_name")}."
         ],
         "default": "Let's continue!"
     }
@@ -400,7 +414,7 @@ def evaluate_single_knockout_node(state: ChatbotState) -> ChatbotState:
     return state
 
 
-def single_knockout_router(state: ChatbotState) -> Literal["ask_knockout_question", "ask_work_experience", "__end__"]:
+def single_knockout_router(state: ChatbotState) -> Literal["ask_knockout_question", "ask_address", "__end__"]:
     """Route based on single knockout evaluation"""
     
     print("single_knockout_router called")
@@ -414,8 +428,125 @@ def single_knockout_router(state: ChatbotState) -> Literal["ask_knockout_questio
         return "ask_knockout_question"  # Ask next question
     
     # All questions passed
-    return "ask_work_experience"  # Continue to work experience
+    return "ask_address"  # Continue to work experience
 
+# ================================= ADDRESS =========================================
+
+def ask_address_node(state: ChatbotState) -> ChatbotState:
+    """Ask for home address and show autocomplete UI"""
+
+    print("ask_address_node called")
+
+    state["messages"].append(AIMessage(
+        content="Perfect. What is your current home address?"
+    ))
+    state["show_address_ui"] = True   # Signal frontend to show autocomplete UI
+
+    return state
+
+
+def store_address_node(state: ChatbotState) -> ChatbotState:
+    """Store structured address received from frontend"""
+
+    print("store_address_node called")
+
+    messages = state["messages"]
+    last_message = messages[-1] if messages else None
+
+    if isinstance(last_message, HumanMessage):
+        # Address data arrives as JSON string: '{"street":...,"city":...}'
+        try:
+            import json as _json
+            address_data = _json.loads(last_message.content)
+            state["address"] = address_data
+            print(f"Stored address: {address_data}")
+        except Exception:
+            # Fallback: plain text address
+            state["address"] = {"full": last_message.content}
+            print(f"Stored plain address: {last_message.content}")
+
+    return state
+
+
+def ask_gps_verification_node(state: ChatbotState) -> ChatbotState:
+    """Ask user to share GPS location"""
+
+    print("ask_gps_verification_node called")
+
+    state["messages"].append(AIMessage(
+        content="Thanks! To finish the location check, please tap 'Share Location' below so we can verify your proximity to the site."
+    ))
+    state["show_gps_ui"] = True   # Signal frontend to show GPS button
+
+    return state
+
+
+def process_gps_node(state: ChatbotState) -> ChatbotState:
+    """Receive GPS coordinates and cross-verify against typed address"""
+
+    print("process_gps_node called")
+
+    messages = state["messages"]
+    last_message = messages[-1] if messages else None
+
+    if isinstance(last_message, HumanMessage):
+        try:
+            import json as _json
+            gps_data = _json.loads(last_message.content)
+            lat = float(gps_data.get("lat", 0))
+            lng = float(gps_data.get("lng", 0))
+
+            state["gps_lat"] = lat
+            state["gps_lng"] = lng
+
+            typed_address = state.get("address", {}).get("full", "")
+
+            if typed_address and lat and lng:
+                result = verify_location(typed_address, lat, lng)
+
+                state["gps_verified"] = result["verified"]
+                state["gps_flagged"] = result["flag"]
+                state["gps_flag_reason"] = result.get("flag_reason", "")
+                state["gps_distance_miles"] = result.get("distance_miles", 0.0)
+
+                print(f"GPS verification result: {result}")
+
+                if result["flag"]:
+                    # Soft flag - ask clarifying question, don't hard-stop
+                    state["messages"].append(AIMessage(
+                        content=f"Thanks for sharing! We noticed your current location appears to be about {result['distance_miles']:.1f} mile(s) from the address you provided. Can you confirm that {typed_address} is your correct home address?"
+                    ))
+                else:
+                    state["messages"].append(AIMessage(
+                        content="Your location has been verified. Thank you!"
+                    ))
+            else:
+                # No address to compare, just accept GPS
+                state["gps_verified"] = True
+                state["messages"].append(AIMessage(
+                    content="Location received, thank you!"
+                ))
+
+        except Exception as e:
+            print(f"GPS processing error: {e}")
+            # GPS failed gracefully - don't block flow
+            state["gps_verified"] = True
+            state["gps_flagged"] = True
+            state["gps_flag_reason"] = "GPS data could not be processed"
+
+    return state
+
+
+def gps_router(state: ChatbotState) -> Literal["ask_work_experience", "ask_gps_verification"]:
+    """
+    Route after GPS processing.
+    Flagged addresses get a soft clarifying question but still continue.
+    This is never a hard stop - just flags for manual review.
+    """
+    print("gps_router called")
+    # Always continue to questions regardless of flag
+    # Flag is stored in state for XANO/hiring manager review
+    return "ask_work_experience"
 
 # ==================== WORK EXPERIENCE COLLECTION ====================
 
@@ -1167,6 +1298,8 @@ def summary_node(state: ChatbotState) -> ChatbotState:
     
     print(f"Conversation history length: {len(conversation_history)}")
     
+    address = state.get("address", {})
+
     data = {
         "name": name,
         "email": email,
@@ -1178,6 +1311,7 @@ def summary_node(state: ChatbotState) -> ChatbotState:
         "total_score": total_score,
         "work_experience": work_exp_text,
         "education": education_level,
+        "address": address
     }
 
     json_report = generate_json_report(data)
@@ -1230,6 +1364,11 @@ def build_graph(checkpointer):
     workflow.add_node("store_kq_answer", store_kq_answer_node)
     
     workflow.add_node("evaluate_single_knockout", evaluate_single_knockout_node)
+
+    workflow.add_node("ask_address", ask_address_node)
+    workflow.add_node("store_address", store_address_node)
+    workflow.add_node("ask_gps_verification", ask_gps_verification_node)
+    workflow.add_node("process_gps", process_gps_node)
     
     workflow.add_node("ask_work_experience", ask_work_experience_node)
     workflow.add_node("store_work_experience_response", store_work_experience_response_node)
@@ -1276,6 +1415,12 @@ def build_graph(checkpointer):
 
     # Route based on evaluation result
     workflow.add_conditional_edges("evaluate_single_knockout", single_knockout_router)
+
+    # Address + GPS flow (between phone verification and questions)
+    workflow.add_edge("ask_address", "store_address")
+    workflow.add_edge("store_address", "ask_gps_verification")
+    workflow.add_edge("ask_gps_verification", "process_gps")
+    workflow.add_conditional_edges("process_gps", gps_router)
     
     # Work experience flow
     workflow.add_edge("ask_work_experience", "store_work_experience_response")
@@ -1315,7 +1460,7 @@ def build_graph(checkpointer):
     
     app = workflow.compile(
         checkpointer=checkpointer,
-        interrupt_after=["delay_messages", "ask_knockout_question", "ask_work_experience", "store_work_experience_response", "ask_education", "ask_name", "ask_email", "ask_email_otp", "ask_phone", "ask_phone_otp", "ask_question"]
+        interrupt_after=["delay_messages", "ask_knockout_question",  "ask_address", "ask_gps_verification", "ask_work_experience", "store_work_experience_response", "ask_education", "ask_name", "ask_email", "ask_email_otp", "ask_phone", "ask_phone_otp", "ask_question"]
     )
     
     return app
