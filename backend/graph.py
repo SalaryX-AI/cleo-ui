@@ -500,7 +500,7 @@ def process_gps_node(state: ChatbotState) -> ChatbotState:
 
             # Handle skip case immediately
             if skipped or lat is None or lng is None:
-                state["gps_verified"] = True
+                state["gps_verified"] = False
                 state["gps_flagged"] = False
                 state["messages"].append(AIMessage(
                     content="No problem! We'll proceed with the address you provided."
@@ -537,16 +537,16 @@ def process_gps_node(state: ChatbotState) -> ChatbotState:
                 #     ))
             else:
                 # No address to compare, just accept GPS
-                state["gps_verified"] = True
+                state["gps_verified"] = False
                 state["messages"].append(AIMessage(
-                    content="Location received, thank you!"
+                    content="GPS Location received, We'll proceed with this"
                 ))
 
         except Exception as e:
             print(f"GPS processing error: {e}")
             # GPS failed gracefully - don't block flow
-            state["gps_verified"] = True
-            state["gps_flagged"] = True
+            state["gps_verified"] = False
+            state["gps_flagged"] = False
             state["gps_flag_reason"] = "GPS data could not be processed"
 
     return state
@@ -569,8 +569,12 @@ def ask_work_experience_node(state: ChatbotState) -> ChatbotState:
     """Ask about prior work experience"""
     
     print("ask_work_experience_node called")
+
+    question = "Do you have any prior work experience in this field?"
     
-    question = "Verified! You're definitely within range. Now, do you have any prior work experience in this field?"
+    if state.get("gps_verified"):
+        question = "Verified! You're definitely within range. Now, do you have any prior work experience in this field?"
+    
     state["messages"].append(AIMessage(content=question))
     
     return state
