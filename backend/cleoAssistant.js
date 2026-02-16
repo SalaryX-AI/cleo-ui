@@ -1642,7 +1642,7 @@ document.head.appendChild(link);
             messagesDiv.appendChild(ui);
             this.attachEventListeners();
 
-            messagesDiv.scrollTo({ top: messagesDiv.scrollHeight, behavior: 'smooth' });
+            // messagesDiv.scrollTo({ top: messagesDiv.scrollHeight, behavior: 'smooth' });
             window.CleoChatbot.disableInput();
         },
 
@@ -1884,7 +1884,7 @@ document.head.appendChild(link);
             messagesDiv.appendChild(ui);
             this.attachEventListeners();
 
-            messagesDiv.scrollTo({ top: messagesDiv.scrollHeight, behavior: 'smooth' });
+            // messagesDiv.scrollTo({ top: messagesDiv.scrollHeight, behavior: 'smooth' });
             window.CleoChatbot.disableInput();
         },
 

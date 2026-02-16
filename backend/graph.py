@@ -438,7 +438,7 @@ def ask_address_node(state: ChatbotState) -> ChatbotState:
     print("ask_address_node called")
 
     state["messages"].append(AIMessage(
-        content="Perfect. Since this role requires being on-site, what is your current home address?"
+        content="Perfect. Since this role is on-site, could you please share your home address? We just want to make sure the commute will be manageable for you!"
     ))
     state["show_address_ui"] = True   # Signal frontend to show autocomplete UI
 
