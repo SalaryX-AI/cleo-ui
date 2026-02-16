@@ -438,7 +438,7 @@ def ask_address_node(state: ChatbotState) -> ChatbotState:
     print("ask_address_node called")
 
     state["messages"].append(AIMessage(
-        content="Perfect. What is your current home address?"
+        content="Perfect. Since this role requires being on-site, what is your current home address?"
     ))
     state["show_address_ui"] = True   # Signal frontend to show autocomplete UI
 
@@ -474,7 +474,7 @@ def ask_gps_verification_node(state: ChatbotState) -> ChatbotState:
     print("ask_gps_verification_node called")
 
     state["messages"].append(AIMessage(
-        content="Thanks! To finish the location check, please tap 'Share Location' below so we can verify your proximity to the site."
+        content="Thanks! Just to wrap up the local residency check, could you share your current GPS location? This helps us confirm you're within a comfortable driving distance."
     ))
     state["show_gps_ui"] = True   # Signal frontend to show GPS button
 
@@ -516,10 +516,10 @@ def process_gps_node(state: ChatbotState) -> ChatbotState:
                     state["messages"].append(AIMessage(
                         content=f"Thanks for sharing! We noticed your current location appears to be about {result['distance_miles']:.1f} mile(s) from the address you provided. Can you confirm that {typed_address} is your correct home address?"
                     ))
-                else:
-                    state["messages"].append(AIMessage(
-                        content="Your location has been verified. Thank you!"
-                    ))
+                # else:
+                #     state["messages"].append(AIMessage(
+                #         content="Your location has been verified. Thank you!"
+                #     ))
             else:
                 # No address to compare, just accept GPS
                 state["gps_verified"] = True
@@ -555,7 +555,7 @@ def ask_work_experience_node(state: ChatbotState) -> ChatbotState:
     
     print("ask_work_experience_node called")
     
-    question = "Do you have prior work experience?"
+    question = "Verified! You're definitely within range. Now, do you have any prior work experience in this field?"
     state["messages"].append(AIMessage(content=question))
     
     return state

@@ -226,7 +226,7 @@ def get_place_details(place_id: str) -> dict | None:
 
 # ==================== Cross-Verification ====================
 
-DISTANCE_THRESHOLD_MILES = 1.0   # Flag if GPS > 1 mile from typed address
+DISTANCE_THRESHOLD_MILES = 15.0   # Flag if GPS > 15 miles from typed address
 CITY_STATE_MATCH_REQUIRED = True  # Flag if city/state don't match
 
 
