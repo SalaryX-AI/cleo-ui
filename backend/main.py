@@ -464,12 +464,18 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
 
                 import json as _json
                 gps_message = _json.dumps(gps_payload)
-
+                
+                # Handle None explicitly (user skipped = lat/lng sent as null)
+                raw_lat = gps_payload.get("lat")
+                raw_lng = gps_payload.get("lng")
+                gps_lat = float(raw_lat) if raw_lat is not None else 0.0
+                gps_lng = float(raw_lng) if raw_lng is not None else 0.0
+                
                 await graph_app.aupdate_state(
                     config,
                     {
-                        "gps_lat": float(gps_payload.get("lat", 0)),
-                        "gps_lng": float(gps_payload.get("lng", 0)),
+                        "gps_lat": gps_lat,
+                        "gps_lng": gps_lng,
                         "messages": current_messages + [HumanMessage(content=gps_message)]
                     }
                 )
