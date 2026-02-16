@@ -493,8 +493,23 @@ def process_gps_node(state: ChatbotState) -> ChatbotState:
         try:
             import json as _json
             gps_data = _json.loads(last_message.content)
-            lat = float(gps_data.get("lat", 0))
-            lng = float(gps_data.get("lng", 0))
+            
+            lat = gps_data.get("lat")
+            lng = gps_data.get("lng")
+            skipped = gps_data.get("skipped", False)
+
+            # Handle skip case immediately
+            if skipped or lat is None or lng is None:
+                state["gps_verified"] = True
+                state["gps_flagged"] = False
+                state["messages"].append(AIMessage(
+                    content="No problem! We'll proceed with the address you provided."
+                ))
+                return state
+
+            # convert now
+            lat = float(lat)
+            lng = float(lng)
 
             state["gps_lat"] = lat
             state["gps_lng"] = lng
