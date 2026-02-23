@@ -370,7 +370,7 @@ def evaluate_single_knockout_node(state: ChatbotState) -> ChatbotState:
     Rules:
     - Positive responses: "yes", "yeah", "yep", "sure", "I am", "I have", "I can", "available", numbers ≥18, "definitely", "of course"
     - Negative responses: "no", "not", "don't", "can't", "unavailable", numbers <18, "nope"
-    - Incomplete but positive intent: "I'm", "yes I", "I do" → treat as YES
+    - Incomplete but positive intent: "I'm", "yes I", "I do", "Y", "y" → treat as YES
     
     Return ONLY "YES" or "NO". Nothing else.
     
