@@ -83,12 +83,12 @@ KNOCKOUT_EVALUATION_PROMPT = PromptTemplate(
     Evaluation Rules:
     - These are CRITICAL eligibility questions
     - For legal authorization, transportation, availability questions:
-      * "yes", "authorized", "have", "available", "can", "sure", "definitely" → PASS
-      * "no", "not authorized", "don't have", "unavailable", "cannot" → FAIL
+      * "yes", "authorized", "have", "available", "can", "sure", "definitely", "Y" → PASS
+      * "no", "not authorized", "don't have", "unavailable", "cannot", "Nope" → FAIL
     
     - For age questions (18 or older):
-      * "yes", "I'm", "I am", any number ≥18, "old enough", "adult" → PASS
-      * "no", "not", any number <18, "minor", "under 18" → FAIL
+      * "yes", "I'm", "I am", any number ≥18, "old enough", "adult", "Y" → PASS
+      * "no", "not", any number <18, "minor", "under 18", "Nope" → FAIL
       * Incomplete answers like "I'm", "yes I", "I am" → PASS (assume positive intent)
     
     - Be reasonably lenient: minor typos or incomplete responses that show positive intent → PASS
@@ -98,6 +98,7 @@ KNOCKOUT_EVALUATION_PROMPT = PromptTemplate(
     Q: "Are you legally authorized to work in the U.S.?" A: "no" → FAIL
     Q: "Are you 18 or older?" A: "I'm" → PASS (incomplete but positive intent)
     Q: "Are you 18 or older?" A: "yes I am" → PASS
+    Q: "Are you 18 or older?" A: "Y" → PASS
     Q: "Are you 18 or older?" A: "I'm 17" → FAIL
     Q: "Do you have reliable transportation?" A: "no" → FAIL
     Q: "All questions answered positively" → PASS

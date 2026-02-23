@@ -609,8 +609,29 @@ document.head.appendChild(link);
                         margin-bottom: 8px;
                         margin-top: 8px;
                     }
+
+                    .work-exp-edit-btn {
+                        position: absolute;
+                        top: 12px;
+                        right: 12px;
+                        background: transparent;
+                        border: none;
+                        color: #667eea;
+                        font-size: 16px;
+                        cursor: pointer;
+                        padding: 6px;
+                        border-radius: 6px;
+                        transition: all 0.2s;
+                        opacity: 0.7;
+                    }
+
+                    .work-exp-edit-btn:hover {
+                        opacity: 1;
+                        background: #f0f0f8;
+                    }
                     
                     .work-exp-card {
+                        position: relative;
                         background: white;
                         border-radius: 12px;
                         padding: 12px;
@@ -839,7 +860,7 @@ document.head.appendChild(link);
                 <!-- Action buttons (shown after at least one job added) -->
                 <div class="work-exp-buttons" id="work-exp-actions" style="display: none;">
                     <button class="work-exp-btn work-exp-btn-secondary" id="work-exp-add-another-btn">
-                        + Add Previous Job
+                        + Additional Work Experience
                     </button>
                     <button class="work-exp-btn work-exp-btn-primary" id="work-exp-done-btn">
                         Continue →
@@ -861,21 +882,32 @@ document.head.appendChild(link);
             
             listDiv.innerHTML = this.experiences.map((exp, index) => {
                 const initial = exp.company.charAt(0).toUpperCase();
-                
-                const heading = index === 0 ? '<div class="work-exp-subheading">Most Recent</div>' : '<div class="work-exp-subheading">Previous Experience</div>';
-                
+                const heading = index === 0 ? '<div class="work-exp-subheading">Most Recent</div>' : '';
                 return `
                     ${heading}
                     <div class="work-exp-card">
-                        <div class="work-exp-logo">${initial}</div>
+                        <div class="work-exp-avatar">${initial}</div>
                         <div class="work-exp-details">
                             <div class="work-exp-role">${exp.role}</div>
                             <div class="work-exp-company">${exp.company}</div>
                             <div class="work-exp-dates">${exp.startDate} to ${exp.endDate}</div>
                         </div>
+                        <button class="work-exp-edit-btn" data-index="${index}">
+                            <i class="fa fa-edit"></i>
+                        </button>
                     </div>
                 `;
             }).join('');
+
+            // Add edit button event listeners
+            listDiv.querySelectorAll('.work-exp-edit-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const index = parseInt(btn.getAttribute('data-index'));
+                    this.editExperience(index);
+                });
+            });
+        
         },
         
         attachEventListeners() {
@@ -1000,6 +1032,36 @@ document.head.appendChild(link);
             if (form) {
                 form.style.display = 'none';
             }
+        },
+
+        editExperience(index) {
+            // Get the experience to edit
+            const exp = this.experiences[index];
+            
+            // Populate the form with existing data
+            document.getElementById('work-exp-company').value = exp.company;
+            document.getElementById('work-exp-role').value = exp.role;
+            document.getElementById('work-exp-start').value = exp.startDate;
+            document.getElementById('work-exp-end').value = exp.endDate;
+            
+            // Remove from array (will be re-added when user clicks "Add Job")
+            this.experiences.splice(index, 1);
+            
+            // Update the heading to show we're editing
+            const heading = document.getElementById('work-exp-form-heading');
+            if (heading) {
+                heading.textContent = 'Edit Job Experience';
+                heading.style.color = '#667eea';
+            }
+            
+            // Show the form
+            this.showForm();
+            
+            // Re-render the list
+            this.renderExperienceList();
+            
+            // Hide action buttons since form is active
+            this.hideActionButtons();
         },
         
         showActionButtons() {
