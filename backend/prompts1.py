@@ -98,7 +98,7 @@ KNOCKOUT_EVALUATION_PROMPT = PromptTemplate(
     Q: "Are you legally authorized to work in the U.S.?" A: "no" → FAIL
     Q: "Are you 18 or older?" A: "I'm" → PASS (incomplete but positive intent)
     Q: "Are you 18 or older?" A: "yes I am" → PASS
-    Q: "Are you 18 or older?" A: "Y" → PASS
+    Q: "Are you 18 or older?" A: "Y", "y" → PASS (incomplete but positive intent)
     Q: "Are you 18 or older?" A: "I'm 17" → FAIL
     Q: "Do you have reliable transportation?" A: "no" → FAIL
     Q: "All questions answered positively" → PASS
