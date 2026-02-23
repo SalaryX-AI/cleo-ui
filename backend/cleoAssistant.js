@@ -1642,7 +1642,7 @@ document.head.appendChild(link);
             messagesDiv.appendChild(ui);
             this.attachEventListeners();
 
-            // messagesDiv.scrollTo({ top: messagesDiv.scrollHeight, behavior: 'smooth' });
+            messagesDiv.scrollTo({ top: messagesDiv.scrollHeight, behavior: 'smooth' });
             window.CleoChatbot.disableInput();
         },
 
@@ -1854,11 +1854,17 @@ document.head.appendChild(link);
             status.textContent = message;
         },
 
-        submitGPS(lat, lng, skipped = false) {
-            // Show user-facing message
-            const displayMsg = skipped
-                ? 'Location sharing skipped'
-                : `Location shared (${lat?.toFixed(4)}, ${lng?.toFixed(4)})`;
+        async submitGPS(lat, lng, skipped = false) {
+            let displayMsg;
+
+            if (skipped) {
+                displayMsg = 'Location sharing skipped';
+            } else {
+                // Get place name from reverse geocoding
+                const placeName = await this.getPlaceName(lat, lng);
+                
+                displayMsg = `📍 Location Shared\nPlace: ${placeName}\nCoords: ${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+            }
 
             window.CleoChatbot.addMessage(displayMsg, false, 'body');
 
@@ -1878,13 +1884,40 @@ document.head.appendChild(link);
             this.hide();
         },
 
+        async getPlaceName(lat, lng) {
+            try {
+                const apiUrl = window.CleoChatbot.config.apiUrl;
+                const res = await fetch(
+                    `${apiUrl}/places/reverse-geocode?lat=${lat}&lng=${lng}`
+                );
+                const data = await res.json();
+
+                // Extract meaningful place name from formatted_address
+                // "123 Main St, Plainville, CT 06062, USA" → "Plainville, CT"
+                const components = data.components || {};
+                const city = components.city || '';
+                const state = components.state || '';
+
+                if (city && state) {
+                    return `${city}, ${state}`;
+                } else {
+                    // Fallback: use first part of formatted address
+                    const parts = data.formatted_address?.split(',') || [];
+                    return parts.slice(0, 2).join(',').trim() || 'Unknown Location';
+                }
+            } catch (err) {
+                console.error('[LocationVerificationUI] Reverse geocode error:', err);
+                return 'Unknown Location';
+            }
+        },
+
         show() {
             const messagesDiv = document.getElementById('chatbot-messages');
             const ui = this.render();
             messagesDiv.appendChild(ui);
             this.attachEventListeners();
 
-            // messagesDiv.scrollTo({ top: messagesDiv.scrollHeight, behavior: 'smooth' });
+            messagesDiv.scrollTo({ top: messagesDiv.scrollHeight, behavior: 'smooth' });
             window.CleoChatbot.disableInput();
         },
 

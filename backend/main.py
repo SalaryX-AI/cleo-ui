@@ -17,8 +17,7 @@ from psycopg import AsyncConnection
 from psycopg.rows import dict_row
 import os
 import asyncio
-from location_services import get_address_autocomplete, get_place_details
-
+from location_services import get_address_autocomplete, get_place_details, reverse_geocode
 
 
 brand_name = ""
@@ -131,6 +130,18 @@ async def serve_config_script():
 async def serve_css():
     """Serve the CSS file"""
     return FileResponse("cleo-typography.css", media_type="text/css")
+
+
+@app.get("/places/reverse-geocode")
+async def reverse_geocode_coords(lat: float = Query(...), lng: float = Query(...)):
+    """
+    Convert GPS coordinates to a human-readable address.
+    Returns: { formatted_address, components: { city, state, zip, country } }
+    """
+    result = reverse_geocode(lat, lng)
+    if not result:
+        raise HTTPException(status_code=404, detail="Location not found")
+    return result
 
 
 @app.get("/places/autocomplete")

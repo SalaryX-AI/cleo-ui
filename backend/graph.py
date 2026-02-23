@@ -531,10 +531,10 @@ def process_gps_node(state: ChatbotState) -> ChatbotState:
                     state["messages"].append(AIMessage(
                         content=f"Thanks for sharing! We noticed your current location appears to be about {result['distance_miles']:.1f} mile(s) from the address you provided. Can you confirm that {typed_address} is your correct home address?"
                     ))
-                # else:
-                #     state["messages"].append(AIMessage(
-                #         content="Your location has been verified. Thank you!"
-                #     ))
+                else:
+                    state["messages"].append(AIMessage(
+                        content="Verified! ✅ You're definitely within range."
+                    ))
             else:
                 # No address to compare, just accept GPS
                 state["gps_verified"] = False
@@ -573,7 +573,7 @@ def ask_work_experience_node(state: ChatbotState) -> ChatbotState:
     question = "Do you have any prior work experience in this field?"
     
     if state.get("gps_verified"):
-        question = "Verified! You're definitely within range. Now, do you have any prior work experience in this field?"
+        question = "Now, do you have any prior work experience in this field?"
     
     state["messages"].append(AIMessage(content=question))
     
