@@ -89,7 +89,7 @@ KNOCKOUT_EVALUATION_PROMPT = PromptTemplate(
     - For age questions (18 or older):
       * "yes", "I'm", "I am", any number ≥18, "old enough", "adult", "Y" → PASS
       * "no", "not", any number <18, "minor", "under 18", "Nope" → FAIL
-      * Incomplete answers like "I'm", "yes I", "I am" → PASS (assume positive intent)
+      * Incomplete answers like "I'm", "yes I", "I am", "Y" → PASS (assume positive intent)
     
     - Be reasonably lenient: minor typos or incomplete responses that show positive intent → PASS
     - Be strict only on clear negatives: explicit "no" or disqualifying information → FAIL
