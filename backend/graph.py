@@ -362,45 +362,45 @@ def evaluate_single_knockout_node(state: ChatbotState) -> ChatbotState:
     print(f"Evaluating Q{current_index + 1}: {current_question}")
     print(f"Answer: {current_answer}")
     
-    # Evaluate using LLM
-    prompt = f"""
+    # Normalize single-letter answers BEFORE LLM
+    normalized_answer = current_answer.strip()
+
+    if normalized_answer.upper() == "Y":
+        normalized_answer = "yes"
+        decision = "YES"  # Skip LLM entirely for simple Y
+        print(f"[NORMALIZED] 'Y' → 'yes', Decision: YES")
+    elif normalized_answer.upper() == "N":
+        normalized_answer = "no"
+        decision = "NO"  # Skip LLM entirely for simple N
+        print(f"[NORMALIZED] 'N' → 'no', Decision: NO")
+    else:
+        # Use LLM for everything else
+        prompt = f"""
         Evaluate if this answer is positive (YES) or negative (NO).
         
         Question: {current_question}
-        Answer: "{current_answer}"
+        Answer: "{normalized_answer}"
         
         Rules for YES:
         - Full words: "yes", "yeah", "yep", "yup", "sure", "okay", "ok", "definitely", "of course", "absolutely"
-        - Single letters: "Y" or "y" (always YES)
         - Phrases: "I am", "I have", "I can", "I do", "available"
         - For age questions: any number ≥18
         
         Rules for NO:
         - Full words: "no", "nope", "not", "don't", "can't", "unavailable"
-        - Single letters: "N" or "n" (always NO)
         - For age questions: any number <18
-        
-        CRITICAL: Single letter "y" or "Y" = YES. Single letter "n" or "N" = NO.
-        
-        Examples:
-        - "y" → YES
-        - "Y" → YES
-        - "yes" → YES
-        - "n" → NO
-        - "no" → NO
-        - "19" (for age) → YES
-        - "17" (for age) → NO
         
         Return ONLY "YES" or "NO". Nothing else.
         
         Decision:
         """
-    
-    
-    response = evaluation_llm.invoke(prompt)
-    decision = response.content.strip().upper()
-    
-    print(f"Decision: {decision}")
+        
+        response = evaluation_llm.invoke(prompt)
+        decision = response.content.strip().upper()
+        print(f"LLM Decision: {decision}")
+
+    # Now the decision is set either by normalization or LLM
+    print(f"Final Decision: {decision}")
     
     if decision == "NO":
         state["current_knockout_failed"] = True
