@@ -1038,30 +1038,30 @@ document.head.appendChild(link);
             // Get the experience to edit
             const exp = this.experiences[index];
             
-            // Populate the form with existing data
+            // Remove from array FIRST (will be re-added when user clicks "Add Job")
+            this.experiences.splice(index, 1);
+            
+            // Re-render the list SECOND (updates the cards)
+            this.renderExperienceList();
+            
+            // Hide action buttons THIRD
+            this.hideActionButtons();
+            
+            // Populate the form FOURTH
             document.getElementById('work-exp-company').value = exp.company;
             document.getElementById('work-exp-role').value = exp.role;
             document.getElementById('work-exp-start').value = exp.startDate;
             document.getElementById('work-exp-end').value = exp.endDate;
             
-            // Remove from array (will be re-added when user clicks "Add Job")
-            this.experiences.splice(index, 1);
-            
-            // Update the heading to show we're editing
+            // Update the heading FIFTH
             const heading = document.getElementById('work-exp-form-heading');
             if (heading) {
                 heading.textContent = 'Edit Job Experience';
                 heading.style.color = '#667eea';
             }
             
-            // Show the form
+            // Show the form LAST (this ensures it's visible)
             this.showForm();
-            
-            // Re-render the list
-            this.renderExperienceList();
-            
-            // Hide action buttons since form is active
-            this.hideActionButtons();
         },
         
         showActionButtons() {
