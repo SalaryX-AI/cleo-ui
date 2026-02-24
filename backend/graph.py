@@ -40,6 +40,8 @@ load_dotenv()
 
 llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.5)
 
+evaluation_llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+
 # Create chat prompt template with system message
 chat_template = ChatPromptTemplate.from_messages([
     ("system", SYSTEM_PROMPT),
@@ -362,22 +364,40 @@ def evaluate_single_knockout_node(state: ChatbotState) -> ChatbotState:
     
     # Evaluate using LLM
     prompt = f"""
-    Evaluate if this answer is positive (YES) or negative (NO).
+        Evaluate if this answer is positive (YES) or negative (NO).
+        
+        Question: {current_question}
+        Answer: "{current_answer}"
+        
+        Rules for YES:
+        - Full words: "yes", "yeah", "yep", "yup", "sure", "okay", "ok", "definitely", "of course", "absolutely"
+        - Single letters: "Y" or "y" (always YES)
+        - Phrases: "I am", "I have", "I can", "I do", "available"
+        - For age questions: any number ≥18
+        
+        Rules for NO:
+        - Full words: "no", "nope", "not", "don't", "can't", "unavailable"
+        - Single letters: "N" or "n" (always NO)
+        - For age questions: any number <18
+        
+        CRITICAL: Single letter "y" or "Y" = YES. Single letter "n" or "N" = NO.
+        
+        Examples:
+        - "y" → YES
+        - "Y" → YES
+        - "yes" → YES
+        - "n" → NO
+        - "no" → NO
+        - "19" (for age) → YES
+        - "17" (for age) → NO
+        
+        Return ONLY "YES" or "NO". Nothing else.
+        
+        Decision:
+        """
     
-    Question: {current_question}
-    Answer: {current_answer}
     
-    Rules:
-    - Positive responses: "yes", "yeah", "yep", "sure", "I am", "I have", "I can", "available", numbers ≥18, "definitely", "of course", "Y", "y"
-    - Negative responses: "no", "not", "don't", "can't", "unavailable", numbers <18, "nope"
-    - Incomplete but positive intent: "I'm", "yes I", "I do", "Y", "y" → treat as YES
-    
-    Return ONLY "YES" or "NO". Nothing else.
-    
-    Decision:
-    """
-    
-    response = llm.invoke(prompt)
+    response = evaluation_llm.invoke(prompt)
     decision = response.content.strip().upper()
     
     print(f"Decision: {decision}")
