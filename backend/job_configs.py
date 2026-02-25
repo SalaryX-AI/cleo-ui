@@ -26,7 +26,6 @@ JOB_CONFIGS = {
             "Do you have reliable transportation to and from our store located at {address}?"
         ],
         "questions": [
-            "How many years of restaurant management experience do you have?",
             "Have you managed P&L responsibilities before?",
             "Are you experienced in training and developing team members?"
         ],
@@ -44,7 +43,6 @@ JOB_CONFIGS = {
             "Do you have reliable transportation to and from our store located at {address}?"
         ],
         "questions": [
-            "How many years of store operations experience do you have?",
             "Have you supervised a team of 5 or more people?",
             "Are you familiar with daily store opening and closing procedures?"
         ],
@@ -62,7 +60,6 @@ JOB_CONFIGS = {
             "Do you have reliable transportation to and from our store located at {address}?"
         ],
         "questions": [
-            "How many years of barista or beverage preparation experience do you have?",
             "Are you passionate about coffee and creating quality beverages?",
             "Have you worked with espresso machines before?"
         ],
@@ -96,7 +93,6 @@ JOB_CONFIGS = {
             "Do you have reliable transportation to and from our store located at {address}?"
         ],
         "questions": [
-            "How many years of specialty coffee experience do you have?",
             "Are you familiar with different coffee origins and flavor profiles?",
             "Have you completed any barista training or certifications?"
         ],
@@ -130,7 +126,6 @@ JOB_CONFIGS = {
             "Do you have reliable transportation to and from our store located at {address}?"
         ],
         "questions": [
-            "How many years of restaurant or food service experience do you have?",
             "Are you willing to learn multiple stations?",
             "Have you worked in customer service before?"
         ],
@@ -148,7 +143,6 @@ JOB_CONFIGS = {
             "Do you have reliable transportation to and from our store located at {address}?"
         ],
         "questions": [
-            "How many years of customer service experience do you have?",
             "Have you worked in a customer-facing role before?",
             "Are you comfortable resolving conflicts and de-escalating situations?"
         ],
@@ -166,7 +160,6 @@ JOB_CONFIGS = {
             "Do you have reliable transportation to and from our store located at {address}?"
         ],
         "questions": [
-            "How many years of cleaning or dining room experience do you have?",
             "Are you detail-oriented when it comes to cleanliness?",
             "Have you worked in a restaurant dining area before?"
         ],
@@ -184,7 +177,6 @@ JOB_CONFIGS = {
             "Do you have reliable transportation to and from our store located at {address}?"
         ],
         "questions": [
-            "How many years of dishwashing or kitchen experience do you have?",
             "Are you comfortable working in hot and wet conditions?",
             "Have you worked in a commercial kitchen before?"
         ],
@@ -202,7 +194,6 @@ JOB_CONFIGS = {
             "Do you have reliable transportation to and from our store located at {address}?"
         ],
         "questions": [
-            "How many years of drive-thru or customer service experience do you have?",
             "Are you able to take orders accurately while handling payments?",
             "Have you worked with headsets for customer communication?"
         ],
@@ -220,7 +211,6 @@ JOB_CONFIGS = {
             "Do you have reliable transportation to and from our store located at {address}?"
         ],
         "questions": [
-            "How many years of grill cooking experience do you have?",
             "Are you familiar with food safety and temperature guidelines?",
             "Have you prepared meats on a commercial grill before?"
         ],
@@ -238,7 +228,6 @@ JOB_CONFIGS = {
             "Do you have reliable transportation to and from our store located at {address}?"
         ],
         "questions": [
-            "How many years of customer experience or hospitality experience do you have?",
             "Have you led customer service initiatives before?",
             "Are you skilled at creating positive guest interactions?"
         ],
@@ -256,7 +245,6 @@ JOB_CONFIGS = {
             "Do you have reliable transportation to and from our store located at {address}?"
         ],
         "questions": [
-            "How many years of hosting or front desk experience do you have?",
             "Are you able to manage wait times and guest flow effectively?",
             "Have you worked in a restaurant front-of-house before?"
         ],
@@ -274,7 +262,6 @@ JOB_CONFIGS = {
             "Do you have reliable transportation to and from our store located at {address}?"
         ],
         "questions": [
-            "How many years of kitchen or food preparation experience do you have?",
             "Are you comfortable supporting cooks and prep teams?",
             "Have you worked in a commercial kitchen environment before?"
         ],
@@ -292,7 +279,6 @@ JOB_CONFIGS = {
             "Do you have reliable transportation to and from our store located at {address}?"
         ],
         "questions": [
-            "How many years of maintenance or facilities experience do you have?",
             "Are you familiar with restaurant equipment maintenance?",
             "Have you worked with HVAC, plumbing, or electrical systems?"
         ],
@@ -310,7 +296,6 @@ JOB_CONFIGS = {
             "Do you have reliable transportation to and from our store located at {address}?"
         ],
         "questions": [
-            "How many years of overnight or late-night shift experience do you have?",
             "Are you reliable and punctual for overnight hours?",
             "Have you worked in a 24-hour operation before?"
         ],
@@ -328,7 +313,6 @@ JOB_CONFIGS = {
             "Do you have reliable transportation to and from our store located at {address}?"
         ],
         "questions": [
-            "How many years of food prep or cooking experience do you have?",
             "Are you comfortable following recipes and portion guidelines?",
             "Have you prepared ingredients in a professional kitchen?"
         ],
@@ -346,7 +330,6 @@ JOB_CONFIGS = {
             "Do you have reliable transportation to and from our store located at {address}?"
         ],
         "questions": [
-            "How many years of food preparation experience do you have?",
             "Are you comfortable with repetitive prep tasks?",
             "Have you worked in a team-based kitchen environment?"
         ],
@@ -364,7 +347,6 @@ JOB_CONFIGS = {
             "Do you have reliable transportation to and from our store located at {address}?"
         ],
         "questions": [
-            "How many years of shift coordination or supervisory experience do you have?",
             "Have you managed restaurant operations during a shift?",
             "Are you skilled at prioritizing tasks and handling pressure?"
         ],
@@ -382,7 +364,6 @@ JOB_CONFIGS = {
             "Do you have reliable transportation to and from our store located at {address}?"
         ],
         "questions": [
-            "How many years of shift leadership experience do you have?",
             "Have you supervised a team during restaurant shifts?",
             "Are you comfortable assigning tasks and monitoring performance?"
         ],
@@ -400,7 +381,6 @@ JOB_CONFIGS = {
             "Do you have reliable transportation to and from our store located at {address}?"
         ],
         "questions": [
-            "How many years of team leadership experience do you have?",
             "Have you led restaurant operations during busy periods?",
             "Are you comfortable handling customer issues and team conflicts?"
         ],
@@ -418,7 +398,6 @@ JOB_CONFIGS = {
             "Do you have reliable transportation to and from our store located at {address}?"
         ],
         "questions": [
-            "How many years of restaurant management experience do you have?",
             "Have you managed inventory and labor during shifts?",
             "Are you experienced in training and coaching team members?"
         ],
@@ -436,7 +415,6 @@ JOB_CONFIGS = {
             "Do you have reliable transportation to and from our store located at {address}?"
         ],
         "questions": [
-            "How many years of team leadership experience do you have?",
             "Have you managed a team in a restaurant setting?",
             "Are you comfortable handling customer complaints and team conflicts?"
         ],
@@ -454,7 +432,6 @@ JOB_CONFIGS = {
             "Do you have reliable transportation to and from our store located at {address}?"
         ],
         "questions": [
-            "How many years of retail or stocking experience do you have?",
             "Are you detail-oriented when organizing inventory?",
             "Have you worked in a customer-facing retail environment?"
         ],
@@ -472,7 +449,6 @@ JOB_CONFIGS = {
             "Do you have reliable transportation to and from our store located at {address}?"
         ],
         "questions": [
-            "How many years of team leadership or mentoring experience do you have?",
             "Have you led a team in achieving performance goals?",
             "Are you skilled at providing constructive feedback?"
         ],
@@ -490,7 +466,6 @@ JOB_CONFIGS = {
             "Do you have reliable transportation to and from our store located at {address}?"
         ],
         "questions": [
-            "How many years of restaurant or retail experience do you have?",
             "Are you a team player and willing to help where needed?",
             "Have you worked in a fast-paced service environment?"
         ],
@@ -508,7 +483,6 @@ JOB_CONFIGS = {
             "Do you have reliable transportation to and from our store located at {address}?"
         ],
         "questions": [
-            "How many years of training or teaching experience do you have?",
             "Have you developed training materials or programs?",
             "Are you comfortable demonstrating procedures and providing feedback?"
         ],

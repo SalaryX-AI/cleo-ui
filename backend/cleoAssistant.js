@@ -1023,7 +1023,8 @@ document.head.appendChild(link);
             
             // Update heading based on number of experiences
             if (heading) {
-                heading.textContent = this.experiences.length === 0 ? 'Most Recent' : 'Previous Job Experience';
+                heading.textContent = this.experiences.length === 0 ? 'Most Recent' : 'Additional Job Experience';
+                heading.style.color = '#333';  // Add this line to reset color
             }
         },
         
@@ -1035,39 +1036,62 @@ document.head.appendChild(link);
         },
 
         editExperience(index) {
+            const self = this;
+            
             // Get the experience to edit
             const exp = this.experiences[index];
             
-            // Remove from array FIRST (will be re-added when user clicks "Add Job")
+            // Remove from array (will be re-added when user clicks "Add Job")
             this.experiences.splice(index, 1);
             
-            // Re-render the list SECOND (updates the cards)
+            // Re-render the list (updates the cards)
             this.renderExperienceList();
             
-            // Hide action buttons THIRD
+            // Hide action buttons
             this.hideActionButtons();
             
-            // Populate the form FOURTH
-            document.getElementById('work-exp-company').value = exp.company;
-            document.getElementById('work-exp-role').value = exp.role;
-            document.getElementById('work-exp-start').value = exp.startDate;
-            document.getElementById('work-exp-end').value = exp.endDate;
-            
-            // Update the heading FIFTH
-            const heading = document.getElementById('work-exp-form-heading');
-            if (heading) {
-                heading.textContent = 'Edit Job Experience';
-                heading.style.color = '#667eea';
+            // Show the form FIRST (before populating)
+            const form = document.getElementById('work-exp-form');
+            if (form) {
+                form.style.display = 'block';
             }
             
-            // Show the form LAST (this ensures it's visible)
-            this.showForm();
+            // Small delay to ensure form is rendered, then populate
+            setTimeout(() => {
+                const companyInput = document.getElementById('work-exp-company');
+                const roleInput = document.getElementById('work-exp-role');
+                const startInput = document.getElementById('work-exp-start-date');
+                const endInput = document.getElementById('work-exp-end-date');
+                const heading = document.getElementById('work-exp-form-heading');
+                
+                if (companyInput) companyInput.value = exp.company;
+                if (roleInput) roleInput.value = exp.role;
+                if (startInput) startInput.value = exp.startDate;
+                if (endInput) endInput.value = exp.endDate;
+                
+                // Update heading
+                if (heading) {
+                    heading.textContent = 'Edit Job Experience';
+                    heading.style.color = '#667eea';
+                }
+                
+                // Focus on company field
+                if (companyInput) companyInput.focus();
+                
+            }, 50);  // Small delay ensures DOM is updated
         },
         
         showActionButtons() {
             const actions = document.getElementById('work-exp-actions');
             if (actions) {
                 actions.style.display = 'flex';
+            }
+        },
+
+        hideActionButtons() {
+            const actions = document.getElementById('work-exp-actions');
+            if (actions) {
+                actions.style.display = 'none';
             }
         },
         
