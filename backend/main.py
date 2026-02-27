@@ -363,10 +363,10 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                         for msg in messages[-2:]:   # only last two messages
                             # Show typing for 1 second
                             await websocket.send_json({"type": "typing"})
-                            await asyncio.sleep(1)
+                            await asyncio.sleep(0.7)
                             
                             print(msg.content)
-                            await asyncio.sleep(2)  # 3 second delay
+                            await asyncio.sleep(1.5)  # 3 second delay
                             
                             if isinstance(msg, AIMessage):
                                 await websocket.send_json({
@@ -381,7 +381,7 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                         
                         # Show typing for 1 second
                         await websocket.send_json({"type": "typing"})
-                        await asyncio.sleep(1)
+                        await asyncio.sleep(0.7)
                         
                         if isinstance(msg, AIMessage):
                             
@@ -451,7 +451,7 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                             )
 
                             await websocket.send_json({"type": "typing"})
-                            await asyncio.sleep(1)
+                            await asyncio.sleep(0.7)
 
                             if isinstance(msg, AIMessage):
                                 await websocket.send_json({
@@ -505,7 +505,7 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                             ] else "body"
 
                             await websocket.send_json({"type": "typing"})
-                            await asyncio.sleep(1)
+                            await asyncio.sleep(0.7)
 
                             if isinstance(msg, AIMessage):
                                 await websocket.send_json({
@@ -563,9 +563,9 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                                 
                                 for msg in messages[-2:]:
                                     await websocket.send_json({"type": "typing"})
-                                    await asyncio.sleep(1)
+                                    await asyncio.sleep(0.7)
                                     print(msg.content)
-                                    await asyncio.sleep(2)
+                                    await asyncio.sleep(1.5)
                                     
                                     if isinstance(msg, AIMessage):
                                         await websocket.send_json({
@@ -579,7 +579,7 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                                     messageType = "questions"
                                 
                                 await websocket.send_json({"type": "typing"})
-                                await asyncio.sleep(1)
+                                await asyncio.sleep(0.7)
                                 
                                 msg = messages[-1]
                                 print(msg.content)
@@ -645,10 +645,10 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                                 
                                 # Show typing for 1 second
                                 await websocket.send_json({"type": "typing"})
-                                await asyncio.sleep(1)
+                                await asyncio.sleep(0.7)
                                 
                                 print(msg.content)
-                                await asyncio.sleep(2)  # 3 second delay
+                                await asyncio.sleep(1.5)  # 3 second delay
                                 
                                 if isinstance(msg, AIMessage):
                                     await websocket.send_json({
@@ -664,7 +664,7 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                             
                             # Show typing for 1 second
                             await websocket.send_json({"type": "typing"})
-                            await asyncio.sleep(1)
+                            await asyncio.sleep(0.7)
                             
                             msg = messages[-1]
                             print(msg.content)

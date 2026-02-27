@@ -174,7 +174,7 @@ document.head.appendChild(link);
                         border-radius: 50%;
                         display: inline-block;
                         margin: 0 2px;
-                        animation: typing 1.4s infinite;
+                        animation: typing 1.2s infinite;
                     }
 
                     .typing-indicator span:nth-child(2) {

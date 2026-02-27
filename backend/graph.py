@@ -351,7 +351,7 @@ def evaluate_single_knockout_node(state: ChatbotState) -> ChatbotState:
     
     knockout_questions = state["knockout_questions"]
     knockout_answers = state["knockout_answers"]
-    current_index = state["current_knockout_question_index"] - 1  # We just stored it
+    current_index = state["current_knockout_question_index"] - 1
     
     if current_index < 0 or current_index >= len(knockout_questions):
         return state
@@ -361,20 +361,26 @@ def evaluate_single_knockout_node(state: ChatbotState) -> ChatbotState:
     
     print(f"Evaluating Q{current_index + 1}: {current_question}")
     print(f"Answer: {current_answer}")
+    print(f"Answer repr: {repr(current_answer)}")  # Shows exact bytes/encoding
+    print(f"Answer length: {len(current_answer)}")  # Detects hidden characters
     
     # Normalize single-letter answers BEFORE LLM
     normalized_answer = current_answer.strip()
+    
+    print(f"After strip: {repr(normalized_answer)}")  # Shows result after strip
+    print(f"Upper: {repr(normalized_answer.upper())}")  # Shows uppercase result
 
     if normalized_answer.upper() == "Y":
         normalized_answer = "yes"
-        decision = "YES"  # Skip LLM entirely for simple Y
+        decision = "YES"
         print(f"[NORMALIZED] 'Y' → 'yes', Decision: YES")
     elif normalized_answer.upper() == "N":
         normalized_answer = "no"
-        decision = "NO"  # Skip LLM entirely for simple N
+        decision = "NO"
         print(f"[NORMALIZED] 'N' → 'no', Decision: NO")
     else:
-        # Use LLM for everything else
+        print(f"[NOT NORMALIZED] Sending to LLM: {repr(normalized_answer)}")
+        
         prompt = f"""
         Evaluate if this answer is positive (YES) or negative (NO).
         
