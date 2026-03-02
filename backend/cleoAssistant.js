@@ -342,6 +342,14 @@ document.head.appendChild(link);
                 
                 this.ws.onmessage = (event) => {
                     const data = JSON.parse(event.data);
+
+                    // Handle ping - respond with pong
+                    if (data.type === 'ping') {
+                        console.log('[HEARTBEAT] Received ping, sending pong');
+                        this.ws.send(JSON.stringify({ type: 'pong' }));
+                        return;  // Don't process ping as a normal message
+                    }
+
                     this.handleMessage(data);
                 };
                 

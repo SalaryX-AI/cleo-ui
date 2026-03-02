@@ -255,6 +255,23 @@ def set_job_address(job_config: dict, location: str):
     return job
 
 
+async def websocket_heartbeat(websocket: WebSocket):
+    """
+    Send ping every 30 seconds to keep connection alive.
+    AWS ALB/Nginx timeout is 60s, so ping at 30s keeps it well below threshold.
+    """
+    try:
+        while True:
+            await asyncio.sleep(30)  # Ping every 30 seconds
+            try:
+                await websocket.send_json({"type": "ping"})
+                print(f"[HEARTBEAT] Sent ping")
+            except Exception as e:
+                print(f"[HEARTBEAT] Failed to send ping: {e}")
+                break  # Connection lost, exit heartbeat
+    except asyncio.CancelledError:
+        print("[HEARTBEAT] Heartbeat task cancelled")
+
 @app.websocket("/ws/{session_id}")
 async def websocket_endpoint(websocket: WebSocket, session_id: str):
     """WebSocket connection for chat"""
@@ -267,6 +284,9 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
         })
         await websocket.close()
         return
+    
+    # Start heartbeat task
+    heartbeat_task = asyncio.create_task(websocket_heartbeat(websocket))
     
     session = sessions[session_id]
     thread_id = session["thread_id"]
@@ -689,18 +709,24 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
     except WebSocketDisconnect:
         print(f"Client disconnected: {session_id}")
         sessions[session_id]["active"] = False
+        heartbeat_task.cancel()  # Cancel heartbeat on disconnect
     
     except Exception as e:
         import traceback
         error_details = traceback.format_exc()  # Get full error trace
         print(f"Error in WebSocket: {e}")
         print(f"Full traceback:\n{error_details}")
+        heartbeat_task.cancel()  # Cancel heartbeat on error
         await websocket.send_json({
             "type": "error",
             "message": str(e)
         })
         await websocket.close()
 
+    finally:
+        # Ensure heartbeat is cancelled
+        if not heartbeat_task.done():
+            heartbeat_task.cancel()
 
 if __name__ == "__main__":
     import uvicorn
