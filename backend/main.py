@@ -118,18 +118,18 @@ async def job_details():
 @app.get("/cleoAssistant.js")
 async def serve_embed_script():
     """Serve the chatbot embed script"""
-    return FileResponse("cleoAssistant.js", media_type="application/javascript")
+    return FileResponse("cleoAssistant.js", media_type="application/javascript",  headers={"Cache-Control": "no-store"})
 
 @app.get("/config.js")
 async def serve_config_script():
     """Serve the config script"""
-    return FileResponse("config.js", media_type="application/javascript")
+    return FileResponse("config.js", media_type="application/javascript", headers={"Cache-Control": "no-store"})
 
 
 @app.get("/cleo-typography.css")
 async def serve_css():
     """Serve the CSS file"""
-    return FileResponse("cleo-typography.css", media_type="text/css")
+    return FileResponse("cleo-typography.css", media_type="text/css", headers={"Cache-Control": "no-store"})
 
 
 @app.get("/places/reverse-geocode")
