@@ -354,107 +354,120 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
     config = {"configurable": {"thread_id": thread_id}}
     
     try:
-        initial_state = ChatbotState(
-            messages=[],
-            questions=job["questions"],
-            scoring_model=job["scoring_model"],
-            current_question_index=0,
-            answers={},
-            personal_details={},
-            ready_confirmed=False,
-            knockout_answers={},
-            current_knockout_question_index=0,
-            knockout_questions=job["knockout_questions"],
-            
-            email_attempt_count=0,
-            phone_attempt_count=0,
-            email_validation_failed=False,
-            phone_validation_failed=False,
-            invalid_email_attempt="",
-            invalid_phone_attempt="",
-            acknowledgement_type="",
-            
-            delay_node_type="",
-            
-            knockout_passed=False,
-            current_knockout_failed=False,
-            brand_name=brand_name,
-
-            email_otp_code="",
-            email_otp_sent=False,
-            email_otp_sent_failed=False,
-            email_otp_timestamp=0,
-            email_verified=False,
-            email_otp_attempts=0,
-            
-            phone_otp_code="",
-            phone_otp_sent=False,
-            phone_otp_sent_failed=False,
-            phone_otp_timestamp=0,
-            phone_verified=False,
-            phone_otp_attempts=0,
-
-            session_id=session_id,
-            job_id=job_id,
-            company_id=company_id,
-            applicant_age="",
-            
-            work_experience=[],
-            show_work_experience_ui=False,
-            education_level="",
-            show_education_ui=False,
-
-            address={},
-            show_address_ui=False,
-            gps_lat=0.0,
-            gps_lng=0.0,
-            gps_verified=False,
-            gps_flagged=False,
-            gps_flag_reason="",
-            gps_distance_miles=0.0,
-            show_gps_ui=False,
-        )
+        # ✅ CHECK IF STATE ALREADY EXISTS (reconnection)
+        existing_state = await graph_app.aget_state(config)
         
-        # Start workflow with streaming
-        async for event in graph_app.astream(initial_state, config=config, stream_mode="updates"):
-            for node_name, node_data in event.items():
-                if node_data and "messages" in node_data:
-                    messages = node_data["messages"]
-                    
-                    # Check if this is delay_messages_node
-                    if node_name == "delay_messages":
-                        print("Processing delay_messages stage start...")
+        if existing_state.values and existing_state.values.get("messages"):
+            # ✅ STATE EXISTS - This is a reconnection
+            print(f"[RECONNECT] Existing state found for {session_id}, skipping initial workflow")
+            print(f"[RECONNECT] Message count: {len(existing_state.values.get('messages', []))}")
+            
+            # Don't start new workflow, just wait for user input in while loop
+        else:
+            # ✅ NEW SESSION - Start fresh workflow
+            print(f"[NEW SESSION] No existing state, starting new workflow for {session_id}")
+            
+            initial_state = ChatbotState(
+                messages=[],
+                questions=job["questions"],
+                scoring_model=job["scoring_model"],
+                current_question_index=0,
+                answers={},
+                personal_details={},
+                ready_confirmed=False,
+                knockout_answers={},
+                current_knockout_question_index=0,
+                knockout_questions=job["knockout_questions"],
+                
+                email_attempt_count=0,
+                phone_attempt_count=0,
+                email_validation_failed=False,
+                phone_validation_failed=False,
+                invalid_email_attempt="",
+                invalid_phone_attempt="",
+                acknowledgement_type="",
+                
+                delay_node_type="",
+                
+                knockout_passed=False,
+                current_knockout_failed=False,
+                brand_name=brand_name,
+
+                email_otp_code="",
+                email_otp_sent=False,
+                email_otp_sent_failed=False,
+                email_otp_timestamp=0,
+                email_verified=False,
+                email_otp_attempts=0,
+                
+                phone_otp_code="",
+                phone_otp_sent=False,
+                phone_otp_sent_failed=False,
+                phone_otp_timestamp=0,
+                phone_verified=False,
+                phone_otp_attempts=0,
+
+                session_id=session_id,
+                job_id=job_id,
+                company_id=company_id,
+                applicant_age="",
+                
+                work_experience=[],
+                show_work_experience_ui=False,
+                education_level="",
+                show_education_ui=False,
+
+                address={},
+                show_address_ui=False,
+                gps_lat=0.0,
+                gps_lng=0.0,
+                gps_verified=False,
+                gps_flagged=False,
+                gps_flag_reason="",
+                gps_distance_miles=0.0,
+                show_gps_ui=False,
+            )
+            
+            # Start workflow with streaming (ONLY for new sessions)
+            async for event in graph_app.astream(initial_state, config=config, stream_mode="updates"):
+                for node_name, node_data in event.items():
+                    if node_data and "messages" in node_data:
+                        messages = node_data["messages"]
                         
-                        for msg in messages[-2:]:   # only last two messages
+                        # Check if this is delay_messages_node
+                        if node_name == "delay_messages":
+                            print("Processing delay_messages stage start...")
+                            
+                            for msg in messages[-2:]:   # only last two messages
+                                # Show typing for 1 second
+                                await websocket.send_json({"type": "typing"})
+                                await asyncio.sleep(0.7)
+                                
+                                print(msg.content)
+                                await asyncio.sleep(1.5)  # 3 second delay
+                                
+                                if isinstance(msg, AIMessage):
+                                    await websocket.send_json({
+                                        "type": "ai_message",
+                                        "content": msg.content,
+                                        "messageType": "body"
+                                    })
+                        else:
+                            # Normal processing - send last message only
+                            msg = messages[-1]
+                            print(msg.content)
+                            
                             # Show typing for 1 second
                             await websocket.send_json({"type": "typing"})
                             await asyncio.sleep(0.7)
                             
-                            print(msg.content)
-                            await asyncio.sleep(1.5)  # 3 second delay
-                            
                             if isinstance(msg, AIMessage):
+                                
                                 await websocket.send_json({
                                     "type": "ai_message",
                                     "content": msg.content,
-                                    "messageType": "body"
+                                    "messageType": "intro",
                                 })
-                    else:
-                        # Normal processing - send last message only
-                        msg = messages[-1]
-                        print(msg.content)
-                        
-                        # Show typing for 1 second
-                        await websocket.send_json({"type": "typing"})
-                        await asyncio.sleep(0.7)
-                        
-                        if isinstance(msg, AIMessage):
-                            
-                            await websocket.send_json({
-                                "type": "ai_message",
-                                "content": msg.content,
-                                "messageType": "intro",
-                            })
         
         while True:
     
@@ -483,11 +496,19 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                 
                 # Get current workflow state
                 current_state = await graph_app.aget_state(config)
+
+                # Get current position in workflow
+                snapshot = await graph_app.aget_state(config)
+                next_nodes = snapshot.next if snapshot else []
+
+                print(f"[SYNC] Current next nodes: {next_nodes}")
+                print(f"[SYNC] Message count: {len(current_state.values.get('messages', []))}")
                 
                 # Send confirmation
                 await websocket.send_json({
                     "type": "state_synced",
-                    "message": "Connection restored. You can continue where you left off."
+                    "message": "Connection restored. You can continue where you left off.",
+                    "next_nodes": next_nodes
                 })
                 
                 continue

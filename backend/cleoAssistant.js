@@ -80,6 +80,50 @@ document.head.appendChild(link);
                 this.reconnectWebSocket();
             }
         },
+
+        updateConnectionStatus: function(status) {
+            const header = document.querySelector('.chatbot-header');
+            if (!header) return;
+                
+            // Remove existing status indicator
+            const existingStatus = header.querySelector('.connection-status');
+            if (existingStatus) existingStatus.remove();
+                
+            if (status === 'disconnected') {
+                const statusDiv = document.createElement('div');
+                statusDiv.className = 'connection-status';
+                statusDiv.style.cssText = `
+                    display: flex;
+                    align-items: center;
+                    gap: 6px;
+                    font-size: 12px;
+                    color: #f44336;
+                    margin-left: 8px;
+                `;
+                statusDiv.innerHTML = '🔴 Disconnected';
+                header.appendChild(statusDiv);
+                } 
+                else if (status === 'connected') {
+                    // Connected - no indicator needed, or show briefly
+                    const statusDiv = document.createElement('div');
+                    statusDiv.className = 'connection-status';
+                    statusDiv.style.cssText = `
+                        display: flex;
+                        align-items: center;
+                        gap: 6px;
+                        font-size: 12px;
+                        color: #4caf50;
+                        margin-left: 8px;
+                    `;
+                    statusDiv.innerHTML = '🟢 Connected';
+                    header.appendChild(statusDiv);
+                    
+                    // Remove after 2 seconds
+                    setTimeout(() => {
+                        if (statusDiv.parentNode) statusDiv.remove();
+                    }, 2000);
+                }
+        },
         
         reconnectWebSocket: function() {
             // Prevent multiple simultaneous reconnect attempts
@@ -144,6 +188,10 @@ document.head.appendChild(link);
             
             this.ws.onopen = () => {
                 console.log('✅ WebSocket connected');
+
+                // ✅ Update connection status
+                this.updateConnectionStatus('connected');
+                
                 this.enableInput();
                 this.reconnecting = false;
                 
@@ -183,10 +231,14 @@ document.head.appendChild(link);
             
             this.ws.onclose = (event) => {
                 console.log('WebSocket disconnected', event.code, event.reason);
+
+                // Show disconnected status
+                this.updateConnectionStatus('disconnected');
+
                 this.disableInput();
                 this.stopHeartbeat();
                 
-                // ✅ Auto-reconnect on unexpected disconnection
+                // Auto-reconnect on unexpected disconnection
                 if (event.code !== 1000 && !this.reconnecting) {
                     console.log('[RECONNECT] Unexpected disconnect, reconnecting in 2s...');
                     setTimeout(() => this.reconnectWebSocket(), 2000);
@@ -698,6 +750,8 @@ document.head.appendChild(link);
             }
         }
     };
+
+    
 
     // ─────────────────────────────────────────────────────────────────────────
     //  Work Experience UI Component - Multiple Jobs Support
