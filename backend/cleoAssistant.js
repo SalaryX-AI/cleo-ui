@@ -82,7 +82,7 @@ document.head.appendChild(link);
         },
 
         updateConnectionStatus: function(status) {
-            const header = document.querySelector('.chatbot-header');
+            const header = document.getElementById('cleo-chat-header');
             if (!header) return;
                 
             // Remove existing status indicator
@@ -191,6 +191,7 @@ document.head.appendChild(link);
 
                 // ✅ Update connection status
                 this.updateConnectionStatus('connected');
+                this.updateStatus('Online', 'connected');
                 
                 this.enableInput();
                 this.reconnecting = false;
@@ -751,7 +752,7 @@ document.head.appendChild(link);
         }
     };
 
-    
+
 
     // ─────────────────────────────────────────────────────────────────────────
     //  Work Experience UI Component - Multiple Jobs Support
