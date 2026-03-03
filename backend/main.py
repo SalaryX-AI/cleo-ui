@@ -1,6 +1,7 @@
 """FastAPI WebSocket server for screening chatbot"""
 
 import sys
+import time
 from fastapi import FastAPI, Response, WebSocket, WebSocketDisconnect, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, FileResponse
@@ -48,9 +49,15 @@ async def lifespan(app: FastAPI):
     # Build graph with checkpointer
     graph_app = build_graph(checkpointer)
     print("Graph initialized with AsyncPostgresSaver")
+
+    # START CLEANUP TASK
+    cleanup_task = asyncio.create_task(cleanup_inactive_sessions())
+    print("Session cleanup task started")
     
     yield
     
+    # CANCEL CLEANUP TASK ON SHUTDOWN
+    cleanup_task.cancel()
     # Cleanup
     await conn.close()
     print("Connection closed")
@@ -232,7 +239,10 @@ async def start_session(job_type: str = Query(...), api_key: str = Query(...), l
         "location": location,
         "job_id": job_id,
         "company_id": company_id,
-        "active": True
+        "active": True,
+        "created_at": time.time(),
+        "last_activity": time.time()  # Track last activity
+
     }
     
     return {
@@ -271,6 +281,41 @@ async def websocket_heartbeat(websocket: WebSocket):
                 break  # Connection lost, exit heartbeat
     except asyncio.CancelledError:
         print("[HEARTBEAT] Heartbeat task cancelled")
+
+
+async def cleanup_inactive_sessions():
+    """
+    Background task to remove sessions inactive for more than 10 minutes.
+    Runs every 60 seconds.
+    """
+    while True:
+        try:
+            await asyncio.sleep(60)  # Check every minute
+            
+            current_time = time.time()
+            inactive_sessions = []
+            
+            # Find sessions inactive for > 10 minutes (600 seconds)
+            for session_id, session in sessions.items():
+                last_activity = session.get("last_activity", 0)
+                inactive_duration = current_time - last_activity
+                
+                if inactive_duration > 600:  # 10 minutes
+                    inactive_sessions.append(session_id)
+                    print(f"[CLEANUP] Session {session_id} inactive for {inactive_duration:.0f}s")
+            
+            # Remove inactive sessions
+            for session_id in inactive_sessions:
+                print(f"[CLEANUP] Removing session: {session_id}")
+                del sessions[session_id]
+            
+            if inactive_sessions:
+                print(f"[CLEANUP] Removed {len(inactive_sessions)} inactive session(s)")
+                print(f"[CLEANUP] Active sessions remaining: {len(sessions)}")
+        
+        except Exception as e:
+            print(f"[CLEANUP] Error in cleanup task: {e}")
+
 
 @app.websocket("/ws/{session_id}")
 async def websocket_endpoint(websocket: WebSocket, session_id: str):
@@ -425,9 +470,39 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
             
             data = await websocket.receive_text()
             message_data = json.loads(data)
+
+            # Update activity timestamp
+            if session_id in sessions:
+                sessions[session_id]["last_activity"] = time.time()
             
             print(f"[DEBUG] Received message: {message_data}")  # ADD DEBUG
 
+            # Handle state sync request (after reconnection)
+            if message_data.get("type") == "sync_state":
+                print("[SYNC] Client requested state sync after reconnection")
+                
+                # Get current workflow state
+                current_state = await graph_app.aget_state(config)
+                
+                # Send confirmation
+                await websocket.send_json({
+                    "type": "state_synced",
+                    "message": "Connection restored. You can continue where you left off."
+                })
+                
+                continue
+            
+            # Handle pong response from client
+            if message_data.get("type") == "pong":
+                print("[HEARTBEAT] Received pong from client")
+                continue  # Don't process as normal message
+            
+            # Handle ping from client (respond with pong)
+            if message_data.get("type") == "ping":
+                print("[HEARTBEAT] Received ping from client, sending pong")
+                await websocket.send_json({"type": "pong"})
+                continue
+            
             # Handle address data from frontend autocomplete UI
             if message_data.get("type") == "address_data":
                 address_payload = message_data.get("data", {})

@@ -18,6 +18,7 @@ document.head.appendChild(link);
         ws: null,
         sessionId: null,
         isOpen: false,
+        reconnecting: false, // prevent multiple reconnect attempts
         
         /**
          * Initialize the chatbot with validated configuration
@@ -47,6 +48,150 @@ document.head.appendChild(link);
             
             // Create the chat widget UI
             this.createWidget();
+
+            // Set up page visibility listener
+            this.setupVisibilityListener();
+        },
+
+        setupVisibilityListener: function() {
+            // ✅ Detect when user returns to the tab
+            document.addEventListener('visibilitychange', () => {
+                if (document.visibilityState === 'visible') {
+                    console.log('[VISIBILITY] Tab became visible');
+                    this.handlePageVisible();
+                } else {
+                    console.log('[VISIBILITY] Tab hidden');
+                }
+            });
+            
+            // ✅ iOS Safari uses different events
+            window.addEventListener('pageshow', (event) => {
+                if (event.persisted) {
+                    console.log('[PAGESHOW] Page restored from cache');
+                    this.handlePageVisible();
+                }
+            });
+        },
+        
+        handlePageVisible: function() {
+            // Check if WebSocket is disconnected
+            if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+                console.log('[RECONNECT] WebSocket disconnected, attempting reconnect...');
+                this.reconnectWebSocket();
+            }
+        },
+        
+        reconnectWebSocket: function() {
+            // Prevent multiple simultaneous reconnect attempts
+            if (this.reconnecting) {
+                console.log('[RECONNECT] Already reconnecting, skipping...');
+                return;
+            }
+            
+            this.reconnecting = true;
+            
+            // Show reconnecting message to user
+            this.showReconnectingMessage();
+            
+            // Close old connection if it exists
+            if (this.ws) {
+                this.ws.onclose = null;  // Remove handler to prevent recursion
+                this.ws.close();
+            }
+            
+            // Wait a moment, then reconnect
+            setTimeout(() => {
+                this.connectWebSocket();
+                this.reconnecting = false;
+            }, 500);
+        },
+        
+        showReconnectingMessage: function() {
+            const messagesDiv = document.getElementById('chatbot-messages');
+            if (!messagesDiv) return;
+            
+            // Remove any existing reconnect message
+            const existing = document.getElementById('reconnect-message');
+            if (existing) existing.remove();
+            
+            const reconnectDiv = document.createElement('div');
+            reconnectDiv.id = 'reconnect-message';
+            reconnectDiv.style.cssText = `
+                padding: 12px;
+                margin: 10px 0;
+                background: #fff3cd;
+                border: 1px solid #ffc107;
+                border-radius: 8px;
+                text-align: center;
+                font-size: 14px;
+                color: #856404;
+            `;
+            reconnectDiv.innerHTML = '🔄 Reconnecting...';
+            
+            messagesDiv.appendChild(reconnectDiv);
+            
+            // Remove after successful reconnection
+            setTimeout(() => {
+                if (reconnectDiv.parentNode) {
+                    reconnectDiv.remove();
+                }
+            }, 3000);
+        },
+        
+        connectWebSocket: function() {
+            const wsUrl = `${this.config.wsUrl}/ws/${this.sessionId}`;
+            this.ws = new WebSocket(wsUrl);
+            
+            this.ws.onopen = () => {
+                console.log('✅ WebSocket connected');
+                this.enableInput();
+                this.reconnecting = false;
+                
+                // ✅ Request state sync from server
+                this.ws.send(JSON.stringify({ type: 'sync_state' }));
+                
+                this.startHeartbeat();
+            };
+            
+            this.ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                
+                // Handle heartbeat
+                if (data.type === 'ping') {
+                    console.log('[HEARTBEAT] Received ping, sending pong');
+                    this.ws.send(JSON.stringify({ type: 'pong' }));
+                    return;
+                }
+                
+                if (data.type === 'pong') {
+                    console.log('[HEARTBEAT] Received pong');
+                    return;
+                }
+                
+                // ✅ NEW: Handle state sync response
+                if (data.type === 'state_synced') {
+                    console.log('[SYNC] State synchronized');
+                    return;
+                }
+                
+                this.handleMessage(data);
+            };
+            
+            this.ws.onerror = (error) => {
+                console.error('❌ WebSocket error:', error);
+            };
+            
+            this.ws.onclose = (event) => {
+                console.log('WebSocket disconnected', event.code, event.reason);
+                this.disableInput();
+                this.stopHeartbeat();
+                
+                // ✅ Auto-reconnect on unexpected disconnection
+                if (event.code !== 1000 && !this.reconnecting) {
+                    console.log('[RECONNECT] Unexpected disconnect, reconnecting in 2s...');
+                    setTimeout(() => this.reconnectWebSocket(), 2000);
+                }
+            };
         },
         
         /**
