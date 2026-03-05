@@ -4,11 +4,9 @@ import os
 import random
 import time
 import requests
-from sendgrid import SendGridAPIClient
-from sendgrid.helpers.mail import Mail
-from twilio.rest import Client
 from langchain_openai import ChatOpenAI
 from dotenv import load_dotenv
+import plivo
 
 load_dotenv()
 
@@ -19,10 +17,10 @@ BREVO_API_KEY = os.getenv("BREVO_API_KEY")
 BREVO_FROM_EMAIL = os.getenv("BREVO_FROM_EMAIL")
 BREVO_FROM_NAME = os.getenv("BREVO_FROM_NAME")
 
-# Twilio Configuration
-TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID")
-TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN")
-TWILIO_PHONE_NUMBER = os.getenv("TWILIO_PHONE_NUMBER")
+# Plivo Configuration
+PLIVO_AUTH_ID = os.getenv("PLIVO_AUTH_ID")
+PLIVO_AUTH_TOKEN = os.getenv("PLIVO_AUTH_TOKEN")
+PLIVO_VERIFY_APP_UUID = os.getenv("PLIVO_VERIFY_APP_UUID")
 
 # OTP Configuration
 OTP_EXPIRY_MINUTES_SMS = 4  # OTP expiry time in minutes
@@ -116,42 +114,76 @@ def send_email_otp(email: str, code: str, brand_name: str, user_name: str = "the
         return False
 
 
-def send_sms_otp(phone: str, code: str, brand_name: str) -> bool:
+
+def create_phone_verify_session(phone: str) -> str | None:
     """
-    Send OTP code via SMS using Twilio
-    
-    Args:
-        phone: Recipient phone number (E.164 format recommended)
-        E.164 = +[CountryCode][Number with no leading zero]
-        code: 6-digit OTP code
-        
+    Create a Plivo Verify session which generates and sends OTP via SMS.
+
     Returns:
-        bool: True if sent successfully, False otherwise
+        session_uuid (str) if successful, None if failed
     """
     try:
-        if not TWILIO_ACCOUNT_SID or not TWILIO_AUTH_TOKEN or not TWILIO_PHONE_NUMBER:
-            print("ERROR: Twilio credentials not configured")
-            return False
-        
-        # Initialize Twilio client
-        client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
-        
-        # Format message
-        message_body = f"Your {brand_name} verification code is: {code}\n\nThis code expires in {OTP_EXPIRY_MINUTES_SMS} minutes."
-        
-        # Send SMS
-        message = client.messages.create(
-            body=message_body,
-            from_=TWILIO_PHONE_NUMBER,
-            to=phone
+        if not PLIVO_AUTH_ID or not PLIVO_AUTH_TOKEN or not PLIVO_VERIFY_APP_UUID:
+            print("ERROR: Plivo Verify credentials not configured")
+            return None
+
+        client = plivo.RestClient(PLIVO_AUTH_ID, PLIVO_AUTH_TOKEN)
+
+        response = client.verify_session.create(
+            recipient=phone,
+            app_uuid=PLIVO_VERIFY_APP_UUID,
+            channel='sms'
         )
-        
-        print(f"SMS OTP sent to {phone}: SID {message.sid}")
-        return message.sid is not None
-        
+
+        session_uuid = response.session_uuid
+        print(f"Plivo Verify session created: {session_uuid}")
+        return session_uuid
+
     except Exception as e:
-        print(f"Error sending SMS OTP: {e}")
-        return False
+        print(f"Error creating Plivo Verify session: {e}")
+        return None
+
+
+
+def validate_phone_otp(session_uuid: str, otp: str) -> tuple[bool, str]:
+    """
+    Validate OTP entered by user against the Plivo Verify session.
+
+    Returns:
+        (True, "") on success
+        (False, "incorrect") if OTP is wrong
+        (False, "expired") if session expired
+        (False, "error") on unexpected failure
+    """
+    try:
+        client = plivo.RestClient(PLIVO_AUTH_ID, PLIVO_AUTH_TOKEN)
+
+        response = client.verify_session.validate(
+            session_uuid=session_uuid,
+            otp=otp
+        )
+
+        print(f"Plivo Verify response: {response.message}")
+
+        if response.message and "validated" in response.message.lower():
+            return True, ""
+        else:
+            return False, "incorrect"
+
+    except plivo.exceptions.PlivoRestError as e:
+        error_msg = str(e).lower()
+        print(f"Plivo Verify error: {e}")
+
+        if "expired" in error_msg:
+            return False, "expired"
+        elif "invalid" in error_msg or "incorrect" in error_msg or "wrong" in error_msg:
+            return False, "incorrect"
+        else:
+            return False, "error"
+
+    except Exception as e:
+        print(f"Unexpected error validating OTP: {e}")
+        return False, "error"
 
 
 def is_otp_expired(timestamp: float, otp_channel: str) -> bool:

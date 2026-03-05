@@ -406,6 +406,7 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                 phone_otp_timestamp=0,
                 phone_verified=False,
                 phone_otp_attempts=0,
+                phone_verify_session_uuid="",
 
                 session_id=session_id,
                 job_id=job_id,

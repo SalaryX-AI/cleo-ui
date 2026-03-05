@@ -15,15 +15,17 @@ from dotenv import load_dotenv
 from langchain.prompts import ChatPromptTemplate
 import time
 from xano import send_applicant_to_xano
-from location_services import verify_location    
+from location_services import verify_location
+import phonenumbers    
 
 
 from otp_verification import (
     generate_otp, 
     send_email_otp, 
-    send_sms_otp, 
     verify_otp,
     is_otp_expired,
+    create_phone_verify_session,   
+    validate_phone_otp,
 )
 
 from candidate_helpers import (
@@ -57,12 +59,11 @@ def validate_email(email: str) -> bool:
     return bool(re.match(pattern, email.strip()))
 
 def validate_phone(phone: str) -> bool:
-    """Validate phone number with country code (+1, +92, etc.) and 10+ digits"""
-    # Remove common separators
-    cleaned = re.sub(r'[\s\-\(\)\.]', '', phone)
-
-    # Must start with + and contain only digits after, total digits >= 10
-    return bool(re.match(r'^\+\d{10,}$', cleaned))
+    try:
+        parsed = phonenumbers.parse(phone, None)
+        return phonenumbers.is_valid_number(parsed)
+    except:
+        return False
 
 
 
@@ -117,6 +118,7 @@ class ChatbotState(MessagesState):
     phone_otp_timestamp: float = 0
     phone_verified: bool = False
     phone_otp_attempts: int = 0
+    phone_verify_session_uuid: str = ""
 
     session_id: str = ""
     job_id: str = ""
@@ -882,6 +884,10 @@ def store_phone_node(state: ChatbotState) -> ChatbotState:
         
         print(f"Original input: {user_text}")  # Debug
         print(f"Extracted phone: {phone}")  # Debug
+
+        # Normalize to E.164: if no '+' prefix, add it
+        if phone and not phone.startswith('+'):
+            phone = '+' + phone
         
         # Validate phone
         if validate_phone(phone):
@@ -1051,27 +1057,18 @@ def send_phone_otp_node(state: ChatbotState) -> ChatbotState:
     print("send_phone_otp_node called")
     
     phone = state["personal_details"].get("phone", "")
-    
-    # Generate OTP
-    # otp_code = generate_otp()
-    otp_code = "123456"  # For testing
-    
-    print("Generated phone OTP code:", otp_code)  # Debug
-    # Store in state
-    state["phone_otp_code"] = otp_code
-    state["phone_otp_timestamp"] = time.time()
-    
-    # Send SMS
-    # success = send_sms_otp(phone, otp_code, state.get("brand_name"))
-    success = True  # For testing
-    
-    if success:
-        message = f"I'm sending a verification text with a 6-digit code to {phone} now. Please check your messages."
+
+    # Create Plivo Verify session (Plivo generates + sends OTP internally)
+    session_uuid = create_phone_verify_session(phone)
+
+    if session_uuid:
+        state["phone_verify_session_uuid"] = session_uuid
         state["phone_otp_sent"] = True
+        message = f"I'm sending a verification text with a 6-digit code to {phone} now. Please check your messages."
     else:
-        message = cleo_engagement.otp_failure_message
         state["phone_otp_sent_failed"] = True
-    
+        message = cleo_engagement.otp_failure_message
+
     state["messages"].append(AIMessage(content=message))
     
     return state
@@ -1102,25 +1099,27 @@ def verify_phone_otp_node(state: ChatbotState) -> ChatbotState:
             state["phone_otp_attempts"] = 0  # Reset attempts for resend
             return state
         
-        # Verify OTP
-        stored_code = state.get("phone_otp_code", "")
-        timestamp = state.get("phone_otp_timestamp", 0)
-        
-        is_valid, error = verify_otp(user_input, stored_code, timestamp, "phone")
-        
+        # Verify OTP via Plivo Verify API
+        session_uuid = state.get("phone_verify_session_uuid", "")
+        otp_input = user_input.strip()
+
+        if not otp_input.isdigit() or len(otp_input) != 6:
+            state["messages"].append(AIMessage(content="Please enter a 6-digit code (numbers only)."))
+            return state
+
+        is_valid, error = validate_phone_otp(session_uuid, otp_input)
+
         if is_valid:
             state["phone_verified"] = True
-            # Don't send message here - continue to next question
             state["acknowledgement_type"] = "questions"
         else:
             state["phone_otp_attempts"] += 1
             attempts = state["phone_otp_attempts"]
-            
+
             if error == "expired":
                 state["messages"].append(AIMessage(content=cleo_engagement.otp_expired_message))
-                state["phone_otp_attempts"] = 0  # Reset for resend
-            elif error == "invalid_format":
-                state["messages"].append(AIMessage(content="Please enter a 6-digit code (numbers only)."))
+                state["phone_otp_attempts"] = 0
+            
             elif error == "incorrect":
                 if attempts >= 3:
                     state["messages"].append(AIMessage(content=cleo_engagement.phone_otp_failure_message))
@@ -1128,6 +1127,8 @@ def verify_phone_otp_node(state: ChatbotState) -> ChatbotState:
                     state["messages"].append(AIMessage(
                         content=f"The code was incorrect. I can resend the text or you can type the number again to correct any mistakes. (Attempt {attempts}/3)"
                     ))
+            else:
+                state["messages"].append(AIMessage(content=cleo_engagement.otp_failure_message))
     
     return state
 
@@ -1154,9 +1155,9 @@ def phone_otp_router(state: ChatbotState) -> Literal["acknowledgement", "send_ph
         if "resend" in user_input or "send again" in user_input:
             return "send_phone_otp"
     
-    # Check if expired
-    if is_otp_expired(state.get("phone_otp_timestamp", 0), "phone"):
-        return "send_phone_otp"
+    # # Check if expired
+    # if is_otp_expired(state.get("phone_otp_timestamp", 0), "phone"):
+    #     return "send_phone_otp"
     
     # Check if too many attempts
     if state.get("phone_otp_attempts", 0) >= 3:
