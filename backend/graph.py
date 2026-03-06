@@ -885,10 +885,13 @@ def store_phone_node(state: ChatbotState) -> ChatbotState:
         print(f"Original input: {user_text}")  # Debug
         print(f"Extracted phone: {phone}")  # Debug
 
+        if phone and not phone.startswith('1'):
+            phone = '1' + phone
+
         # Normalize to E.164: if no '+' prefix, add it
         if phone and not phone.startswith('+'):
             phone = '+' + phone
-        
+
         # Validate phone
         if validate_phone(phone):
             # Valid - store it
@@ -1078,8 +1081,12 @@ def ask_phone_otp_node(state: ChatbotState) -> ChatbotState:
     """Ask user to enter phone OTP code"""
     
     print("ask_phone_otp_node called")
+
+    if state.get("phone_otp_attempts") >= 1:
+        state["messages"].append(AIMessage(content="I can also resend the text. Just type 'resend' if you want me to send it again."))
+    else:
+        state["messages"].append(AIMessage(content=cleo_engagement.ask_phone_otp))
     
-    state["messages"].append(AIMessage(content=cleo_engagement.ask_phone_otp))
     return state
 
 
@@ -1109,6 +1116,8 @@ def verify_phone_otp_node(state: ChatbotState) -> ChatbotState:
 
         is_valid, error = validate_phone_otp(session_uuid, otp_input)
 
+        print(f"Phone OTP verification result: is_valid={is_valid}, error={error}")
+
         if is_valid:
             state["phone_verified"] = True
             state["acknowledgement_type"] = "questions"
@@ -1125,7 +1134,7 @@ def verify_phone_otp_node(state: ChatbotState) -> ChatbotState:
                     state["messages"].append(AIMessage(content=cleo_engagement.phone_otp_failure_message))
                 else:
                     state["messages"].append(AIMessage(
-                        content=f"The code was incorrect. I can resend the text or you can type the number again to correct any mistakes. (Attempt {attempts}/3)"
+                        content=f"The code was incorrect. Kindly enter the correct code. (Attempt {attempts}/3)"
                     ))
             else:
                 state["messages"].append(AIMessage(content=cleo_engagement.otp_failure_message))
