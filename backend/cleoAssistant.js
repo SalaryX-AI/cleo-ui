@@ -2683,19 +2683,24 @@ document.head.appendChild(link);
         }
     }
 
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', autoInitChatbot);
-    } else {
-        // Check if job attributes are already set
+    // Initialize when DOM is ready
+    function tryInit() {
         const container = document.getElementById('cleo-chatbot') || document.querySelector('[data-job-type]');
-        
         if (container && container.getAttribute('data-job-id')) {
             // Attributes already set — init immediately
             autoInitChatbot();
-        } else {
-            // Attributes not set yet — wait for the event
+        } 
+        else {
+            // Wait for job_details.html to finish setting attributes
             document.addEventListener('cleoJobReady', autoInitChatbot, { once: true });
         }
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', tryInit);
+    } 
+    else {
+        tryInit();
     }
     
 })(window);
