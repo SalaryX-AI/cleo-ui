@@ -330,7 +330,8 @@
         if (jobType && jobDetails[jobType]) {
             
             const job = jobDetails[jobType];
-            
+
+            console.log("Job Details Found:", job);
             const params = new URLSearchParams(window.location.search);
             const location = params.get('location') || 'Various Locations';
 
@@ -355,7 +356,10 @@
             document.getElementById('cleo-chatbot').setAttribute('data-job-location', location);
             document.getElementById('cleo-chatbot').setAttribute('data-job-id', job.id);
             document.getElementById('cleo-chatbot').setAttribute('data-company-id', "fe3f2dff-565e-4730-93da-34d27034b5d8");
-        } else {
+
+            document.dispatchEvent(new CustomEvent('cleoJobReady'));
+        } 
+        else {
             document.getElementById('job-title').textContent = 'Job Not Found';
             document.getElementById('job-meta').textContent = 'The requested position is not available.';
             document.getElementById('job-description').textContent = 'Please return to the jobs listing page.';

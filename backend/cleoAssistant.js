@@ -2683,12 +2683,14 @@ document.head.appendChild(link);
         }
     }
 
-    // Initialize when DOM is ready
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', autoInitChatbot);
-    } else {
-        // DOM already loaded, initialize immediately
-        autoInitChatbot();
+        document.addEventListener('DOMContentLoaded', () => {
+            document.addEventListener('cleoJobReady', autoInitChatbot, { once: true });
+        });
+    } 
+    else {
+        // DOM already loaded — wait for job attributes to be set
+        document.addEventListener('cleoJobReady', autoInitChatbot, { once: true });
     }
     
 })(window);
