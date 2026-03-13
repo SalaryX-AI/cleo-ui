@@ -247,6 +247,7 @@
 
     'shift_lead': {
         title: 'Shift Lead',
+         id: "",
         icon: '📋',
         payRate: '$15-$20',
         level: 'Mid',
@@ -347,8 +348,6 @@
             
             const params = new URLSearchParams(window.location.search);
             const location = params.get('location') || 'Various Locations';
-
-
 
             document.getElementById('job-title').textContent = job.icon + ' ' + job.title;
             document.getElementById('job-meta').textContent = `Pay Rate: ${job.payRate} | Level: ${job.level} | Location: ${location} | Shifts: ${job.shifts}`;

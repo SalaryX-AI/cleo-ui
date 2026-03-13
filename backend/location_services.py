@@ -147,7 +147,7 @@ def get_address_autocomplete(input_text: str, session_token: str = "") -> list:
         data = response.json()
 
         # Print FULL response to see exact error
-        print(f"[Google Full Response]: {json.dumps(data, indent=2)}")
+        # print(f"[Google Full Response]: {json.dumps(data, indent=2)}")
 
         if data.get("status") == "OK":
             return [

@@ -180,7 +180,7 @@
         </div>
     </div>
 
-    <!-- Chatbot will be embedded here dynamically based on job_id -->
+    <!-- Chatbot will be embedded here dynamically based on job_type -->
     <div id="cleo-chatbot"></div>
     
     <!-- Load the chatbot script -->
@@ -192,106 +192,145 @@
     </script>
 
     <script>
-        // Get job_id from URL parameters
+        // Get job_type from URL parameters
         const urlParams = new URLSearchParams(window.location.search);
-        const jobID = urlParams.get('job_id');
+        const jobType = urlParams.get('job_type');
 
         const jobDetails = {
+            'cook': {
+                title: 'Cook',
+                id: "1c9925e4-7cab-4634-b0ff-beff75bf4221",
+                icon: '🍳',
+                payRate: '$13-$18',
+                level: 'Entry-Mid',
+                shifts: 'Morning / Afternoon / Evening / Weekends',
+                description: 'Prepares food, operates grill/fryer.',
+                requirements: [
+                    'Experience in food preparation or culinary training',
+                    'Knowledge of kitchen safety and hygiene',
+                    'Ability to work under pressure',
+                    'Attention to detail and consistency'
+                ]
+            },
 
-    'de37fb7c-9633-43f3-be9b-8e15581ccdb8': {
-        title: 'Cook',
-        icon: '🍔',
-        payRate: '$13–$18',
-        level: 'Entry–Mid',
-        shifts: 'Morning / Afternoon / Evening / Weekends',
-        description: 'Prepares food, operates grill/fryer.',
-        requirements: [
-            'Experience in food preparation',
-            'Knowledge of kitchen safety and hygiene',
-            'Ability to work under pressure',
-            'Attention to detail and consistency'
-        ]
-    },
+            'prep_cook': {
+                title: 'Prep Cook',
+                id: "a5f314ad-6393-4dab-8f1f-3f7e98500998",
+                icon: '🔪',
+                payRate: '$13-$17',
+                level: 'Entry',
+                shifts: 'Morning / Afternoon / Evening / Weekends',
+                description: 'Prepares ingredients and stations.',
+                requirements: [
+                    'Knowledge of food preparation techniques',
+                    'Ability to follow recipes and instructions',
+                    'Time management skills',
+                    'Kitchen safety awareness'
+                ]
+            },
 
-    'drive_thru': {
-        title: 'Drive-Thru',
-        icon: '🚗',
-        payRate: '$12–$20',
-        level: 'Entry',
-        shifts: 'Morning / Afternoon / Evening / Weekends',
-        description: 'General frontline role.',
-        requirements: [
-            'Clear communication skills',
-            'Ability to multitask efficiently',
-            'Customer service experience',
-            'Fast-paced work environment adaptability'
-        ]
-    },
+            'shift_coordinator': {
+                title: 'Shift Coordinator',
+                id: "4d44933d-2852-4d54-ba42-1c06bf1e6e89",
+                icon: '📋',
+                payRate: '$15-$20',
+                level: 'Mid',
+                shifts: 'Morning / Afternoon / Evening / Weekends',
+                description: 'Supervises shift, assigns tasks.',
+                requirements: [
+                    'Leadership or supervisory experience',
+                    'Strong problem-solving skills',
+                    'Ability to motivate and manage a team',
+                    'Understanding of restaurant operations'
+                ]
+            },
 
-    'dining_room': {
-        title: 'Dining Room Attendant',
-        icon: '🧹',
-        payRate: '$12–$14',
-        level: 'Entry',
-        shifts: 'Morning / Afternoon / Evening / Weekends',
-        description: 'Cleans dining area and supports guests.',
-        requirements: [
-            'Strong attention to detail',
-            'Customer service orientation',
-            'Ability to maintain cleanliness standards',
-            'Team-oriented mindset'
-        ]
-    },
+            'drive_thru': {
+                title: 'Drive-Thru Team Member',
+                id: '4bc9d2a0-c368-4baa-b304-fec669cd792b',
+                icon: '🚗',
+                payRate: '$12-$16',
+                level: 'Entry',
+                shifts: 'Morning / Afternoon / Evening / Weekends',
+                description: 'Handles drive-thru orders and customer service.',
+                requirements: [
+                    'Clear communication skills',
+                    'Ability to multitask efficiently',
+                    'Customer service experience',
+                    'Fast-paced work environment adaptability'
+                ]
+            },
 
-    'maintenance': {
-        title: 'Maintenance',
-        icon: '🔧',
-        payRate: '$14–$20',
-        level: 'Entry–Mid',
-        shifts: 'Morning / Afternoon / Evening / Weekends',
-        description: 'Handles cleaning and equipment upkeep.',
-        requirements: [
-            'Basic maintenance and repair skills',
-            'Attention to cleanliness and sanitation',
-            'Ability to troubleshoot equipment issues',
-            'Reliable and detail-oriented'
-        ]
-    },
+            'dining_room': {
+                title: 'Dining Room Attendant',
+                id: 'f8249c44-48f0-4bce-9bf1-e6619870d2fa',
+                icon: '🧹',
+                payRate: '$12-$14',
+                level: 'Entry',
+                shifts: 'Morning / Afternoon / Evening / Weekends',
+                description: 'Cleans dining area and supports guests.',
+                requirements: [
+                    'Strong attention to detail',
+                    'Customer service orientation',
+                    'Ability to maintain cleanliness standards',
+                    'Team-oriented mindset'
+                ]
+            },
 
-    'assistant_manager': {
-        title: 'Assistant Manager',
-        icon: '👔',
-        payRate: '$17–$25',
-        level: 'Mid–Senior',
-        shifts: 'Morning / Afternoon / Evening / Weekends',
-        description: 'Supports GM, manages daily operations.',
-        requirements: [
-            'Previous management or supervisory experience',
-            'Strong leadership and organizational skills',
-            'Knowledge of restaurant operations and P&L',
-            'Ability to train and develop team members'
-        ]
-    },
+            'assistant_manager': {
+                title: 'Assistant Manager',
+                id: '0e800d83-338d-4487-8b19-eeda400e5db0',
+                icon: '👔',
+                payRate: '$17-$25',
+                level: 'Mid-Senior',
+                shifts: 'Morning / Afternoon / Evening / Weekends',
+                description: 'Supports GM, manages daily operations.',
+                requirements: [
+                    'Previous management or supervisory experience',
+                    'Strong leadership and organizational skills',
+                    'Knowledge of restaurant operations and P&L',
+                    'Ability to train and develop team members'
+                ]
+            },
+            'maintenance': {
+                title: 'Maintenance',
+                id: '397404cd-40da-4987-9ee7-54482de32f5c',
+                icon: '🔧',
+                payRate: '$14–$20',
+                level: 'Entry–Mid',
+                shifts: 'Morning / Afternoon / Evening / Weekends',
+                description: 'Handles cleaning and equipment upkeep.',
+                requirements: [
+                    'Basic maintenance and repair skills',
+                    'Attention to cleanliness and sanitation',
+                    'Ability to troubleshoot equipment issues',
+                    'Reliable and detail-oriented'
+                ]
+            },
 
-    'prep_cook': {
-        title: 'Prep Cook',
-        icon: '🔪',
-        payRate: '$13–$17',
-        level: 'Entry',
-        shifts: 'Morning / Afternoon / Evening / Weekends',
-        description: 'Prepares ingredients and stations.',
-        requirements: [
-            'Knowledge of food preparation techniques',
-            'Ability to follow recipes and instructions',
-            'Time management skills',
-            'Kitchen safety awareness'
-        ]
-    }
+            'team_member': {
+                title: 'Team Member',
+                id: 'c935fa8f-e64f-4c99-b92b-e6dc5d9d7feb',
+                icon: '👥',
+                payRate: '$12–$16',
+                level: 'Entry',
+                shifts: 'Morning / Afternoon / Evening / Weekends',
+                description: 'General restaurant duties.',
+                requirements: [
+                    'Friendly and customer-focused attitude',
+                    'Ability to work in a fast-paced environment',
+                    'Team player with strong work ethic',
+                    'Willingness to learn multiple stations'
+                ]
+            }
+
         }
 
         // Display job details
-        if (jobID && jobDetails[jobID]) {
-            const job = jobDetails[jobID];
+        if (jobType && jobDetails[jobType]) {
+            
+            const job = jobDetails[jobType];
+            
             const params = new URLSearchParams(window.location.search);
             const location = params.get('location') || 'Various Locations';
 
@@ -307,8 +346,15 @@
                 requirementsList.appendChild(li);
             });
 
-            // Set job_id in the chatbot container
-            document.getElementById('cleo-chatbot').setAttribute('data-job-id', jobID);
+            console.log('Job Type:', jobType);
+            console.log('Location:', location);
+            console.log('Job ID:', job.id);
+            
+            // Set Attributes in the chatbot container
+            document.getElementById('cleo-chatbot').setAttribute('data-job-type', jobType);
+            document.getElementById('cleo-chatbot').setAttribute('data-job-location', location);
+            document.getElementById('cleo-chatbot').setAttribute('data-job-id', job.id);
+            document.getElementById('cleo-chatbot').setAttribute('data-company-id', "fe3f2dff-565e-4730-93da-34d27034b5d8");
         } else {
             document.getElementById('job-title').textContent = 'Job Not Found';
             document.getElementById('job-meta').textContent = 'The requested position is not available.';

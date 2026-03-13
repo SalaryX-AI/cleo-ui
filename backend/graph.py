@@ -1,6 +1,7 @@
 """Main graph implementation for Cleo screening chatbot with human-in-the-loop"""
 
 
+import asyncio
 from datetime import datetime
 import json
 from typing import Literal, List, Dict
@@ -16,7 +17,8 @@ from langchain.prompts import ChatPromptTemplate
 import time
 from xano import send_applicant_to_xano
 from location_services import verify_location
-import phonenumbers    
+import phonenumbers
+from id_verification import create_id_verify_session, save_session_mapping    
 
 
 from otp_verification import (
@@ -120,6 +122,13 @@ class ChatbotState(MessagesState):
     phone_otp_attempts: int = 0
     phone_verify_session_uuid: str = ""
 
+    # ID Verification fields
+    id_verify_link: str = ""
+    id_verify_session_id: str = ""   # Simplici's session ID
+    id_verified: bool = False
+    id_verify_failed: bool = False
+    show_id_verify_ui: bool = False
+
     session_id: str = ""
     job_id: str = ""
     company_id: str = ""
@@ -164,12 +173,12 @@ def acknowledge_node(state: ChatbotState) -> ChatbotState:
     return state
 
 
-def post_acknowledgement_router(state: ChatbotState) -> Literal["ask_knockout_question", "ask_question"]:
+def post_acknowledgement_router(state: ChatbotState) -> Literal["ask_knockout_question", "ask_id_verification"]:
     """Decide where to go after acknowledgement"""
     
     # If we're done with personal details, start questions
     if state.get("acknowledgement_type") == "questions":
-        return "ask_question"
+        return "ask_id_verification"
     
     # Otherwise, start knockout questions
     return "ask_knockout_question"
@@ -885,15 +894,25 @@ def store_phone_node(state: ChatbotState) -> ChatbotState:
         print(f"Original input: {user_text}")  # Debug
         print(f"Extracted phone: {phone}")  # Debug
 
-        if phone and not phone.startswith('1'):
-            phone = '1' + phone
-
-        # Normalize to E.164: if no '+' prefix, add it
-        if phone and not phone.startswith('+'):
-            phone = '+' + phone
+        # Normalize phone to E.164 format
+        if phone:
+            if phone.startswith('+'):
+                # Case 1: Already has + prefix (+1 or +92) — do nothing
+                pass
+            elif phone.startswith('0'):
+                # Case 2: local format with leading 0 — remove 0, add +92
+                phone = '+92' + phone[1:]
+            elif phone.startswith('92') or phone.startswith('1'):
+                # Case 3: has country code digits but no + — just add +
+                phone = '+' + phone
+            else:
+                # Case 4: any other number — assume US, add +1
+                phone = '+1' + phone
 
         # Validate phone
         if validate_phone(phone):
+            print("Phone Number is Valid:", phone)
+            
             # Valid - store it
             state["personal_details"]["phone"] = phone
             state["phone_validation_failed"] = False
@@ -904,6 +923,7 @@ def store_phone_node(state: ChatbotState) -> ChatbotState:
             state["acknowledgement_type"] = "questions"
 
         else:
+            print("Phone Number is Invalid:", phone)
             # Invalid - set flag to re-ask
             state["phone_validation_failed"] = True
             state["invalid_phone_attempt"] = phone
@@ -1061,18 +1081,21 @@ def send_phone_otp_node(state: ChatbotState) -> ChatbotState:
     
     phone = state["personal_details"].get("phone", "")
 
+    otp_code = "123456"  # For testing
+    state["phone_otp_code"] = otp_code
+
     # Create Plivo Verify session (Plivo generates + sends OTP internally)
-    session_uuid = create_phone_verify_session(phone)
+    # session_uuid = create_phone_verify_session(phone)
 
-    if session_uuid:
-        state["phone_verify_session_uuid"] = session_uuid
-        state["phone_otp_sent"] = True
-        message = f"I'm sending a verification text with a 6-digit code to {phone} now. Please check your messages."
-    else:
-        state["phone_otp_sent_failed"] = True
-        message = cleo_engagement.otp_failure_message
+    # if session_uuid:
+    #     state["phone_verify_session_uuid"] = session_uuid
+    #     state["phone_otp_sent"] = True
+    #     message = f"I'm sending a verification text with a 6-digit code to {phone} now. Please check your messages."
+    # else:
+    #     state["phone_otp_sent_failed"] = True
+    #     message = cleo_engagement.otp_failure_message
 
-    state["messages"].append(AIMessage(content=message))
+    state["messages"].append(AIMessage(content=f"I'm sending a verification text with a 6-digit code to {phone} now. Please check your messages."))
     
     return state
 
@@ -1106,43 +1129,50 @@ def verify_phone_otp_node(state: ChatbotState) -> ChatbotState:
             state["phone_otp_attempts"] = 0  # Reset attempts for resend
             return state
         
-        # Verify OTP via Plivo Verify API
-        session_uuid = state.get("phone_verify_session_uuid", "")
+        otp_code = state.get("phone_otp_code", "")  # For testing
         otp_input = user_input.strip()
+
+        if otp_input == otp_code:
+            state["phone_verified"] = True
+            state["acknowledgement_type"] = "questions"
+        
+        # Verify OTP via Plivo Verify API
+        # session_uuid = state.get("phone_verify_session_uuid", "")
+        # otp_input = user_input.strip()
 
         if not otp_input.isdigit() or len(otp_input) != 6:
             state["messages"].append(AIMessage(content="Please enter a 6-digit code (numbers only)."))
             return state
 
-        is_valid, error = validate_phone_otp(session_uuid, otp_input)
+        # is_valid, error = validate_phone_otp(session_uuid, otp_input)
 
-        print(f"Phone OTP verification result: is_valid={is_valid}, error={error}")
+        # print(f"Phone OTP verification result: is_valid={is_valid}, error={error}")
 
-        if is_valid:
-            state["phone_verified"] = True
-            state["acknowledgement_type"] = "questions"
-        else:
-            state["phone_otp_attempts"] += 1
-            attempts = state["phone_otp_attempts"]
+        # if is_valid:
+        #     state["phone_verified"] = True
+        #     state["acknowledgement_type"] = "questions"
+        # else:
+        #     state["phone_otp_attempts"] += 1
+        #     attempts = state["phone_otp_attempts"]
 
-            if error == "expired":
-                state["messages"].append(AIMessage(content=cleo_engagement.otp_expired_message))
-                state["phone_otp_attempts"] = 0
+        #     if error == "expired":
+        #         state["messages"].append(AIMessage(content=cleo_engagement.otp_expired_message))
+        #         state["phone_otp_attempts"] = 0
             
-            elif error == "incorrect":
-                if attempts >= 3:
-                    state["messages"].append(AIMessage(content=cleo_engagement.phone_otp_failure_message))
-                else:
-                    state["messages"].append(AIMessage(
-                        content=f"The code was incorrect. Kindly enter the correct code. (Attempt {attempts}/3)"
-                    ))
-            else:
-                state["messages"].append(AIMessage(content=cleo_engagement.otp_failure_message))
+        #     elif error == "incorrect":
+        #         if attempts >= 3:
+        #             state["messages"].append(AIMessage(content=cleo_engagement.phone_otp_failure_message))
+        #         else:
+        #             state["messages"].append(AIMessage(
+        #                 content=f"The code was incorrect. Kindly enter the correct code. (Attempt {attempts}/3)"
+        #             ))
+        #     else:
+        #         state["messages"].append(AIMessage(content=cleo_engagement.otp_failure_message))
     
     return state
 
 
-def phone_otp_router(state: ChatbotState) -> Literal["acknowledgement", "send_phone_otp", "ask_phone", "ask_phone_otp", "__end__"]:
+def phone_otp_router(state: ChatbotState) -> Literal["acknowledgement", "ask_id_verification" ,"send_phone_otp", "ask_phone", "ask_phone_otp", "__end__"]:
     """Route based on phone OTP verification status"""
     
     print("phone_otp_router called")
@@ -1177,6 +1207,76 @@ def phone_otp_router(state: ChatbotState) -> Literal["acknowledgement", "send_ph
     
     # Continue asking for OTP
     return "ask_phone_otp"
+
+
+
+# ==================== ID VERIFICATION NODES ====================
+async def ask_id_verification_node(state: ChatbotState) -> ChatbotState:
+    """Send ID verification messages and create Simplici session"""
+
+    print("ask_id_verification_node called")
+
+    applicant_name  = state["personal_details"].get("name", "")
+    phone           = state["personal_details"].get("phone", "")
+    cleo_session_id = state.get("session_id", "")
+
+    # Create session — dev returns fixed link, prod calls Simplici API
+    verify_link, simplici_session_id = create_id_verify_session(
+        cleo_session_id, applicant_name, phone
+    )
+
+    if not verify_link:
+        # API failure — flag for manual review and continue
+        state["id_verify_failed"] = True
+        state["messages"].append(AIMessage(
+            content="We're experiencing a brief technical issue with our verification system. Our team will follow up with you directly."
+        ))
+        return state
+
+    state["id_verify_link"] = verify_link
+    state["id_verify_session_id"] = simplici_session_id
+
+    await save_session_mapping(simplici_session_id, cleo_session_id)
+
+    # 3-message "sandwich" approach
+    state["messages"].append(AIMessage(
+        content="You're doing great! We're almost at the finish line. 🏁"
+    ))
+    state["messages"].append(AIMessage(
+        content="To keep our hiring process secure and get you onboarded quickly, we just need to verify your ID. It's a simple 30-second check where you'll snap a photo of your ID and a quick selfie to confirm it's really you."
+    ))
+    state["messages"].append(AIMessage(
+        content="Please make sure you're in a well-lit room and have your government-issued ID ready. Tap the button below to start! I'll be right here when you're back."
+    ))
+
+    state["show_id_verify_ui"] = True
+
+    return state
+
+
+def process_id_result_node(state: ChatbotState) -> ChatbotState:
+    """Send success or failure message based on webhook result"""
+
+    print("process_id_result_node called")
+
+    if state.get("id_verified"):
+        state["messages"].append(AIMessage(
+            content="Awesome news! Your identity verification is all set. 🛡️"
+        ))
+        state["messages"].append(AIMessage(
+            content="That was the last big step. It's a huge help in getting your file ready for the store manager to review."
+        ))
+    else:
+        # System flag / failure — move to manual review, don't block applicant
+        state["messages"].append(AIMessage(
+            content="It looks like our automated system is having a bit of trouble confirming those details right now."
+        ))
+        state["messages"].append(AIMessage(
+            content="Don't worry! I've flagged your application for a manual review by our hiring team. They'll take a look at the documents you provided and reach out if they need anything else."
+        ))
+
+    return state
+
 
 
 # ==================== QUESTIONS LOOP ====================
@@ -1444,6 +1544,10 @@ def build_graph(checkpointer):
     workflow.add_node("send_phone_otp", send_phone_otp_node)
     workflow.add_node("ask_phone_otp", ask_phone_otp_node)
     workflow.add_node("verify_phone_otp", verify_phone_otp_node)
+
+    workflow.add_node("ask_id_verification", ask_id_verification_node)
+    workflow.add_node("process_id_result",   process_id_result_node)
+
     workflow.add_node("ask_question", ask_question_node)
     workflow.add_node("store_answer", store_answer_node)
     
@@ -1503,6 +1607,10 @@ def build_graph(checkpointer):
     workflow.add_conditional_edges("send_phone_otp", phone_otp_router)
     workflow.add_edge("ask_phone_otp", "verify_phone_otp")
     workflow.add_conditional_edges("verify_phone_otp", phone_otp_router)
+
+    # ID Verification flow
+    workflow.add_edge("ask_id_verification", "process_id_result")
+    workflow.add_edge("process_id_result",   "ask_question")
  
     # Questions loop
     workflow.add_edge("ask_question", "store_answer")
@@ -1515,7 +1623,7 @@ def build_graph(checkpointer):
     
     app = workflow.compile(
         checkpointer=checkpointer,
-        interrupt_after=["delay_messages", "ask_knockout_question",  "ask_address", "ask_gps_verification", "ask_work_experience", "store_work_experience_response", "ask_education", "ask_name", "ask_email", "ask_email_otp", "ask_phone", "ask_phone_otp", "ask_question"]
+        interrupt_after=["delay_messages", "ask_knockout_question",  "ask_address", "ask_gps_verification", "ask_work_experience", "store_work_experience_response", "ask_education", "ask_name", "ask_email", "ask_email_otp", "ask_phone", "ask_phone_otp", "ask_id_verification", "ask_question"]
     )
     
     return app

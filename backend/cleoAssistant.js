@@ -605,6 +605,9 @@ document.head.appendChild(link);
                 {
                     LocationVerificationUI.show();
                 }  
+                else if (data.show_id_verify_ui) {
+                    IdVerificationUI.show(data.id_verify_link || "");
+                }
                 else 
                 {
                     this.enableInput();
@@ -621,6 +624,10 @@ document.head.appendChild(link);
                 this.hideTypingIndicator();  // Hide on error
                 this.updateStatus('Error occurred', 'disconnected');
                 this.addMessage(`Error: ${data.message}`, true, 'body');
+            }
+            else if (data.type === 'id_verify_result') {
+                // Real-time push from webhook — update the UI badge/banner
+                IdVerificationUI.showWebhookResult(data.verified);
             }
         },
         
@@ -2223,6 +2230,367 @@ document.head.appendChild(link);
             }
         }
     };
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // IdVerificationUI — ID Verification Component
+    // ─────────────────────────────────────────────────────────────────────────
+
+    const IdVerificationUI = {
+
+        verifyLink: "",
+
+        render() {
+            const card = document.createElement("div");
+            card.id = "id-verification-ui";
+            card.style.cssText = `
+                margin: 12px 0;
+                font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
+            `;
+
+            card.innerHTML = `
+                <style>
+                    #id-verification-ui .idv-card {
+                        background: #ffffff;
+                        border: 1.5px solid #e2e8f0;
+                        border-radius: 16px;
+                        padding: 20px;
+                        box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+                        max-width: 340px;
+                    }
+
+                    #id-verification-ui .idv-header {
+                        display: flex;
+                        align-items: center;
+                        gap: 12px;
+                        margin-bottom: 16px;
+                    }
+
+                    #id-verification-ui .idv-shield {
+                        width: 42px;
+                        height: 42px;
+                        background: linear-gradient(135deg, #1a73e8, #0d47a1);
+                        border-radius: 10px;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        font-size: 20px;
+                        flex-shrink: 0;
+                        box-shadow: 0 2px 8px rgba(26,115,232,0.35);
+                    }
+
+                    #id-verification-ui .idv-title {
+                        font-size: 15px;
+                        font-weight: 700;
+                        color: #1a1a2e;
+                        line-height: 1.2;
+                    }
+
+                    #id-verification-ui .idv-subtitle {
+                        font-size: 11px;
+                        color: #94a3b8;
+                        margin-top: 2px;
+                    }
+
+                    #id-verification-ui .idv-divider {
+                        height: 1px;
+                        background: #f1f5f9;
+                        margin: 14px 0;
+                    }
+
+                    #id-verification-ui .idv-steps-label {
+                        font-size: 12px;
+                        font-weight: 600;
+                        color: #64748b;
+                        text-transform: uppercase;
+                        letter-spacing: 0.06em;
+                        margin-bottom: 10px;
+                    }
+
+                    #id-verification-ui .idv-step {
+                        display: flex;
+                        align-items: center;
+                        gap: 10px;
+                        margin-bottom: 8px;
+                    }
+
+                    #id-verification-ui .idv-step-icon {
+                        width: 30px;
+                        height: 30px;
+                        background: #eff6ff;
+                        border-radius: 8px;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        font-size: 14px;
+                        flex-shrink: 0;
+                    }
+
+                    #id-verification-ui .idv-step-text {
+                        font-size: 13px;
+                        color: #334155;
+                        font-weight: 500;
+                    }
+
+                    #id-verification-ui .idv-btn-primary {
+                        width: 100%;
+                        padding: 13px;
+                        background: linear-gradient(135deg, #1a73e8, #1557b0);
+                        color: #ffffff;
+                        border: none;
+                        border-radius: 10px;
+                        font-size: 13px;
+                        font-weight: 700;
+                        letter-spacing: 0.04em;
+                        cursor: pointer;
+                        margin-top: 16px;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        gap: 8px;
+                        transition: transform 0.15s ease, box-shadow 0.15s ease;
+                        box-shadow: 0 3px 12px rgba(26,115,232,0.4);
+                    }
+
+                    #id-verification-ui .idv-btn-primary:hover {
+                        transform: translateY(-1px);
+                        box-shadow: 0 5px 18px rgba(26,115,232,0.5);
+                    }
+
+                    #id-verification-ui .idv-btn-primary:active {
+                        transform: translateY(0);
+                    }
+
+                    #id-verification-ui .idv-btn-done {
+                        width: 100%;
+                        padding: 11px;
+                        background: #f8fafc;
+                        color: #475569;
+                        border: 1.5px solid #e2e8f0;
+                        border-radius: 10px;
+                        font-size: 12px;
+                        font-weight: 600;
+                        cursor: pointer;
+                        margin-top: 8px;
+                        transition: background 0.15s ease;
+                        display: none;
+                    }
+
+                    #id-verification-ui .idv-btn-done:hover {
+                        background: #e9f0fb;
+                        border-color: #1a73e8;
+                        color: #1a73e8;
+                    }
+
+                    #id-verification-ui .idv-disclaimer {
+                        font-size: 10.5px;
+                        color: #94a3b8;
+                        text-align: center;
+                        margin-top: 10px;
+                        line-height: 1.5;
+                    }
+
+                    #id-verification-ui .idv-status-bar {
+                        display: flex;
+                        align-items: center;
+                        justify-content: space-between;
+                        margin-top: 14px;
+                        padding-top: 12px;
+                        border-top: 1px solid #f1f5f9;
+                    }
+
+                    #id-verification-ui .idv-status-text {
+                        font-size: 11.5px;
+                        color: #64748b;
+                    }
+
+                    #id-verification-ui .idv-status-badge {
+                        font-size: 11px;
+                        font-weight: 600;
+                        color: #f59e0b;
+                        background: #fef3c7;
+                        padding: 2px 8px;
+                        border-radius: 20px;
+                    }
+
+                    #id-verification-ui .idv-status-badge.success {
+                        color: #16a34a;
+                        background: #dcfce7;
+                    }
+
+                    #id-verification-ui .idv-footer-links {
+                        font-size: 11px;
+                        color: #94a3b8;
+                        text-align: center;
+                        margin-top: 10px;
+                    }
+
+                    #id-verification-ui .idv-footer-links a {
+                        color: #1a73e8;
+                        text-decoration: none;
+                        font-weight: 500;
+                    }
+
+                    #id-verification-ui .idv-footer-links a:hover {
+                        text-decoration: underline;
+                    }
+
+                    #id-verification-ui .idv-success-banner {
+                        display: none;
+                        background: #dcfce7;
+                        border: 1px solid #86efac;
+                        border-radius: 8px;
+                        padding: 10px 12px;
+                        margin-top: 10px;
+                        font-size: 13px;
+                        font-weight: 600;
+                        color: #16a34a;
+                        text-align: center;
+                    }
+                </style>
+
+                <div class="idv-card">
+
+                    <!-- Header -->
+                    <div class="idv-header">
+                        <div class="idv-shield">🛡️</div>
+                        <div>
+                            <div class="idv-title">Identity Verification</div>
+                            <div class="idv-subtitle">Securely powered by Simplici</div>
+                        </div>
+                    </div>
+
+                    <div class="idv-divider"></div>
+
+                    <!-- Steps -->
+                    <div class="idv-steps-label">Steps:</div>
+
+                    <div class="idv-step">
+                        <div class="idv-step-icon">📷</div>
+                        <div class="idv-step-text">1. Snap a photo of ID (Front &amp; Back)</div>
+                    </div>
+                    <div class="idv-step">
+                        <div class="idv-step-icon">🤳</div>
+                        <div class="idv-step-text">2. Take a quick 3D liveness selfie</div>
+                    </div>
+
+                    <!-- CTA Button -->
+                    <button id="idv-start-btn" class="idv-btn-primary">
+                        START SECURE VERIFICATION 🔒
+                    </button>
+
+                    <!-- Done button (shown after user opens the link) -->
+                    <button id="idv-done-btn" class="idv-btn-done">
+                        ✅ I've completed verification
+                    </button>
+
+                    <!-- Success banner (shown on webhook push) -->
+                    <div id="idv-success-banner" class="idv-success-banner">
+                        ✅ Verification received! Click "I've completed" above.
+                    </div>
+
+                    <!-- Disclaimer -->
+                    <p class="idv-disclaimer">
+                        By clicking, you agree to our secure identity verification process.<br>
+                        We do not store your raw biometric data.
+                    </p>
+
+                    <!-- Status bar -->
+                    <div class="idv-status-bar">
+                        <span class="idv-status-text">Status</span>
+                        <span id="idv-status-badge" class="idv-status-badge">Verification in progress...</span>
+                    </div>
+
+                    <!-- Footer links -->
+                    <div class="idv-footer-links">
+                        Stuck?
+                        <a href="#" id="idv-refresh-link">Click here to refresh</a>
+                        or
+                        <a href="mailto:support@scanandhire.com">Contact Support</a>
+                    </div>
+                </div>
+            `;
+
+            return card;
+        },
+
+        attachEventListeners() {
+            const startBtn  = document.getElementById("idv-start-btn");
+            const doneBtn   = document.getElementById("idv-done-btn");
+            const refreshLk = document.getElementById("idv-refresh-link");
+
+            // Open Simplici link in new tab
+            startBtn.addEventListener("click", () => {
+                window.open(this.verifyLink, "_blank", "noopener,noreferrer");
+
+                // Show "I've completed" button after they click start
+                doneBtn.style.display = "block";
+                startBtn.textContent  = "🔄 Re-open Verification";
+            });
+
+            // User confirms they're done
+            doneBtn.addEventListener("click", () => {
+                doneBtn.disabled         = true;
+                doneBtn.textContent      = "⏳ Checking...";
+
+                if (window.CleoChatbot && window.CleoChatbot.ws) {
+                    window.CleoChatbot.ws.send(JSON.stringify({
+                        type: "id_verify_confirmed"
+                    }));
+                }
+
+                window.CleoChatbot.showTypingIndicator();
+                this.hide();
+            });
+
+            // Refresh link — re-open the link
+            refreshLk.addEventListener("click", (e) => {
+                e.preventDefault();
+                window.open(this.verifyLink, "_blank", "noopener,noreferrer");
+            });
+        },
+
+        // Called by webhook push (id_verify_result message from backend)
+        showWebhookResult(verified) {
+            const banner = document.getElementById("idv-success-banner");
+            const badge  = document.getElementById("idv-status-badge");
+            const doneBtn = document.getElementById("idv-done-btn");
+
+            if (verified) {
+                if (banner) {
+                    banner.style.display = "block";
+                }
+                if (badge) {
+                    badge.textContent = "✅ Verified";
+                    badge.classList.add("success");
+                }
+                // Auto-show done button
+                if (doneBtn) doneBtn.style.display = "block";
+            } else {
+                if (badge) badge.textContent = "⚠️ Needs Review";
+            }
+        },
+
+        show(verifyLink) {
+            this.verifyLink = verifyLink || "";
+
+            const messagesDiv = document.getElementById("chatbot-messages");
+            const ui = this.render();
+            messagesDiv.appendChild(ui);
+            this.attachEventListeners();
+
+            messagesDiv.scrollTo({ top: messagesDiv.scrollHeight, behavior: "smooth" });
+            window.CleoChatbot.disableInput();
+        },
+
+        hide() {
+            const ui = document.getElementById("id-verification-ui");
+            if (ui) {
+                ui.style.display = "none";
+                setTimeout(() => ui.remove(), 100);
+            }
+        }
+    };
+
     
     
     

@@ -176,7 +176,7 @@ def validate_phone_otp(session_uuid: str, otp: str) -> tuple[bool, str]:
 
         if "expired" in error_msg:
             return False, "expired"
-        elif "invalid" in error_msg or "incorrect" in error_msg or "wrong" in error_msg:
+        elif "invalid" in error_msg or "failed" in error_msg or "incorrect" in error_msg or "wrong" in error_msg:
             return False, "incorrect"
         else:
             return False, "error"

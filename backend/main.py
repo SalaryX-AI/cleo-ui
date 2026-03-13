@@ -2,7 +2,7 @@
 
 import sys
 import time
-from fastapi import FastAPI, Response, WebSocket, WebSocketDisconnect, HTTPException, Query
+from fastapi import FastAPI, Request, Response, WebSocket, WebSocketDisconnect, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, FileResponse
 from langchain.schema import HumanMessage, AIMessage
@@ -20,8 +20,16 @@ import os
 import asyncio
 from location_services import get_address_autocomplete, get_place_details, reverse_geocode
 
+from id_verification import (
+    setup_mapping_table,
+    save_session_mapping,
+    get_cleo_session_id,
+    verify_webhook_signature,
+)
+
 
 brand_name = ""
+current_session_id = ""
 
 # Initialize graph at startup
 graph_app = None
@@ -45,6 +53,8 @@ async def lifespan(app: FastAPI):
     # Create async checkpointer
     checkpointer = AsyncPostgresSaver(conn)
     await checkpointer.setup()
+
+    await setup_mapping_table()    # creates id_verify_sessions table
     
     # Build graph with checkpointer
     graph_app = build_graph(checkpointer)
@@ -231,6 +241,9 @@ async def start_session(job_type: str = Query(...), api_key: str = Query(...), l
     
     # Create session
     session_id = str(uuid.uuid4())
+    global current_session_id
+    current_session_id = session_id
+
     thread_id = f"thread_{job_type}_{session_id}"
     
     sessions[session_id] = {
@@ -317,6 +330,103 @@ async def cleanup_inactive_sessions():
             print(f"[CLEANUP] Error in cleanup task: {e}")
 
 
+@app.post("/webhook/id-verification")
+async def id_verification_webhook(request: Request):
+    """
+    Receives Simplici webhook when ID verification completes.
+    Updates graph state and pushes real-time result to the active WebSocket.
+    """
+    raw_body = await request.body()
+
+    # ── Optional: verify Simplici signature ──────────────────────────────────
+    # signature = request.headers.get("X-Simplici-Signature", "")
+    # if not verify_webhook_signature(raw_body, signature):
+    #     raise HTTPException(status_code=401, detail="Invalid webhook signature")
+
+    payload = await request.json()
+    print(f"[WEBHOOK] ID verification payload received: {payload}")
+
+    simplici_session_id = payload.get("sessionId")
+    step_id = payload.get("stepId", "")
+
+    if step_id == "sessionInitiate":
+        simplici_session_id = payload.get("sessionId")
+        cleo_session_id = current_session_id  
+        await save_session_mapping(simplici_session_id, cleo_session_id)
+        
+        print(f"[WEBHOOK] Session initiated. Simplici session {simplici_session_id} mapped to Cleo session {cleo_session_id}")
+        return {"status": "handled"}
+
+    # Early exit for intermediate steps
+    if step_id != "kyc":
+        print(f"[WEBHOOK] Ignoring step: {step_id}")
+        return {"status": "ignored"}
+    
+    event_payload = payload.get("payload", {})
+
+    if not simplici_session_id:
+        raise HTTPException(status_code=400, detail="Missing sessionId")
+
+    # ── Look up which Cleo session this belongs to ────────────────────────────
+    cleo_session_id = await get_cleo_session_id(simplici_session_id)
+
+    if not cleo_session_id:
+        print(f"[WEBHOOK] No Cleo session found for Simplici session {simplici_session_id}")
+        # Return 200 so Simplici doesn't keep retrying
+        return {"status": "session_not_found"}
+
+    # Determine pass/fail from Simplici schema
+    kyc_data      = event_payload.get("kyc", {})
+    report        = kyc_data.get("basicInfo", {}).get("report", {})
+    top_status    = event_payload.get("status", "")
+    report_status = report.get("status", "")
+    rejections    = report.get("reject", ["unknown"])  # non-empty = failed
+    liveliness    = report.get("liveliness", False)
+
+    verified = (
+        top_status    == "completed" and
+        report_status == "completed" and
+        liveliness    == True and
+        len(rejections) == 0
+    )
+
+    print(f"[WEBHOOK] KYC result — status: {top_status}, report: {report_status}, liveliness: {liveliness}, rejections: {rejections}, verified: {verified}")
+
+    print(f"[WEBHOOK] Session {cleo_session_id} — verified: {verified}")
+
+    # ── Update LangGraph state directly ──────────────────────────────────────
+    session   = sessions.get(cleo_session_id)
+    if not session:
+        return {"status": "session_inactive"}
+
+    thread_id = session["thread_id"]
+    config    = {"configurable": {"thread_id": thread_id}}
+
+    current_state    = await graph_app.aget_state(config)
+    current_messages = current_state.values.get("messages", [])
+
+    await graph_app.aupdate_state(
+        config,
+        {
+            "id_verified":      verified,
+            "id_verify_failed": not verified,
+        }
+    )
+
+    # ── Push real-time result to the active WebSocket ─────────────────────────
+    ws = session.get("websocket")
+    if ws:
+        try:
+            await ws.send_json({
+                "type":     "id_verify_result",
+                "verified": verified
+            })
+            print(f"[WEBHOOK] Pushed id_verify_result to WebSocket for {cleo_session_id}")
+        except Exception as e:
+            print(f"[WEBHOOK] Could not push to WebSocket (client may be disconnected): {e}")
+
+    return {"status": "ok", "verified": verified}
+
 @app.websocket("/ws/{session_id}")
 async def websocket_endpoint(websocket: WebSocket, session_id: str):
     """WebSocket connection for chat"""
@@ -334,6 +444,7 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
     heartbeat_task = asyncio.create_task(websocket_heartbeat(websocket))
     
     session = sessions[session_id]
+    sessions[session_id]["websocket"] = websocket  # Store websocket in session for later use (e.g. from webhook)
     thread_id = session["thread_id"]
     job_type = session["job_type"]
     location = session["location"]
@@ -407,6 +518,13 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                 phone_verified=False,
                 phone_otp_attempts=0,
                 phone_verify_session_uuid="",
+
+                # ID Verification
+                id_verify_link="",
+                id_verify_session_id="",
+                id_verified=False,
+                id_verify_failed=False,
+                show_id_verify_ui=False,
 
                 session_id=session_id,
                 job_id=job_id,
@@ -632,6 +750,71 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                                 })
 
                 continue   # skip normal message processing
+
+
+            # Handle user confirming they've completed ID verification
+            if message_data.get("type") == "id_verify_confirmed":
+                print(f"[ID_VERIFY] User confirmed completion for session {session_id}")
+
+                current_state = await graph_app.aget_state(config)
+                id_verified   = current_state.values.get("id_verified", False)
+                id_verify_failed = current_state.values.get("id_verify_failed", False)
+
+                if not id_verified and not id_verify_failed:
+                    # Webhook hasn't arrived yet — tell user to wait
+                    await websocket.send_json({
+                        "type": "ai_message",
+                        "content": "We're still processing your verification — it should only take a moment. Please try again in a few seconds.",
+                        "messageType": "body"
+                    })
+                    continue
+
+                # Webhook already updated state — resume graph
+                current_messages = current_state.values.get("messages", [])
+                await graph_app.aupdate_state(
+                    config,
+                    {"messages": current_messages + [HumanMessage(content="id_verify_confirmed")]}
+                )
+
+                async for event in graph_app.astream(None, config=config, stream_mode="updates"):
+                    for node_name, node_data in event.items():
+                        print(f"[DEBUG] Processing node: {node_name}")
+
+                        if node_data and "messages" in node_data:
+                            messages = node_data["messages"]
+
+                            if node_name == "process_id_result":
+                                # Send both success/fail messages with typing delays
+                                for msg in messages[-2:]:
+                                    await websocket.send_json({"type": "typing"})
+                                    await asyncio.sleep(0.7)
+                                    await asyncio.sleep(1.2)
+                                    if isinstance(msg, AIMessage):
+                                        await websocket.send_json({
+                                            "type": "ai_message",
+                                            "content": msg.content,
+                                            "messageType": "body"
+                                        })
+                            else:
+                                messageType = "questions" if node_name in [
+                                    "ask_knockout_question", "ask_name", "ask_email",
+                                    "ask_phone", "ask_question", "ask_work_experience",
+                                    "ask_education", "ask_id_verification"
+                                ] else "body"
+
+                                await websocket.send_json({"type": "typing"})
+                                await asyncio.sleep(0.7)
+
+                                msg = messages[-1]
+                                if isinstance(msg, AIMessage):
+                                    await websocket.send_json({
+                                        "type": "ai_message",
+                                        "content": msg.content,
+                                        "messageType": messageType
+                                    })
+
+                continue   # Skip normal message processing
+            
             
             # Handle work experience data submission
             if message_data.get("type") == "work_experience_data":
@@ -692,7 +875,7 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                                         })
                             else:
                                 messageType = "body"
-                                if node_name in ["ask_knockout_question", "ask_name", "ask_email", "ask_phone", "ask_question", "ask_work_experience", "ask_education"]:
+                                if node_name in ["ask_knockout_question", "ask_name", "ask_email", "ask_phone", "ask_question", "ask_work_experience", "ask_education", "ask_id_verification"]:
                                     messageType = "questions"
                                 
                                 await websocket.send_json({"type": "typing"})
@@ -707,6 +890,9 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                                     show_edu_ui = (node_name == "ask_education" and node_data.get("show_education_ui", False))
                                     show_address_ui = (node_name == "ask_address" and node_data.get("show_address_ui", False))  
                                     show_gps_ui = (node_name == "ask_gps_verification" and node_data.get("show_gps_ui", False))
+
+                                    show_id_verify_ui  = (node_name == "ask_id_verification"  and node_data.get("show_id_verify_ui", False))
+                                    id_verify_link     = node_data.get("id_verify_link", "") if show_id_verify_ui else ""
                                     
                                     await websocket.send_json({
                                         "type": "ai_message",
@@ -715,7 +901,9 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                                         "show_work_experience_ui": show_ui,
                                         "show_education_ui": show_edu_ui,
                                         "show_address_ui": show_address_ui,  
-                                        "show_gps_ui": show_gps_ui
+                                        "show_gps_ui": show_gps_ui,
+                                        "show_id_verify_ui": show_id_verify_ui,
+                                        "id_verify_link": id_verify_link,
                                     })
                 
                 continue  # Skip normal message processing
@@ -792,6 +980,9 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                                 show_edu_ui = (node_name == "ask_education" and node_data.get("show_education_ui", False))
                                 show_address_ui = (node_name == "ask_address" and node_data.get("show_address_ui", False))  
                                 show_gps_ui = (node_name == "ask_gps_verification" and node_data.get("show_gps_ui", False))
+
+                                show_id_verify_ui  = (node_name == "ask_id_verification"  and node_data.get("show_id_verify_ui", False))
+                                id_verify_link     = node_data.get("id_verify_link", "") if show_id_verify_ui else ""
                                 
                                 await websocket.send_json({
                                     "type": "ai_message",
@@ -800,7 +991,9 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                                     "show_work_experience_ui": show_ui,
                                     "show_education_ui": show_edu_ui,
                                     "show_address_ui": show_address_ui,
-                                    "show_gps_ui": show_gps_ui 
+                                    "show_gps_ui": show_gps_ui,
+                                    "show_id_verify_ui": show_id_verify_ui,
+                                    "id_verify_link": id_verify_link, 
                                 })
     
     except WebSocketDisconnect:
