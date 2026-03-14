@@ -465,17 +465,17 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
     config = {"configurable": {"thread_id": thread_id}}
     
     try:
-        # ✅ CHECK IF STATE ALREADY EXISTS (reconnection)
+        # CHECK IF STATE ALREADY EXISTS (reconnection)
         existing_state = await graph_app.aget_state(config)
         
         if existing_state.values and existing_state.values.get("messages"):
-            # ✅ STATE EXISTS - This is a reconnection
+            # STATE EXISTS - This is a reconnection
             print(f"[RECONNECT] Existing state found for {session_id}, skipping initial workflow")
             print(f"[RECONNECT] Message count: {len(existing_state.values.get('messages', []))}")
             
             # Don't start new workflow, just wait for user input in while loop
         else:
-            # ✅ NEW SESSION - Start fresh workflow
+            # NEW SESSION - Start fresh workflow
             print(f"[NEW SESSION] No existing state, starting new workflow for {session_id}")
             
             initial_state = ChatbotState(
@@ -877,6 +877,8 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                                 messageType = "body"
                                 if node_name in ["ask_knockout_question", "ask_name", "ask_email", "ask_phone", "ask_question", "ask_work_experience", "ask_education", "ask_id_verification"]:
                                     messageType = "questions"
+
+
                                 
                                 await websocket.send_json({"type": "typing"})
                                 await asyncio.sleep(0.7)
@@ -891,6 +893,22 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                                     show_address_ui = (node_name == "ask_address" and node_data.get("show_address_ui", False))  
                                     show_gps_ui = (node_name == "ask_gps_verification" and node_data.get("show_gps_ui", False))
 
+                                    if node_name == "ask_id_verification":
+                                        for msg in messages[-3:]:
+                                            if isinstance(msg, AIMessage):
+                                                await websocket.send_json({"type": "typing"})
+                                                await asyncio.sleep(0.7)
+                                                await asyncio.sleep(1.2)
+                                                is_last = (msg == messages[-1])
+                                                await websocket.send_json({
+                                                    "type": "ai_message",
+                                                    "content": msg.content,
+                                                    "messageType": "body",
+                                                    "show_id_verify_ui": is_last,
+                                                    "id_verify_link": node_data.get("id_verify_link", "") if is_last else "",
+                                                })
+                                        continue
+                                    
                                     show_id_verify_ui  = (node_name == "ask_id_verification"  and node_data.get("show_id_verify_ui", False))
                                     id_verify_link     = node_data.get("id_verify_link", "") if show_id_verify_ui else ""
                                     
@@ -964,9 +982,24 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                         else:
                             messageType = "body"
                             
-                            if node_name in ["ask_knockout_question", "ask_name", "ask_email", "ask_phone", "ask_question", "ask_work_experience", "ask_education"]:
+                            if node_name in ["ask_knockout_question", "ask_name", "ask_email", "ask_phone", "ask_question", "ask_work_experience", "ask_education", "ask_id_verification"]:
                                 messageType = "questions"
                             
+                            if node_name == "ask_id_verification":
+                                for msg in messages[-3:]:
+                                    if isinstance(msg, AIMessage):
+                                        await websocket.send_json({"type": "typing"})
+                                        await asyncio.sleep(0.7)
+                                        await asyncio.sleep(1.2)
+                                        is_last = (msg == messages[-1])
+                                        await websocket.send_json({
+                                            "type": "ai_message",
+                                            "content": msg.content,
+                                            "messageType": "body",
+                                            "show_id_verify_ui": is_last,
+                                            "id_verify_link": node_data.get("id_verify_link", "") if is_last else "",
+                                        })
+                                continue
                             # Show typing for 1 second
                             await websocket.send_json({"type": "typing"})
                             await asyncio.sleep(0.7)

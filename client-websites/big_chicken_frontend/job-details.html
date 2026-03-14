@@ -353,6 +353,8 @@
             document.getElementById('job-meta').textContent = `Pay Rate: ${job.payRate} | Level: ${job.level} | Location: ${location} | Shifts: ${job.shifts}`;
             document.getElementById('job-description').textContent = job.description;
             
+            document.dispatchEvent(new CustomEvent('cleoJobReady'));
+            
             const requirementsList = document.getElementById('requirements-list');
             requirementsList.innerHTML = '';
             job.requirements.forEach(req => {

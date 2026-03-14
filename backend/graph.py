@@ -1081,21 +1081,22 @@ def send_phone_otp_node(state: ChatbotState) -> ChatbotState:
     
     phone = state["personal_details"].get("phone", "")
 
-    otp_code = "123456"  # For testing
-    state["phone_otp_code"] = otp_code
+    # otp_code = "123456"  # For testing
+    # state["phone_otp_code"] = otp_code
 
     # Create Plivo Verify session (Plivo generates + sends OTP internally)
-    # session_uuid = create_phone_verify_session(phone)
+    session_uuid = create_phone_verify_session(phone)
 
-    # if session_uuid:
-    #     state["phone_verify_session_uuid"] = session_uuid
-    #     state["phone_otp_sent"] = True
-    #     message = f"I'm sending a verification text with a 6-digit code to {phone} now. Please check your messages."
-    # else:
-    #     state["phone_otp_sent_failed"] = True
-    #     message = cleo_engagement.otp_failure_message
-
-    state["messages"].append(AIMessage(content=f"I'm sending a verification text with a 6-digit code to {phone} now. Please check your messages."))
+    if session_uuid:
+        state["phone_verify_session_uuid"] = session_uuid
+        state["phone_otp_sent"] = True
+        message = f"I'm sending a verification text with a 6-digit code to {phone} now. Please check your messages."
+    else:
+        state["phone_otp_sent_failed"] = True
+        message = cleo_engagement.otp_failure_message
+    
+    state["messages"].append(AIMessage(content=message))
+    # state["messages"].append(AIMessage(content=f"I'm sending a verification text with a 6-digit code to {phone} now. Please check your messages."))  # for testing without Plivo
     
     return state
 
@@ -1129,45 +1130,46 @@ def verify_phone_otp_node(state: ChatbotState) -> ChatbotState:
             state["phone_otp_attempts"] = 0  # Reset attempts for resend
             return state
         
-        otp_code = state.get("phone_otp_code", "")  # For testing
-        otp_input = user_input.strip()
+        # For testing without Plivo, compare against stored OTP code
+        # otp_code = state.get("phone_otp_code", "")  
+        # otp_input = user_input.strip()
 
-        if otp_input == otp_code:
-            state["phone_verified"] = True
-            state["acknowledgement_type"] = "questions"
+        # if otp_input == otp_code:
+        #     state["phone_verified"] = True
+        #     state["acknowledgement_type"] = "questions"
         
         # Verify OTP via Plivo Verify API
-        # session_uuid = state.get("phone_verify_session_uuid", "")
-        # otp_input = user_input.strip()
+        session_uuid = state.get("phone_verify_session_uuid", "")
+        otp_input = user_input.strip()
 
         if not otp_input.isdigit() or len(otp_input) != 6:
             state["messages"].append(AIMessage(content="Please enter a 6-digit code (numbers only)."))
             return state
 
-        # is_valid, error = validate_phone_otp(session_uuid, otp_input)
+        is_valid, error = validate_phone_otp(session_uuid, otp_input)
 
-        # print(f"Phone OTP verification result: is_valid={is_valid}, error={error}")
+        print(f"Phone OTP verification result: is_valid={is_valid}, error={error}")
 
-        # if is_valid:
-        #     state["phone_verified"] = True
-        #     state["acknowledgement_type"] = "questions"
-        # else:
-        #     state["phone_otp_attempts"] += 1
-        #     attempts = state["phone_otp_attempts"]
+        if is_valid:
+            state["phone_verified"] = True
+            state["acknowledgement_type"] = "questions"
+        else:
+            state["phone_otp_attempts"] += 1
+            attempts = state["phone_otp_attempts"]
 
-        #     if error == "expired":
-        #         state["messages"].append(AIMessage(content=cleo_engagement.otp_expired_message))
-        #         state["phone_otp_attempts"] = 0
+            if error == "expired":
+                state["messages"].append(AIMessage(content=cleo_engagement.otp_expired_message))
+                state["phone_otp_attempts"] = 0
             
-        #     elif error == "incorrect":
-        #         if attempts >= 3:
-        #             state["messages"].append(AIMessage(content=cleo_engagement.phone_otp_failure_message))
-        #         else:
-        #             state["messages"].append(AIMessage(
-        #                 content=f"The code was incorrect. Kindly enter the correct code. (Attempt {attempts}/3)"
-        #             ))
-        #     else:
-        #         state["messages"].append(AIMessage(content=cleo_engagement.otp_failure_message))
+            elif error == "incorrect":
+                if attempts >= 3:
+                    state["messages"].append(AIMessage(content=cleo_engagement.phone_otp_failure_message))
+                else:
+                    state["messages"].append(AIMessage(
+                        content=f"The code was incorrect. Kindly enter the correct code. (Attempt {attempts}/3)"
+                    ))
+            else:
+                state["messages"].append(AIMessage(content=cleo_engagement.otp_failure_message))
     
     return state
 
@@ -1269,7 +1271,8 @@ def process_id_result_node(state: ChatbotState) -> ChatbotState:
     else:
         # System flag / failure — move to manual review, don't block applicant
         state["messages"].append(AIMessage(
-            content="It looks like our automated system is having a bit of trouble confirming those details right now."
+            content="It looks like our automated system is having a bit of trouble confirming the verification details right now."
+            
         ))
         state["messages"].append(AIMessage(
             content="Don't worry! I've flagged your application for a manual review by our hiring team. They'll take a look at the documents you provided and reach out if they need anything else."
