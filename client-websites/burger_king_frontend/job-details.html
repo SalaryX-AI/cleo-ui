@@ -369,7 +369,7 @@
             const notice = document.getElementById('chatbot-notice');
             notice.style.display = 'block';
             
-            // Trigger chatbot to open (if it has an API to do so)
+            // Trigger chatbot to open
             setTimeout(() => {
                 if (window.CleoChatbot && window.CleoChatbot.openChat) {
                     window.CleoChatbot.openChat();
