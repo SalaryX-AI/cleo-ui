@@ -132,6 +132,7 @@ class ChatbotState(MessagesState):
     session_id: str = ""
     job_id: str = ""
     company_id: str = ""
+    is_live: bool = False
 
     applicant_age: str = ""
 
@@ -1398,6 +1399,7 @@ def summary_node(state: ChatbotState) -> ChatbotState:
     session_id = state.get("session_id", "")
     job_id = state.get("job_id", "")
     company_id = state.get("company_id", "")
+    is_live = state.get("is_live", False)
     
     knockout_answers = state.get("knockout_answers", {})
     answers = state.get("answers", {})
@@ -1487,6 +1489,7 @@ def summary_node(state: ChatbotState) -> ChatbotState:
         session_id=session_id,
         job_id=job_id,
         company_id=company_id,
+        is_live=is_live,
         conversation_history=conversation_history
     )
     

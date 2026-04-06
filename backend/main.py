@@ -224,7 +224,7 @@ async def validate_domain(
 
 
 @app.post("/start-session")
-async def start_session(job_type: str = Query(...), api_key: str = Query(...), location: str = Query(...), job_id: str = Query(...), company_id: str = Query(...)):
+async def start_session(job_type: str = Query(...), api_key: str = Query(...), location: str = Query(...), job_id: str = Query(...), company_id: str = Query(...), is_live: bool = Query(...)):
     """Create new screening session for a specific job type"""
 
     print(f"Starting session for job_type: {job_type} at location: {location}")
@@ -252,6 +252,7 @@ async def start_session(job_type: str = Query(...), api_key: str = Query(...), l
         "location": location,
         "job_id": job_id,
         "company_id": company_id,
+        "is_live": is_live,
         "active": True,
         "created_at": time.time(),
         "last_activity": time.time()  # Track last activity
@@ -450,6 +451,7 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
     location = session["location"]
     job_id = session["job_id"]
     company_id = session["company_id"]
+    is_live = session["is_live"]
 
     # if sys.platform == 'win32':
     #     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
@@ -529,6 +531,7 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                 session_id=session_id,
                 job_id=job_id,
                 company_id=company_id,
+                is_live=is_live,
                 applicant_age="",
                 
                 work_experience=[],

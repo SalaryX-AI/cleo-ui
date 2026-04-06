@@ -31,6 +31,7 @@ def send_applicant_to_xano(
     session_id: str,
     job_id: str,
     company_id: str,
+    is_live: bool,
     conversation_history: list
 
 ):
@@ -46,11 +47,18 @@ def send_applicant_to_xano(
     JOB_ID = job_id   
     
     XANO_API_URL = "https://xoho-w3ng-km3o.n7e.xano.io/api:6skoiMBa/candidate_new_api"
-
-    # Add headers
-    headers = {
-            'x-api-key': 'sk_test_51QxA9F7C2E8B4D1A6F9C3E7B2A',
-        }
+    
+    if is_live:
+        # Add headers
+        headers = {
+                'x-api-key': 'sk_test_51QxA9F7C2E8B4D1A6F9C3E7B2A',
+                'X-Data-Source': 'live'
+            }
+    else:
+        headers = {
+                'x-api-key': 'sk_test_51QxA9F7C2E8B4D1A6F9C3E7B2A',
+                'X-Data-Source': 'test'
+            }
     
     try:
         # Determine status

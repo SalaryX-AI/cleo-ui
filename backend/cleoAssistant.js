@@ -39,6 +39,7 @@ document.head.appendChild(link);
                 jobLocation: options.jobLocation,
                 jobID: options.jobID,
                 companyID: options.companyID,
+                isLive: options.isLive,
                 apiKey: options.apiKey,
                 apiUrl: CHATBOT_CONFIG.apiBaseUrl,
                 wsUrl: CHATBOT_CONFIG.wsBaseUrl,
@@ -515,9 +516,10 @@ document.head.appendChild(link);
                 const location = this.config.jobLocation;
                 const jobID = this.config.jobID;
                 const companyID = this.config.companyID;
+                const isLive = this.config.isLive;
 
                 const response = await fetch(
-                    `${this.config.apiUrl}/start-session?job_type=${jobType}&api_key=${apiKey}&location=${location}&job_id=${jobID}&company_id=${companyID}`,
+                    `${this.config.apiUrl}/start-session?job_type=${jobType}&api_key=${apiKey}&location=${location}&job_id=${jobID}&company_id=${companyID}&is_live=${isLive}`,
                     { method: 'POST' }
                 );
                 
@@ -2622,11 +2624,13 @@ document.head.appendChild(link);
         const jobType = container.getAttribute('data-job-type') || 'Position';
         const jobID = container.getAttribute('data-job-id') || '123';
         const companyID = container.getAttribute('data-company-id') || '987';
+        const isLive = container.getAttribute('data-isLive') === 'true';
 
         console.log('CleoChatbot: jobType from data attribute:', container.getAttribute('data-job-type'));
         console.log('CleoChatbot: jobLocation from data attribute:', container.getAttribute('data-job-location'));
         console.log('CleoChatbot: jobID from data attribute:', container.getAttribute('data-job-id'));
         console.log('CleoChatbot: companyID from data attribute:', container.getAttribute('data-company-id'));
+        console.log('CleoChatbot: isLive from data attribute:', isLive);
         
         // Get job_id from URL parameters
         // const urlParams = new URLSearchParams(window.location.search);
@@ -2669,6 +2673,7 @@ document.head.appendChild(link);
                 jobLocation: jobLocation,
                 jobID: jobID,
                 companyID: companyID,
+                isLive: isLive,
                 apiKey: config.apiKey,
                 apiUrl: CHATBOT_CONFIG.apiBaseUrl,
                 wsUrl: CHATBOT_CONFIG.wsBaseUrl

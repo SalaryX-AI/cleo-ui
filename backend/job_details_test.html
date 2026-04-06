@@ -194,7 +194,7 @@
             try {
                 const response = await fetch(`https://xoho-w3ng-km3o.n7e.xano.io/api:L-QNLSmb/job/${jobId}`, {
                 headers: {
-                    'X-Data-Source': 'live'
+                    'X-Data-Source': 'test'
                 }
             });
                 
@@ -316,7 +316,7 @@
                 document.getElementById('cleo-chatbot').setAttribute('data-job-location', job.job_location);
                 document.getElementById('cleo-chatbot').setAttribute('data-job-id', job.id);
                 document.getElementById('cleo-chatbot').setAttribute('data-company-id', job.related_company);
-                document.getElementById('cleo-chatbot').setAttribute('data-isLive', "true");
+                document.getElementById('cleo-chatbot').setAttribute('data-isLive', "false");
                 
                 // Load Cleo Assistant script
                 const script = document.createElement("script"); 
