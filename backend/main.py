@@ -130,6 +130,11 @@ async def root():
 async def job_details():
     """Serve job details page"""
     return FileResponse("job_details.html", media_type="text/html")
+
+@app.get("/job-details-test")
+async def job_details():
+    """Serve job details page"""
+    return FileResponse("job_details_test.html", media_type="text/html")    
     
 
 @app.get("/cleoAssistant.js")
