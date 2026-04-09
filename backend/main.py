@@ -436,7 +436,7 @@ async def id_verification_webhook(request: Request):
                 if node_data and "messages" in node_data:
                     if ws:
                         try:
-                            msg = node_data["messages"][-2]
+                            msg = node_data["messages"][-1]
                             if isinstance(msg, AIMessage):
                                 await ws.send_json({"type": "typing"})
                                 await asyncio.sleep(0.7)
