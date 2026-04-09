@@ -432,21 +432,22 @@ async def id_verification_webhook(request: Request):
 
     # Stream result messages to frontend
     async for event in graph_app.astream(None, config=config, stream_mode="updates"):
-        for node_name, node_data in event.items():
-            if node_data and "messages" in node_data:
-                msg = node_data["messages"][-1]
-                if isinstance(msg, AIMessage) and ws:
-                    try:
-                        await ws.send_json({"type": "typing"})
-                        await asyncio.sleep(0.7)
-                        await asyncio.sleep(1.0)
-                        await ws.send_json({
-                            "type": "ai_message",
-                            "content": msg.content,
-                            "messageType": "body"
-                        })
-                    except Exception as e:
-                        print(f"[WEBHOOK] Error sending message: {e}")
+            for node_name, node_data in event.items():
+                if node_data and "messages" in node_data:
+                    if ws:
+                        try:
+                            for msg in node_data["messages"][-2:]:
+                                if isinstance(msg, AIMessage):
+                                    await ws.send_json({"type": "typing"})
+                                    await asyncio.sleep(0.7)
+                                    await asyncio.sleep(1.0)
+                                    await ws.send_json({
+                                        "type": "ai_message",
+                                        "content": msg.content,
+                                        "messageType": "body"
+                                    })
+                        except Exception as e:
+                            print(f"[WEBHOOK] Error sending message: {e}")
 
     # ── Push id_verify_result to close the modal ──────────────────────────────
     if ws:
@@ -599,7 +600,7 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                                 await asyncio.sleep(0.7)
                                 
                                 print(msg.content)
-                                await asyncio.sleep(1.5)  # 3 second delay
+                                await asyncio.sleep(1.5)  # 1.5 second delay
                                 
                                 if isinstance(msg, AIMessage):
                                     await websocket.send_json({
