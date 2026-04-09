@@ -8,9 +8,17 @@ decline_message = "No problem at all! Thanks for stopping by. Feel free to reach
 failure_message = "Thank you for your interest! Unfortunately, based on your responses, you don't meet our basic requirements at this time. We appreciate you taking the time to chat with us. Best of luck in your job search!"
 
 ask_name = "Awesome! Let's get your application file started. To begin, what is your first and last name?"
-ask_phone = "And finally, what is your phone number in case we need to call you for an interview?"
 
-otp_failure_message = "We're currently unable to send an OTP to your phone number. Please try again shortly."
+ask_phone = """Great! To verify your identity and send interview reminders, I'll need your phone number.
+
+By providing your number, you agree to receive text messages from Cleo HR (a SalaryX Inc product). Message frequency may vary. Msg & data rates may apply. Reply STOP to opt-out or HELP for help. View our Privacy Policy at <a href="https://cleohr.com/privacy" target="_blank" rel="noopener noreferrer" style="color:#667eea;">cleohr.com/privacy</a>.
+
+What's your phone number?"""
+
+
+
+
+otp_failure_message = "We're currently unable to send an OTP to your phone number."
 
 ask_email_otp = "Please enter the 6-digit code from your email:"
 

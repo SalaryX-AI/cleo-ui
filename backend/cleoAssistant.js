@@ -628,8 +628,9 @@ document.head.appendChild(link);
                 this.addMessage(`Error: ${data.message}`, true, 'body');
             }
             else if (data.type === 'id_verify_result') {
-                // Real-time push from webhook — update the UI badge/banner
                 IdVerificationUI.showWebhookResult(data.verified);
+                // Auto-close modal after 1.5s so user sees the status briefly
+                setTimeout(() => IdVerificationUI.closeModal(), 1500);
             }
         },
         
@@ -674,7 +675,12 @@ document.head.appendChild(link);
                 messageBubble.className = 'user-bubble';
             }
             
-            messageBubble.textContent = content;
+            if (isBot) {
+                messageBubble.innerHTML = content;
+            } 
+            else {
+                messageBubble.textContent = content;
+            }
             
             // Create timestamp
             const timestamp = document.createElement('div');
@@ -2234,13 +2240,14 @@ document.head.appendChild(link);
     };
 
     // ─────────────────────────────────────────────────────────────────────────
-    // IdVerificationUI — ID Verification Component
+    // IdVerificationUI — ID Verification Component (Card + Modal)
     // ─────────────────────────────────────────────────────────────────────────
 
     const IdVerificationUI = {
 
         verifyLink: "",
 
+        // ── Card rendered in chat ─────────────────────────────────────────────
         render() {
             const card = document.createElement("div");
             card.id = "id-verification-ui";
@@ -2259,14 +2266,12 @@ document.head.appendChild(link);
                         box-shadow: 0 4px 20px rgba(0,0,0,0.08);
                         max-width: 340px;
                     }
-
                     #id-verification-ui .idv-header {
                         display: flex;
                         align-items: center;
                         gap: 12px;
                         margin-bottom: 16px;
                     }
-
                     #id-verification-ui .idv-shield {
                         width: 42px;
                         height: 42px;
@@ -2279,26 +2284,22 @@ document.head.appendChild(link);
                         flex-shrink: 0;
                         box-shadow: 0 2px 8px rgba(26,115,232,0.35);
                     }
-
                     #id-verification-ui .idv-title {
                         font-size: 15px;
                         font-weight: 700;
                         color: #1a1a2e;
                         line-height: 1.2;
                     }
-
                     #id-verification-ui .idv-subtitle {
                         font-size: 11px;
                         color: #94a3b8;
                         margin-top: 2px;
                     }
-
                     #id-verification-ui .idv-divider {
                         height: 1px;
                         background: #f1f5f9;
                         margin: 14px 0;
                     }
-
                     #id-verification-ui .idv-steps-label {
                         font-size: 12px;
                         font-weight: 600;
@@ -2307,14 +2308,12 @@ document.head.appendChild(link);
                         letter-spacing: 0.06em;
                         margin-bottom: 10px;
                     }
-
                     #id-verification-ui .idv-step {
                         display: flex;
                         align-items: center;
                         gap: 10px;
                         margin-bottom: 8px;
                     }
-
                     #id-verification-ui .idv-step-icon {
                         width: 30px;
                         height: 30px;
@@ -2326,13 +2325,11 @@ document.head.appendChild(link);
                         font-size: 14px;
                         flex-shrink: 0;
                     }
-
                     #id-verification-ui .idv-step-text {
                         font-size: 13px;
                         color: #334155;
                         font-weight: 500;
                     }
-
                     #id-verification-ui .idv-btn-primary {
                         width: 100%;
                         padding: 13px;
@@ -2352,107 +2349,139 @@ document.head.appendChild(link);
                         transition: transform 0.15s ease, box-shadow 0.15s ease;
                         box-shadow: 0 3px 12px rgba(26,115,232,0.4);
                     }
-
                     #id-verification-ui .idv-btn-primary:hover {
                         transform: translateY(-1px);
                         box-shadow: 0 5px 18px rgba(26,115,232,0.5);
                     }
-
                     #id-verification-ui .idv-btn-primary:active {
                         transform: translateY(0);
                     }
-
-                    #id-verification-ui .idv-btn-done {
-                        width: 100%;
-                        padding: 11px;
-                        background: #f8fafc;
-                        color: #475569;
-                        border: 1.5px solid #e2e8f0;
-                        border-radius: 10px;
-                        font-size: 12px;
-                        font-weight: 600;
-                        cursor: pointer;
-                        margin-top: 8px;
-                        transition: background 0.15s ease;
-                        display: none;
-                    }
-
-                    #id-verification-ui .idv-btn-done:hover {
-                        background: #e9f0fb;
-                        border-color: #1a73e8;
-                        color: #1a73e8;
-                    }
-
                     #id-verification-ui .idv-disclaimer {
                         font-size: 10.5px;
                         color: #94a3b8;
                         text-align: center;
-                        margin-top: 10px;
+                        margin-top: 12px;
                         line-height: 1.5;
                     }
-
-                    #id-verification-ui .idv-status-bar {
-                        display: flex;
-                        align-items: center;
-                        justify-content: space-between;
-                        margin-top: 14px;
-                        padding-top: 12px;
-                        border-top: 1px solid #f1f5f9;
-                    }
-
-                    #id-verification-ui .idv-status-text {
-                        font-size: 11.5px;
-                        color: #64748b;
-                    }
-
-                    #id-verification-ui .idv-status-badge {
-                        font-size: 11px;
-                        font-weight: 600;
-                        color: #f59e0b;
-                        background: #fef3c7;
-                        padding: 2px 8px;
-                        border-radius: 20px;
-                    }
-
-                    #id-verification-ui .idv-status-badge.success {
-                        color: #16a34a;
-                        background: #dcfce7;
-                    }
-
                     #id-verification-ui .idv-footer-links {
                         font-size: 11px;
                         color: #94a3b8;
                         text-align: center;
-                        margin-top: 10px;
+                        margin-top: 8px;
                     }
-
                     #id-verification-ui .idv-footer-links a {
                         color: #1a73e8;
                         text-decoration: none;
                         font-weight: 500;
                     }
-
                     #id-verification-ui .idv-footer-links a:hover {
                         text-decoration: underline;
                     }
 
-                    #id-verification-ui .idv-success-banner {
+                    /* ── Modal styles ── */
+                    #idv-modal-overlay {
                         display: none;
-                        background: #dcfce7;
-                        border: 1px solid #86efac;
+                        position: fixed;
+                        inset: 0;
+                        background: rgba(0,0,0,0.6);
+                        z-index: 9999999;
+                        align-items: center;
+                        justify-content: center;
+                    }
+                    #idv-modal-overlay.active {
+                        display: flex;
+                    }
+                    #idv-modal {
+                        background: #ffffff;
+                        border-radius: 16px;
+                        width: 90%;
+                        max-width: 480px;
+                        max-height: 90vh;
+                        display: flex;
+                        flex-direction: column;
+                        overflow: hidden;
+                        box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+                        animation: idvModalIn 0.25s ease-out;
+                    }
+                    @keyframes idvModalIn {
+                        from { opacity: 0; transform: scale(0.95) translateY(10px); }
+                        to   { opacity: 1; transform: scale(1) translateY(0); }
+                    }
+                    #idv-modal-header {
+                        display: flex;
+                        align-items: center;
+                        justify-content: space-between;
+                        padding: 16px 20px;
+                        border-bottom: 1px solid #e2e8f0;
+                        flex-shrink: 0;
+                    }
+                    #idv-modal-header-left {
+                        display: flex;
+                        align-items: center;
+                        gap: 10px;
+                    }
+                    #idv-modal-title {
+                        font-size: 15px;
+                        font-weight: 700;
+                        color: #1a1a2e;
+                    }
+                    #idv-modal-close {
+                        width: 32px;
+                        height: 32px;
+                        border: none;
+                        background: #f1f5f9;
                         border-radius: 8px;
-                        padding: 10px 12px;
-                        margin-top: 10px;
-                        font-size: 13px;
+                        font-size: 18px;
+                        cursor: pointer;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        color: #64748b;
+                        transition: background 0.15s;
+                    }
+                    #idv-modal-close:hover {
+                        background: #e2e8f0;
+                        color: #1a1a2e;
+                    }
+                    #idv-modal-iframe {
+                        flex: 1;
+                        border: none;
+                        width: 100%;
+                        min-height: 500px;
+                    }
+                    #idv-modal-status {
+                        display: flex;
+                        align-items: center;
+                        justify-content: space-between;
+                        padding: 12px 20px;
+                        border-top: 1px solid #f1f5f9;
+                        flex-shrink: 0;
+                    }
+                    #idv-modal-status-text {
+                        font-size: 12px;
+                        color: #64748b;
+                    }
+                    #idv-modal-status-badge {
+                        font-size: 11px;
                         font-weight: 600;
+                        color: #f59e0b;
+                        background: #fef3c7;
+                        padding: 3px 10px;
+                        border-radius: 20px;
+                        transition: all 0.3s ease;
+                    }
+                    #idv-modal-status-badge.success {
                         color: #16a34a;
-                        text-align: center;
+                        background: #dcfce7;
+                    }
+                    #idv-modal-status-badge.failed {
+                        color: #dc2626;
+                        background: #fee2e2;
                     }
                 </style>
 
+                <!-- ── Chat card ── -->
                 <div class="idv-card">
-
-                    <!-- Header -->
                     <div class="idv-header">
                         <div class="idv-shield">🛡️</div>
                         <div>
@@ -2463,9 +2492,7 @@ document.head.appendChild(link);
 
                     <div class="idv-divider"></div>
 
-                    <!-- Steps -->
                     <div class="idv-steps-label">Steps:</div>
-
                     <div class="idv-step">
                         <div class="idv-step-icon">📷</div>
                         <div class="idv-step-text">1. Snap a photo of ID (Front &amp; Back)</div>
@@ -2475,34 +2502,15 @@ document.head.appendChild(link);
                         <div class="idv-step-text">2. Take a quick 3D liveness selfie</div>
                     </div>
 
-                    <!-- CTA Button -->
                     <button id="idv-start-btn" class="idv-btn-primary">
                         START SECURE VERIFICATION 🔒
                     </button>
 
-                    <!-- Done button (shown after user opens the link) -->
-                    <button id="idv-done-btn" class="idv-btn-done">
-                        ✅ I've completed verification
-                    </button>
-
-                    <!-- Success banner (shown on webhook push) -->
-                    <div id="idv-success-banner" class="idv-success-banner">
-                        ✅ Verification received! Click "I've completed" above.
-                    </div>
-
-                    <!-- Disclaimer -->
                     <p class="idv-disclaimer">
                         By clicking, you agree to our secure identity verification process.<br>
                         We do not store your raw biometric data.
                     </p>
 
-                    <!-- Status bar -->
-                    <div class="idv-status-bar">
-                        <span class="idv-status-text">Status</span>
-                        <span id="idv-status-badge" class="idv-status-badge">Verification in progress...</span>
-                    </div>
-
-                    <!-- Footer links -->
                     <div class="idv-footer-links">
                         Stuck?
                         <a href="#" id="idv-refresh-link">Click here to refresh</a>
@@ -2510,65 +2518,98 @@ document.head.appendChild(link);
                         <a href="mailto:support@scanandhire.com">Contact Support</a>
                     </div>
                 </div>
+
+                <!-- ── Modal overlay (appended to body, not card) ── -->
             `;
 
             return card;
         },
 
-        attachEventListeners() {
-            const startBtn  = document.getElementById("idv-start-btn");
-            const doneBtn   = document.getElementById("idv-done-btn");
-            const refreshLk = document.getElementById("idv-refresh-link");
+        // ── Create and inject modal into document.body ────────────────────────
+        createModal() {
+            // Remove any existing modal first
+            const existing = document.getElementById("idv-modal-overlay");
+            if (existing) existing.remove();
 
-            // Open Simplici link in new tab
-            startBtn.addEventListener("click", () => {
-                window.open(this.verifyLink, "_blank", "noopener,noreferrer");
+            const overlay = document.createElement("div");
+            overlay.id = "idv-modal-overlay";
+            overlay.innerHTML = `
+                <div id="idv-modal">
+                    <div id="idv-modal-header">
+                        <div id="idv-modal-header-left">
+                            <span style="font-size:18px;">🛡️</span>
+                            <span id="idv-modal-title">Identity Verification</span>
+                        </div>
+                        <button id="idv-modal-close" title="Close">✕</button>
+                    </div>
+                    <iframe
+                        id="idv-modal-iframe"
+                        src="${this.verifyLink}"
+                        allow="camera; microphone"
+                        allowfullscreen
+                    ></iframe>
+                    <div id="idv-modal-status">
+                        <span id="idv-modal-status-text">Status</span>
+                        <span id="idv-modal-status-badge">⏳ Verification in progress...</span>
+                    </div>
+                </div>
+            `;
 
-                // Show "I've completed" button after they click start
-                doneBtn.style.display = "block";
-                startBtn.textContent  = "🔄 Re-open Verification";
+            document.body.appendChild(overlay);
+
+            // Close button
+            document.getElementById("idv-modal-close").addEventListener("click", () => {
+                this.closeModal();
             });
 
-            // User confirms they're done
-            doneBtn.addEventListener("click", () => {
-                doneBtn.disabled         = true;
-                doneBtn.textContent      = "⏳ Checking...";
-
-                if (window.CleoChatbot && window.CleoChatbot.ws) {
-                    window.CleoChatbot.ws.send(JSON.stringify({
-                        type: "id_verify_confirmed"
-                    }));
-                }
-
-                window.CleoChatbot.showTypingIndicator();
-                this.hide();
-            });
-
-            // Refresh link — re-open the link
-            refreshLk.addEventListener("click", (e) => {
-                e.preventDefault();
-                window.open(this.verifyLink, "_blank", "noopener,noreferrer");
+            // Click outside modal to close
+            overlay.addEventListener("click", (e) => {
+                if (e.target === overlay) this.closeModal();
             });
         },
 
-        // Called by webhook push (id_verify_result message from backend)
-        showWebhookResult(verified) {
-            const banner = document.getElementById("idv-success-banner");
-            const badge  = document.getElementById("idv-status-badge");
-            const doneBtn = document.getElementById("idv-done-btn");
+        openModal() {
+            this.createModal();
+            document.getElementById("idv-modal-overlay").classList.add("active");
+        },
 
-            if (verified) {
-                if (banner) {
-                    banner.style.display = "block";
-                }
-                if (badge) {
-                    badge.textContent = "✅ Verified";
+        closeModal() {
+            const overlay = document.getElementById("idv-modal-overlay");
+            if (overlay) {
+                overlay.style.opacity = "0";
+                overlay.style.transition = "opacity 0.2s ease";
+                setTimeout(() => overlay.remove(), 200);
+            }
+        },
+
+        attachEventListeners() {
+            const startBtn  = document.getElementById("idv-start-btn");
+            const refreshLk = document.getElementById("idv-refresh-link");
+
+            // Open modal on START button click
+            startBtn.addEventListener("click", () => {
+                this.openModal();
+            });
+
+            // Refresh link — re-open modal
+            refreshLk.addEventListener("click", (e) => {
+                e.preventDefault();
+                this.openModal();
+            });
+        },
+
+        // Called by webhook push via handleMessage → auto-closes modal
+        showWebhookResult(verified) {
+            const badge = document.getElementById("idv-modal-status-badge");
+
+            if (badge) {
+                if (verified) {
+                    badge.textContent = "✅ Verified! Closing...";
                     badge.classList.add("success");
+                } else {
+                    badge.textContent = "⚠️ Needs manual review. Closing...";
+                    badge.classList.add("failed");
                 }
-                // Auto-show done button
-                if (doneBtn) doneBtn.style.display = "block";
-            } else {
-                if (badge) badge.textContent = "⚠️ Needs Review";
             }
         },
 
@@ -2590,6 +2631,7 @@ document.head.appendChild(link);
                 ui.style.display = "none";
                 setTimeout(() => ui.remove(), 100);
             }
+            this.closeModal();
         }
     };
 

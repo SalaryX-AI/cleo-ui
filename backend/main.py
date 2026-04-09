@@ -419,8 +419,36 @@ async def id_verification_webhook(request: Request):
         }
     )
 
-    # ── Push real-time result to the active WebSocket ─────────────────────────
+# ── Auto-resume graph — no user action needed ─────────────────────────────
+    current_messages = current_state.values.get("messages", [])
+    await graph_app.aupdate_state(
+        config,
+        {
+            "messages": current_messages + [HumanMessage(content="id_verify_webhook")]
+        }
+    )
+
     ws = session.get("websocket")
+
+    # Stream result messages to frontend
+    async for event in graph_app.astream(None, config=config, stream_mode="updates"):
+        for node_name, node_data in event.items():
+            if node_data and "messages" in node_data:
+                msg = node_data["messages"][-1]
+                if isinstance(msg, AIMessage) and ws:
+                    try:
+                        await ws.send_json({"type": "typing"})
+                        await asyncio.sleep(0.7)
+                        await asyncio.sleep(1.0)
+                        await ws.send_json({
+                            "type": "ai_message",
+                            "content": msg.content,
+                            "messageType": "body"
+                        })
+                    except Exception as e:
+                        print(f"[WEBHOOK] Error sending message: {e}")
+
+    # ── Push id_verify_result to close the modal ──────────────────────────────
     if ws:
         try:
             await ws.send_json({
@@ -429,7 +457,7 @@ async def id_verification_webhook(request: Request):
             })
             print(f"[WEBHOOK] Pushed id_verify_result to WebSocket for {cleo_session_id}")
         except Exception as e:
-            print(f"[WEBHOOK] Could not push to WebSocket (client may be disconnected): {e}")
+            print(f"[WEBHOOK] Could not push to WebSocket: {e}")
 
     return {"status": "ok", "verified": verified}
 
@@ -758,70 +786,6 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                                 })
 
                 continue   # skip normal message processing
-
-
-            # Handle user confirming they've completed ID verification
-            if message_data.get("type") == "id_verify_confirmed":
-                print(f"[ID_VERIFY] User confirmed completion for session {session_id}")
-
-                current_state = await graph_app.aget_state(config)
-                id_verified   = current_state.values.get("id_verified", False)
-                id_verify_failed = current_state.values.get("id_verify_failed", False)
-
-                if not id_verified and not id_verify_failed:
-                    # Webhook hasn't arrived yet — tell user to wait
-                    await websocket.send_json({
-                        "type": "ai_message",
-                        "content": "We're still processing your verification — it should only take a moment. Please try again in a few seconds.",
-                        "messageType": "body"
-                    })
-                    continue
-
-                # Webhook already updated state — resume graph
-                current_messages = current_state.values.get("messages", [])
-                await graph_app.aupdate_state(
-                    config,
-                    {"messages": current_messages + [HumanMessage(content="id_verify_confirmed")]}
-                )
-
-                async for event in graph_app.astream(None, config=config, stream_mode="updates"):
-                    for node_name, node_data in event.items():
-                        print(f"[DEBUG] Processing node: {node_name}")
-
-                        if node_data and "messages" in node_data:
-                            messages = node_data["messages"]
-
-                            if node_name == "process_id_result":
-                                # Send both success/fail messages with typing delays
-                                for msg in messages[-2:]:
-                                    await websocket.send_json({"type": "typing"})
-                                    await asyncio.sleep(0.7)
-                                    await asyncio.sleep(1.2)
-                                    if isinstance(msg, AIMessage):
-                                        await websocket.send_json({
-                                            "type": "ai_message",
-                                            "content": msg.content,
-                                            "messageType": "body"
-                                        })
-                            else:
-                                messageType = "questions" if node_name in [
-                                    "ask_knockout_question", "ask_name", "ask_email",
-                                    "ask_phone", "ask_question", "ask_work_experience",
-                                    "ask_education", "ask_id_verification"
-                                ] else "body"
-
-                                await websocket.send_json({"type": "typing"})
-                                await asyncio.sleep(0.7)
-
-                                msg = messages[-1]
-                                if isinstance(msg, AIMessage):
-                                    await websocket.send_json({
-                                        "type": "ai_message",
-                                        "content": msg.content,
-                                        "messageType": messageType
-                                    })
-
-                continue   # Skip normal message processing
             
             
             # Handle work experience data submission
