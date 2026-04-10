@@ -432,22 +432,24 @@ async def id_verification_webhook(request: Request):
 
     # Stream result messages to frontend
     async for event in graph_app.astream(None, config=config, stream_mode="updates"):
-            for node_name, node_data in event.items():
-                if node_data and "messages" in node_data:
-                    if ws:
-                        try:
-                            msg = node_data["messages"][-1]
+        for node_name, node_data in event.items():
+            if node_data and "messages" in node_data:
+                if ws:
+                    try:
+                        # process_id_result adds 2 messages — send all new AIMessages
+                        msgs_to_send = node_data["messages"][-2:] if node_name == "process_id_result" else node_data["messages"][-1:]
+                        for msg in msgs_to_send:
                             if isinstance(msg, AIMessage):
                                 await ws.send_json({"type": "typing"})
                                 await asyncio.sleep(0.7)
-                                # await asyncio.sleep(1.0)
+                                await asyncio.sleep(1.0)
                                 await ws.send_json({
-                                        "type": "ai_message",
-                                        "content": msg.content,
-                                        "messageType": "body"
-                                    })
-                        except Exception as e:
-                            print(f"[WEBHOOK] Error sending message: {e}")
+                                    "type": "ai_message",
+                                    "content": msg.content,
+                                    "messageType": "body"
+                                })
+                    except Exception as e:
+                        print(f"[WEBHOOK] Error sending message: {e}")
 
     # ── Push id_verify_result to close the modal ──────────────────────────────
     if ws:
