@@ -1,0 +1,1187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cleo Observability</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
+
+  :root {
+    --bg:        #0d0f14;
+    --surface:   #13161e;
+    --surface2:  #1a1e28;
+    --surface3:  #232838;
+    --border:    #2a2f3f;
+    --text:      #e2e6f0;
+    --text-dim:  #6b7490;
+    --text-mid:  #9ba3be;
+    --accent:    #5b8af0;
+    --accent-glow: rgba(91,138,240,0.15);
+    --green:     #3ecf8e;
+    --yellow:    #f5c842;
+    --red:       #f05b5b;
+    --orange:    #f0924a;
+    --mono:      'IBM Plex Mono', monospace;
+    --sans:      'IBM Plex Sans', sans-serif;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 13px;
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── TOP BAR ── */
+  .topbar {
+    height: 48px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 0 20px;
+    flex-shrink: 0;
+    z-index: 100;
+  }
+  .topbar-logo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    font-size: 14px;
+    letter-spacing: 0.02em;
+  }
+  .topbar-logo svg { color: var(--accent); }
+  .topbar-title { color: var(--text-dim); font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; }
+  .topbar-search {
+    margin-left: auto;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 6px 12px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 12px;
+    width: 260px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .topbar-search:focus { border-color: var(--accent); }
+  .topbar-search::placeholder { color: var(--text-dim); }
+  .back-btn {
+    display: none;
+    align-items: center;
+    gap: 6px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 5px 12px;
+    color: var(--text-mid);
+    cursor: pointer;
+    font-family: var(--sans);
+    font-size: 12px;
+    transition: all 0.15s;
+  }
+  .back-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .back-btn.visible { display: flex; }
+  .admin-key-form {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: 12px;
+  }
+  .admin-key-form input {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 5px 10px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 11px;
+    width: 180px;
+    outline: none;
+  }
+  .admin-key-form input:focus { border-color: var(--accent); }
+  .btn-sm {
+    background: var(--accent);
+    border: none;
+    border-radius: 6px;
+    padding: 5px 12px;
+    color: #fff;
+    font-family: var(--sans);
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: opacity 0.15s;
+  }
+  .btn-sm:hover { opacity: 0.85; }
+
+  /* ── FILTER BAR ── */
+  .filterbar {
+    height: 44px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 20px;
+    flex-shrink: 0;
+  }
+  .filterbar select, .filterbar input[type=date] {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 4px 8px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 11px;
+    outline: none;
+    height: 28px;
+  }
+  .filterbar select:focus, .filterbar input[type=date]:focus { border-color: var(--accent); }
+  .filter-toggle {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 4px 10px;
+    color: var(--text-mid);
+    font-size: 11px;
+    cursor: pointer;
+    height: 28px;
+    transition: all 0.15s;
+    user-select: none;
+  }
+  .filter-toggle.active { border-color: var(--accent); color: var(--accent); background: var(--accent-glow); }
+  .filter-label { color: var(--text-dim); font-size: 11px; }
+  .spacer { flex: 1; }
+  .results-count { color: var(--text-dim); font-family: var(--mono); font-size: 11px; }
+
+  /* ── HOME VIEW ── */
+  #home-view { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
+  #detail-view { flex: 1; overflow: hidden; display: none; }
+
+  .runs-table-wrap { flex: 1; overflow-y: auto; }
+  table { width: 100%; border-collapse: collapse; }
+  thead th {
+    background: var(--surface);
+    padding: 10px 16px;
+    text-align: left;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-dim);
+    font-weight: 500;
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  tbody tr {
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    transition: background 0.1s;
+  }
+  tbody tr:hover { background: var(--surface2); }
+  tbody td { padding: 10px 16px; color: var(--text-mid); }
+  .td-thread { font-family: var(--mono); font-size: 12px; }
+  .td-brand { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+  .td-msg { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+
+  /* Badges */
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 500;
+  }
+  .badge-active    { background: rgba(91,138,240,0.15); color: var(--accent); }
+  .badge-completed { background: rgba(62,207,142,0.15); color: var(--green); }
+  .badge-errored   { background: rgba(240,91,91,0.15);  color: var(--red); }
+  .badge-node      { background: var(--surface3); color: var(--text-mid); }
+  .badge-error-flag { background: rgba(240,91,91,0.12); color: var(--red); padding: 2px 6px; border-radius: 3px; font-size: 10px; }
+  .badge-ko-flag   { background: rgba(245,200,66,0.12); color: var(--yellow); padding: 2px 6px; border-radius: 3px; font-size: 10px; }
+
+  .inspect-btn {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 4px 12px;
+    color: var(--accent);
+    font-family: var(--mono);
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .inspect-btn:hover { background: var(--accent-glow); border-color: var(--accent); }
+
+  /* ── DETAIL 3-PANE ── */
+  .pane-layout {
+    display: grid;
+    grid-template-columns: 220px 1fr 280px;
+    height: 100%;
+    overflow: hidden;
+  }
+  .pane {
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .pane:last-child { border-right: none; }
+  .pane-header {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-dim);
+    font-weight: 600;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .pane-body { flex: 1; overflow-y: auto; padding: 12px; }
+
+  /* ── LEFT PANE: Flow Navigator ── */
+  .flow-node {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    border-radius: 6px;
+    margin-bottom: 2px;
+    cursor: pointer;
+    transition: all 0.12s;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-dim);
+    position: relative;
+  }
+  .flow-node:hover { background: var(--surface2); color: var(--text-mid); }
+  .flow-node.visited { color: var(--text); background: var(--surface2); }
+  .flow-node.current { color: var(--accent); background: var(--accent-glow); border: 1px solid rgba(91,138,240,0.3); }
+  .flow-node.interrupt::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 3px;
+    background: var(--yellow);
+    border-radius: 3px 0 0 3px;
+  }
+  .flow-node.errored::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 3px;
+    background: var(--red);
+    border-radius: 3px 0 0 3px;
+  }
+  .node-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--border);
+    flex-shrink: 0;
+  }
+  .flow-node.visited .node-dot { background: var(--text-dim); }
+  .flow-node.current .node-dot { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+  .node-count {
+    margin-left: auto;
+    font-size: 10px;
+    color: var(--text-dim);
+    background: var(--surface3);
+    border-radius: 3px;
+    padding: 1px 5px;
+  }
+  .flow-connector {
+    width: 1px;
+    height: 8px;
+    background: var(--border);
+    margin: 0 0 0 18px;
+  }
+
+  /* ── CENTER PANE: Transcript ── */
+  .turn-group { margin-bottom: 16px; }
+  .turn-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+    font-family: var(--mono);
+  }
+
+  .bubble {
+    max-width: 80%;
+    padding: 10px 14px;
+    border-radius: 12px;
+    margin-bottom: 6px;
+    font-size: 13px;
+    line-height: 1.5;
+    word-wrap: break-word;
+  }
+  .bubble-user {
+    background: var(--surface3);
+    border: 1px solid var(--border);
+    margin-left: auto;
+    border-bottom-right-radius: 3px;
+    color: var(--text);
+  }
+  .bubble-ai {
+    background: rgba(91,138,240,0.08);
+    border: 1px solid rgba(91,138,240,0.2);
+    border-bottom-left-radius: 3px;
+    color: var(--text);
+  }
+  .bubble-meta {
+    font-size: 10px;
+    color: var(--text-dim);
+    font-family: var(--mono);
+    margin-top: 3px;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  .bubble-meta .msg-type-tag {
+    padding: 1px 5px;
+    border-radius: 3px;
+    background: var(--surface3);
+    font-size: 10px;
+  }
+
+  .event-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 8px 12px;
+    border-radius: 6px;
+    margin-bottom: 4px;
+    border-left: 3px solid var(--border);
+    background: var(--surface2);
+    font-family: var(--mono);
+    font-size: 11px;
+  }
+  .event-card.otp_send    { border-color: var(--accent); }
+  .event-card.otp_verify  { border-color: var(--green); }
+  .event-card.router_decision { border-color: var(--orange); }
+  .event-card.interrupt   { border-color: var(--yellow); }
+  .event-card.error       { border-color: var(--red); background: rgba(240,91,91,0.05); }
+  .event-card.node_enter  { border-color: var(--surface3); opacity: 0.7; }
+
+  .event-type-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-dim);
+    flex-shrink: 0;
+    min-width: 90px;
+  }
+  .event-type-label.otp_send    { color: var(--accent); }
+  .event-type-label.otp_verify  { color: var(--green); }
+  .event-type-label.router_decision { color: var(--orange); }
+  .event-type-label.interrupt   { color: var(--yellow); }
+  .event-type-label.error       { color: var(--red); }
+  .event-node-name { color: var(--text-mid); }
+  .event-ts { margin-left: auto; color: var(--text-dim); font-size: 10px; flex-shrink: 0; }
+
+  details summary {
+    cursor: pointer;
+    color: var(--accent);
+    font-size: 11px;
+    font-family: var(--mono);
+    margin-top: 4px;
+    user-select: none;
+    list-style: none;
+  }
+  details summary::-webkit-details-marker { display: none; }
+  details summary::before { content: '▶ '; font-size: 9px; }
+  details[open] summary::before { content: '▼ '; }
+  details pre {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 8px;
+    margin-top: 6px;
+    overflow-x: auto;
+    font-size: 11px;
+    color: var(--text-mid);
+    line-height: 1.5;
+  }
+
+  /* ── RIGHT PANE: State Inspector ── */
+  .summary-cards { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+  .summary-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+  }
+  .summary-card-title {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+    font-family: var(--mono);
+  }
+  .summary-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 5px;
+    font-size: 12px;
+  }
+  .summary-key { color: var(--text-dim); font-family: var(--mono); }
+  .summary-val { color: var(--text); font-weight: 500; }
+  .status-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+    margin-right: 5px;
+  }
+  .dot-green { background: var(--green); box-shadow: 0 0 5px var(--green); }
+  .dot-red   { background: var(--red); }
+  .dot-dim   { background: var(--text-dim); }
+  .dot-yellow { background: var(--yellow); }
+
+  .state-search {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 6px 10px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 11px;
+    outline: none;
+    margin-bottom: 10px;
+  }
+  .state-search:focus { border-color: var(--accent); }
+
+  .json-viewer { font-family: var(--mono); font-size: 11px; line-height: 1.6; }
+  .json-key   { color: #79b8ff; }
+  .json-str   { color: #9ecbff; }
+  .json-num   { color: #f8c555; }
+  .json-bool  { color: var(--green); }
+  .json-null  { color: var(--text-dim); }
+  .json-diff-add { background: rgba(62,207,142,0.15); border-radius: 3px; padding: 0 3px; }
+  .json-diff-rem { background: rgba(240,91,91,0.15);  border-radius: 3px; padding: 0 3px; text-decoration: line-through; }
+
+  /* ── LOADING / EMPTY STATES ── */
+  .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    gap: 12px;
+    color: var(--text-dim);
+    font-family: var(--mono);
+    font-size: 12px;
+  }
+  .empty-icon { font-size: 32px; opacity: 0.3; }
+  .spinner {
+    width: 20px; height: 20px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── SCROLLBAR ── */
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--surface3); border-radius: 10px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--border); }
+
+  /* Pagination */
+  .pagination {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    border-top: 1px solid var(--border);
+    background: var(--surface);
+    flex-shrink: 0;
+  }
+  .pagination button {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 4px 12px;
+    color: var(--text-mid);
+    cursor: pointer;
+    font-family: var(--mono);
+    font-size: 11px;
+    transition: all 0.15s;
+  }
+  .pagination button:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+  .pagination button:disabled { opacity: 0.35; cursor: not-allowed; }
+  .page-info { color: var(--text-dim); font-family: var(--mono); font-size: 11px; }
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <div class="topbar-logo">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>
+    </svg>
+    Cleo
+    <span class="topbar-title">Observability</span>
+  </div>
+  <button class="back-btn" id="backBtn" onclick="showHome()">
+    ← Runs List
+  </button>
+  <div class="admin-key-form">
+    <input type="password" id="adminKeyInput" placeholder="Admin key..." value="">
+    <button class="btn-sm" onclick="loadRuns()">Connect</button>
+  </div>
+  <input class="topbar-search" type="text" id="searchInput" placeholder="Search thread_id or message..." oninput="debounceSearch()">
+</div>
+
+<!-- HOME: FILTER BAR -->
+<div class="filterbar" id="filterBar">
+  <span class="filter-label">Status</span>
+  <select id="filterStatus" onchange="loadRuns()">
+    <option value="">All</option>
+    <option value="active">Active</option>
+    <option value="completed">Completed</option>
+    <option value="errored">Errored</option>
+  </select>
+  <span class="filter-label">Brand</span>
+  <select id="filterBrand" onchange="loadRuns()">
+    <option value="">All Brands</option>
+    <option value="Big Chicken">Big Chicken</option>
+    <option value="Starbucks">Starbucks</option>
+    <option value="McDonald's">McDonald's</option>
+    <option value="Burger King">Burger King</option>
+    <option value="Popeyes">Popeyes</option>
+  </select>
+  <span class="filter-label">From</span>
+  <input type="date" id="filterFrom" onchange="loadRuns()">
+  <span class="filter-label">To</span>
+  <input type="date" id="filterTo" onchange="loadRuns()">
+  <div class="filter-toggle" id="toggleError" onclick="toggleFilter('error')">⚠ Has Error</div>
+  <div class="filter-toggle" id="toggleKO" onclick="toggleFilter('ko')">✗ KO Failed</div>
+  <div class="filter-toggle" id="toggleScore" onclick="toggleFilter('score')">✓ Scored</div>
+  <div class="spacer"></div>
+  <span class="results-count" id="resultsCount"></span>
+</div>
+
+<!-- HOME VIEW -->
+<div id="home-view">
+  <div class="runs-table-wrap">
+    <table id="runsTable">
+      <thead>
+        <tr>
+          <th>Thread ID / Brand</th>
+          <th>Location</th>
+          <th>Last Node</th>
+          <th>Status</th>
+          <th>Started</th>
+          <th>Last Activity</th>
+          <th>Flags</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody id="runsBody">
+        <tr><td colspan="8"><div class="empty-state"><div class="empty-icon">🔑</div><span>Enter admin key and click Connect</span></div></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="pagination" id="paginationBar">
+    <button id="prevBtn" onclick="changePage(-1)" disabled>← Prev</button>
+    <span class="page-info" id="pageInfo"></span>
+    <button id="nextBtn" onclick="changePage(1)" disabled>Next →</button>
+  </div>
+</div>
+
+<!-- DETAIL VIEW: 3-PANE -->
+<div id="detail-view">
+  <div class="pane-layout">
+
+    <!-- LEFT: Flow Navigator -->
+    <div class="pane">
+      <div class="pane-header">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+        </svg>
+        Flow Navigator
+      </div>
+      <div class="pane-body" id="flowNav"></div>
+    </div>
+
+    <!-- CENTER: Transcript + Events -->
+    <div class="pane">
+      <div class="pane-header">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+        </svg>
+        Transcript &amp; Events
+        <label style="margin-left:auto;display:flex;align-items:center;gap:5px;font-size:10px;color:var(--text-dim);cursor:pointer;">
+          <input type="checkbox" id="showNodeEvents" onchange="renderTranscript()" style="accent-color:var(--accent)">
+          Show node events
+        </label>
+      </div>
+      <div class="pane-body" id="transcriptPane"></div>
+    </div>
+
+    <!-- RIGHT: State Inspector -->
+    <div class="pane">
+      <div class="pane-header">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><path d="M3 9h18M9 21V9"/>
+        </svg>
+        State Inspector
+      </div>
+      <div class="pane-body" id="statePane"></div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ─────────────────────────────────────────────
+// CONFIG
+// ─────────────────────────────────────────────
+// Point to your FastAPI backend. Change this if your backend runs on a different port/host.
+const API_BASE = "http://127.0.0.1:8000";
+
+// All nodes in graph order (from build_graph)
+const ALL_NODES = [
+  "start","delay_messages","check_ready","acknowledgement",
+  "ask_knockout_question","store_kq_answer","evaluate_single_knockout",
+  "ask_address","store_address","ask_gps_verification","process_gps",
+  "ask_work_experience","store_work_experience_response",
+  "ask_education","store_education",
+  "ask_name","store_name","ask_email","store_email",
+  "send_email_otp","ask_email_otp","verify_email_otp",
+  "ask_phone","store_phone","send_phone_otp","ask_phone_otp","verify_phone_otp",
+  "ask_id_verification","process_id_result",
+  "ask_question","store_answer",
+  "score","summary","end"
+];
+
+const INTERRUPT_NODES = new Set([
+  "delay_messages","ask_knockout_question","ask_address","ask_gps_verification",
+  "ask_work_experience","store_work_experience_response","ask_education",
+  "ask_name","ask_email","ask_email_otp","ask_phone","ask_phone_otp",
+  "ask_id_verification","ask_question"
+]);
+
+// ─────────────────────────────────────────────
+// STATE
+// ─────────────────────────────────────────────
+let adminKey = '';
+let currentPage = 0;
+const PAGE_SIZE = 50;
+let totalRuns = 0;
+let filters = { error: false, ko: false, score: false };
+let searchTimer = null;
+
+let currentRun = null;       // run metadata
+let currentEvents = [];      // events array
+let currentState = null;     // LangGraph state
+let currentDiffs = [];       // state diffs
+let activeNodeFilter = null; // left pane node filter
+
+// ─────────────────────────────────────────────
+// UTILS
+// ─────────────────────────────────────────────
+function adminHeaders() {
+  return { 'X-Admin-Key': adminKey, 'Content-Type': 'application/json' };
+}
+
+function fmtTime(ts) {
+  if (!ts) return '—';
+  try {
+    const d = new Date(ts);
+    return d.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  } catch { return ts; }
+}
+
+function fmtDateTime(ts) {
+  if (!ts) return '—';
+  try {
+    const d = new Date(ts);
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' ' +
+           d.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' });
+  } catch { return ts; }
+}
+
+function statusBadge(status) {
+  const cls = { active: 'badge-active', completed: 'badge-completed', errored: 'badge-errored' }[status] || 'badge-node';
+  return `<span class="badge ${cls}">${status || '—'}</span>`;
+}
+
+function esc(str) {
+  if (!str) return '';
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ─────────────────────────────────────────────
+// HOME VIEW
+// ─────────────────────────────────────────────
+function showHome() {
+  document.getElementById('home-view').style.display = 'flex';
+  document.getElementById('detail-view').style.display = 'none';
+  document.getElementById('filterBar').style.display = 'flex';
+  document.getElementById('backBtn').classList.remove('visible');
+}
+
+function showDetail() {
+  document.getElementById('home-view').style.display = 'none';
+  document.getElementById('detail-view').style.display = 'block';
+  document.getElementById('filterBar').style.display = 'none';
+  document.getElementById('backBtn').classList.add('visible');
+}
+
+function debounceSearch() {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => loadRuns(), 400);
+}
+
+function toggleFilter(type) {
+  filters[type] = !filters[type];
+  const ids = { error: 'toggleError', ko: 'toggleKO', score: 'toggleScore' };
+  document.getElementById(ids[type]).classList.toggle('active', filters[type]);
+  loadRuns();
+}
+
+function changePage(dir) {
+  currentPage = Math.max(0, currentPage + dir);
+  loadRuns();
+}
+
+async function loadRuns() {
+  adminKey = document.getElementById('adminKeyInput').value.trim();
+  if (!adminKey) { alert('Enter an admin key first.'); return; }
+
+  const params = new URLSearchParams();
+  const status = document.getElementById('filterStatus').value;
+  const brand  = document.getElementById('filterBrand').value;
+  const from   = document.getElementById('filterFrom').value;
+  const to     = document.getElementById('filterTo').value;
+  const search = document.getElementById('searchInput').value.trim();
+
+  if (status) params.set('status', status);
+  if (brand)  params.set('brand_name', brand);
+  if (from)   params.set('from_ts', from);
+  if (to)     params.set('to_ts', to + 'T23:59:59');
+  if (search) params.set('search', search);
+  if (filters.error) params.set('has_error', 'true');
+  if (filters.ko)    params.set('knockout_failed', 'true');
+  if (filters.score) params.set('scoring_done', 'true');
+  params.set('limit', PAGE_SIZE);
+  params.set('offset', currentPage * PAGE_SIZE);
+
+  const tbody = document.getElementById('runsBody');
+  tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="spinner"></div></div></td></tr>`;
+
+  try {
+    const res = await fetch(`${API_BASE}/admin/runs?${params}`, { headers: adminHeaders() });
+    if (res.status === 403) { alert('Invalid admin key.'); return; }
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    totalRuns = data.total;
+    renderRunsTable(data.runs);
+    updatePagination();
+  } catch (e) {
+    tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><span style="color:var(--red)">Error: ${esc(e.message)}</span></div></td></tr>`;
+  }
+}
+
+function renderRunsTable(runs) {
+  const tbody = document.getElementById('runsBody');
+  document.getElementById('resultsCount').textContent = `${totalRuns} run${totalRuns !== 1 ? 's' : ''}`;
+
+  if (!runs || runs.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="empty-icon">🔍</div><span>No runs match these filters</span></div></td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = runs.map(r => {
+    const flags = [
+      r.has_error     ? `<span class="badge-error-flag">ERROR</span>` : '',
+      r.knockout_failed ? `<span class="badge-ko-flag">KO FAIL</span>` : '',
+    ].filter(Boolean).join(' ');
+
+    return `
+      <tr onclick="openRun('${esc(r.session_id)}')">
+        <td>
+          <div class="td-thread">${esc(r.thread_id) || esc(r.session_id)}</div>
+          <div class="td-brand">${esc(r.brand_name || '')} ${r.job_type ? '· ' + esc(r.job_type) : ''}</div>
+        </td>
+        <td>${esc(r.location || '—')}</td>
+        <td>${r.last_node ? `<span class="badge badge-node">${esc(r.last_node)}</span>` : '—'}</td>
+        <td>${statusBadge(r.status)}</td>
+        <td style="font-family:var(--mono);font-size:11px">${fmtDateTime(r.started_at)}</td>
+        <td style="font-family:var(--mono);font-size:11px">${fmtDateTime(r.last_event_at)}</td>
+        <td>${flags || '—'}</td>
+        <td><button class="inspect-btn" onclick="event.stopPropagation();openRun('${esc(r.session_id)}')">Inspect →</button></td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function updatePagination() {
+  const totalPages = Math.ceil(totalRuns / PAGE_SIZE);
+  document.getElementById('prevBtn').disabled = currentPage === 0;
+  document.getElementById('nextBtn').disabled = currentPage >= totalPages - 1;
+  document.getElementById('pageInfo').textContent = totalPages > 0
+    ? `Page ${currentPage + 1} of ${totalPages}`
+    : '';
+}
+
+// ─────────────────────────────────────────────
+// DETAIL VIEW
+// ─────────────────────────────────────────────
+async function openRun(sessionId) {
+  showDetail();
+  // Show loading in all panes
+  document.getElementById('flowNav').innerHTML = `<div class="empty-state"><div class="spinner"></div></div>`;
+  document.getElementById('transcriptPane').innerHTML = `<div class="empty-state"><div class="spinner"></div></div>`;
+  document.getElementById('statePane').innerHTML = `<div class="empty-state"><div class="spinner"></div></div>`;
+
+  try {
+    // Fetch all 4 endpoints in parallel
+    const [detailRes, stateRes, diffRes] = await Promise.all([
+      fetch(`${API_BASE}/admin/runs/${sessionId}`, { headers: adminHeaders() }),
+      fetch(`${API_BASE}/admin/runs/${sessionId}/state`, { headers: adminHeaders() }),
+      fetch(`${API_BASE}/admin/runs/${sessionId}/state-diff`, { headers: adminHeaders() }),
+    ]);
+
+    const detail = detailRes.ok ? await detailRes.json() : null;
+    const stateData = stateRes.ok ? await stateRes.json() : null;
+    const diffData  = diffRes.ok  ? await diffRes.json()  : null;
+
+    currentRun    = detail?.run    || {};
+    currentEvents = detail?.events || [];
+    currentState  = stateData?.state || {};
+    currentDiffs  = diffData?.diffs  || [];
+    activeNodeFilter = null;
+
+    renderFlowNav();
+    renderTranscript();
+    renderStatePane();
+  } catch (e) {
+    document.getElementById('transcriptPane').innerHTML =
+      `<div class="empty-state"><span style="color:var(--red)">Failed to load: ${esc(e.message)}</span></div>`;
+  }
+}
+
+// ── LEFT PANE ──
+function renderFlowNav() {
+  const visitedNodes = new Set(currentEvents.map(e => e.node_name).filter(Boolean));
+  const lastNode = currentRun.last_node;
+  const errorNodes = new Set(currentEvents.filter(e => e.event_type === 'error').map(e => e.node_name));
+
+  // Count events per node
+  const nodeCounts = {};
+  currentEvents.forEach(e => {
+    if (e.node_name) nodeCounts[e.node_name] = (nodeCounts[e.node_name] || 0) + 1;
+  });
+
+  let html = '';
+  ALL_NODES.forEach((node, i) => {
+    const visited = visitedNodes.has(node);
+    const isCurrent = node === lastNode;
+    const isInterrupt = INTERRUPT_NODES.has(node);
+    const isError = errorNodes.has(node);
+    const count = nodeCounts[node] || 0;
+
+    let cls = 'flow-node';
+    if (isCurrent) cls += ' current';
+    else if (visited) cls += ' visited';
+    if (isInterrupt && visited) cls += ' interrupt';
+    if (isError) cls += ' errored';
+
+    const isActive = activeNodeFilter === node;
+    if (isActive) cls += ' current';
+
+    html += `
+      ${i > 0 ? '<div class="flow-connector"></div>' : ''}
+      <div class="${cls}" onclick="filterByNode('${esc(node)}')">
+        <div class="node-dot"></div>
+        <span>${esc(node)}</span>
+        ${count > 0 ? `<span class="node-count">${count}</span>` : ''}
+        ${isInterrupt ? '<span title="Interrupt node" style="font-size:10px;margin-left:2px">⏸</span>' : ''}
+      </div>
+    `;
+  });
+
+  document.getElementById('flowNav').innerHTML = html;
+}
+
+function filterByNode(nodeName) {
+  activeNodeFilter = activeNodeFilter === nodeName ? null : nodeName;
+  renderFlowNav();
+  renderTranscript();
+}
+
+// ── CENTER PANE ──
+function renderTranscript() {
+  const showNodeEvents = document.getElementById('showNodeEvents').checked;
+  const pane = document.getElementById('transcriptPane');
+
+  let events = currentEvents;
+  if (activeNodeFilter) {
+    events = events.filter(e => e.node_name === activeNodeFilter || e.event_type === 'user_message');
+  }
+
+  if (!events || events.length === 0) {
+    pane.innerHTML = `<div class="empty-state"><div class="empty-icon">💬</div><span>No events recorded</span></div>`;
+    return;
+  }
+
+  let html = '';
+  let lastWasUser = false;
+
+  events.forEach(ev => {
+    const ts = fmtTime(ev.timestamp);
+    const data = ev.event_data || {};
+
+    if (ev.event_type === 'user_message') {
+      html += `
+        <div style="display:flex;justify-content:flex-end;margin-bottom:8px">
+          <div>
+            <div class="bubble bubble-user">${esc(data.content || '')}</div>
+            <div class="bubble-meta" style="justify-content:flex-end">
+              <span>${ts}</span>
+              <span class="msg-type-tag">user</span>
+            </div>
+          </div>
+        </div>
+      `;
+      lastWasUser = true;
+    } else if (ev.event_type === 'ai_message') {
+      const mType = data.messageType || 'body';
+      html += `
+        <div style="display:flex;margin-bottom:8px">
+          <div>
+            <div class="bubble bubble-ai">${esc(data.content || '')}</div>
+            <div class="bubble-meta">
+              <span>${ts}</span>
+              <span class="msg-type-tag">${esc(mType)}</span>
+              ${ev.node_name ? `<span class="msg-type-tag" style="color:var(--accent)">${esc(ev.node_name)}</span>` : ''}
+            </div>
+          </div>
+        </div>
+      `;
+      lastWasUser = false;
+    } else if (ev.event_type === 'router_decision') {
+      html += `
+        <div class="event-card router_decision">
+          <span class="event-type-label router_decision">ROUTER</span>
+          <div>
+            <span class="event-node-name">${esc(ev.node_name || '')}</span>
+            → <strong style="color:var(--green)">${esc(data.chosen_branch || '')}</strong>
+            <details>
+              <summary>inputs</summary>
+              <pre>${esc(JSON.stringify(data.inputs || {}, null, 2))}</pre>
+            </details>
+          </div>
+          <span class="event-ts">${ts}</span>
+        </div>
+      `;
+    } else if (ev.event_type === 'otp_send') {
+      html += `
+        <div class="event-card otp_send">
+          <span class="event-type-label otp_send">OTP SEND</span>
+          <div class="event-node-name">${esc(ev.node_name || '')} — ${esc(data.channel || '')}</div>
+          <span class="event-ts">${ts}</span>
+        </div>
+      `;
+    } else if (ev.event_type === 'otp_verify') {
+      const ok = data.success;
+      html += `
+        <div class="event-card otp_verify">
+          <span class="event-type-label otp_verify">OTP VERIFY</span>
+          <div class="event-node-name">
+            ${esc(ev.node_name || '')}
+            <span style="color:${ok ? 'var(--green)' : 'var(--red)'}">${ok ? '✓ passed' : '✗ failed'}</span>
+          </div>
+          <span class="event-ts">${ts}</span>
+        </div>
+      `;
+    } else if (ev.event_type === 'error') {
+      html += `
+        <div class="event-card error">
+          <span class="event-type-label error">ERROR</span>
+          <div>
+            <div class="event-node-name">${esc(ev.node_name || 'unknown node')}</div>
+            <div style="color:var(--red);margin-top:2px">${esc(data.error || '')}</div>
+            <details>
+              <summary>traceback</summary>
+              <pre>${esc(data.traceback || '')}</pre>
+            </details>
+          </div>
+          <span class="event-ts">${ts}</span>
+        </div>
+      `;
+    } else if (ev.event_type === 'node_enter' && showNodeEvents) {
+      html += `
+        <div class="event-card node_enter">
+          <span class="event-type-label" style="color:var(--text-dim)">NODE</span>
+          <span class="event-node-name">${esc(ev.node_name || '')}</span>
+          <span class="event-ts">${ts}</span>
+        </div>
+      `;
+    }
+  });
+
+  pane.innerHTML = html || `<div class="empty-state"><span>No visible events</span></div>`;
+}
+
+// ── RIGHT PANE ──
+function renderStatePane() {
+  const pane = document.getElementById('statePane');
+
+  // Summary cards
+  const pd = currentState.personal_details || {};
+  const score = currentState.score || 0;
+  const totalScore = currentState.total_score || 100;
+  const scorePct = totalScore > 0 ? Math.round((score / totalScore) * 100) : 0;
+  const kqTotal = (currentState.knockout_questions || []).length;
+  const kqDone = currentState.current_knockout_question_index || 0;
+  const qTotal = (currentState.questions || []).length;
+  const qDone = currentState.current_question_index || 0;
+
+  const verifiedDot = (v) => `<span class="status-dot ${v ? 'dot-green' : 'dot-dim'}"></span>${v ? '✓' : '—'}`;
+
+  const cards = `
+    <div class="summary-cards">
+      <div class="summary-card">
+        <div class="summary-card-title">Identity</div>
+        <div class="summary-row"><span class="summary-key">name</span><span class="summary-val">${esc(pd.name || '—')}</span></div>
+        <div class="summary-row"><span class="summary-key">email</span><span class="summary-val">${esc(pd.email || '—')}</span></div>
+        <div class="summary-row"><span class="summary-key">phone</span><span class="summary-val">${esc(pd.phone || '—')}</span></div>
+        <div class="summary-row"><span class="summary-key">email_verified</span><span class="summary-val">${verifiedDot(currentState.email_verified)}</span></div>
+        <div class="summary-row"><span class="summary-key">phone_verified</span><span class="summary-val">${verifiedDot(currentState.phone_verified)}</span></div>
+        <div class="summary-row"><span class="summary-key">id_verified</span><span class="summary-val">${verifiedDot(currentState.id_verified)}</span></div>
+      </div>
+      <div class="summary-card">
+        <div class="summary-card-title">Progress</div>
+        <div class="summary-row"><span class="summary-key">knockout Q</span><span class="summary-val">${kqDone}/${kqTotal}</span></div>
+        <div class="summary-row"><span class="summary-key">knockout_passed</span><span class="summary-val">
+          <span class="status-dot ${currentState.knockout_passed ? 'dot-green' : 'dot-yellow'}"></span>
+          ${currentState.knockout_passed ? 'yes' : 'pending'}
+        </span></div>
+        <div class="summary-row"><span class="summary-key">screening Q</span><span class="summary-val">${qDone}/${qTotal}</span></div>
+      </div>
+      <div class="summary-card">
+        <div class="summary-card-title">Outcome</div>
+        <div class="summary-row"><span class="summary-key">score</span><span class="summary-val" style="color:var(--green)">${scorePct}%</span></div>
+        <div class="summary-row"><span class="summary-key">status</span><span class="summary-val">${statusBadge(currentRun.status)}</span></div>
+        <div class="summary-row"><span class="summary-key">last_node</span><span class="summary-val">${currentRun.last_node ? `<span class="badge badge-node">${esc(currentRun.last_node)}</span>` : '—'}</span></div>
+      </div>
+    </div>
+  `;
+
+  // State diff section
+  let diffHtml = '';
+  if (currentDiffs.length > 0) {
+    const recentDiffs = currentDiffs.filter(d => Object.keys(d.diff).length > 0).slice(-5);
+    if (recentDiffs.length > 0) {
+      diffHtml = `
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text-dim);margin-bottom:8px;font-family:var(--mono)">
+          Recent State Changes
+        </div>
+        ${recentDiffs.map(d => `
+          <div style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:8px 10px;margin-bottom:6px;font-family:var(--mono);font-size:11px">
+            <div style="color:var(--text-dim);margin-bottom:5px">${d.next?.join(' → ') || ''}</div>
+            ${Object.entries(d.diff).map(([k, v]) => `
+              <div class="summary-row">
+                <span class="summary-key">${esc(k)}</span>
+                <span>
+                  <span class="json-diff-rem">${esc(JSON.stringify(v.before))}</span>
+                  → <span class="json-diff-add">${esc(JSON.stringify(v.after))}</span>
+                </span>
+              </div>
+            `).join('')}
+          </div>
+        `).join('')}
+        <div style="height:1px;background:var(--border);margin:12px 0"></div>
+      `;
+    }
+  }
+
+  // JSON viewer with search
+  const jsonHtml = `
+    <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text-dim);margin-bottom:8px;font-family:var(--mono)">
+      Full State
+    </div>
+    <input class="state-search" type="text" placeholder="Search keys..." oninput="filterState(this.value)" id="stateSearchInput">
+    <div class="json-viewer" id="jsonViewer">${renderJsonValue(currentState, 0)}</div>
+  `;
+
+  pane.innerHTML = cards + diffHtml + jsonHtml;
+}
+
+function renderJsonValue(val, depth) {
+  if (val === null || val === undefined) return `<span class="json-null">null</span>`;
+  if (typeof val === 'boolean') return `<span class="json-bool">${val}</span>`;
+  if (typeof val === 'number') return `<span class="json-num">${val}</span>`;
+  if (typeof val === 'string') return `<span class="json-str">"${esc(val)}"</span>`;
+  if (Array.isArray(val)) {
+    if (val.length === 0) return `<span class="json-null">[]</span>`;
+    if (depth > 2) return `<span class="json-null">[${val.length} items]</span>`;
+    return `[<div style="padding-left:14px">${val.map(v => renderJsonValue(v, depth+1)).join(',<br>')}</div>]`;
+  }
+  if (typeof val === 'object') {
+    const keys = Object.keys(val);
+    if (keys.length === 0) return `<span class="json-null">{}</span>`;
+    if (depth > 3) return `<span class="json-null">{...}</span>`;
+    return `{<div style="padding-left:14px">${
+      keys.map(k => `<span class="json-key">"${esc(k)}"</span>: ${renderJsonValue(val[k], depth+1)}`).join(',<br>')
+    }</div>}`;
+  }
+  return esc(String(val));
+}
+
+function filterState(query) {
+  const viewer = document.getElementById('jsonViewer');
+  if (!query.trim()) {
+    viewer.innerHTML = renderJsonValue(currentState, 0);
+    return;
+  }
+  // Filter: only show top-level keys that match
+  const filtered = {};
+  Object.entries(currentState).forEach(([k, v]) => {
+    if (k.toLowerCase().includes(query.toLowerCase()) ||
+        JSON.stringify(v).toLowerCase().includes(query.toLowerCase())) {
+      filtered[k] = v;
+    }
+  });
+  viewer.innerHTML = renderJsonValue(filtered, 0);
+}
+
+// ─────────────────────────────────────────────
+// INIT
+// ─────────────────────────────────────────────
+// Allow Enter key in admin key input
+document.getElementById('adminKeyInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') loadRuns();
+});
+document.getElementById('searchInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') loadRuns();
+});
+</script>
+</body>
+</html>

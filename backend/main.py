@@ -2,9 +2,13 @@
 
 import sys
 import time
-from fastapi import FastAPI, Request, Response, WebSocket, WebSocketDisconnect, HTTPException, Query
+import re as _re
+import traceback as _tb
+from typing import Optional
+from fastapi import FastAPI, Request, Response, WebSocket, WebSocketDisconnect, HTTPException, Query, APIRouter, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, FileResponse
+from fastapi.security.api_key import APIKeyHeader
 from langchain.schema import HumanMessage, AIMessage
 import json
 import uuid
@@ -25,6 +29,15 @@ from id_verification import (
     save_session_mapping,
     get_cleo_session_id,
     verify_webhook_signature,
+)
+
+from conversation_logger import (
+    setup_log_tables,
+    init_run,
+    log_event,
+    log_router,
+    log_error,
+    update_run_status,
 )
 
 
@@ -55,6 +68,9 @@ async def lifespan(app: FastAPI):
     await checkpointer.setup()
 
     await setup_mapping_table()    # creates id_verify_sessions table
+
+    await setup_log_tables()       # creates conversation_runs + conversation_events tables
+    print("[LOGGER] Log tables initialized")
     
     # Build graph with checkpointer
     graph_app = build_graph(checkpointer)
@@ -132,7 +148,7 @@ async def job_details():
     return FileResponse("job_details.html", media_type="text/html")
 
 @app.get("/job-details-test")
-async def job_details():
+async def job_details_test():
     """Serve job details page"""
     return FileResponse("job_details_test.html", media_type="text/html")    
     
@@ -261,8 +277,16 @@ async def start_session(job_type: str = Query(...), api_key: str = Query(...), l
         "active": True,
         "created_at": time.time(),
         "last_activity": time.time()  # Track last activity
-
     }
+
+    # Log new run
+    asyncio.create_task(init_run(
+        session_id=session_id,
+        thread_id=thread_id,
+        job_type=job_type,
+        brand_name=brand_name,
+        location=location,
+    ))
     
     return {
         "session_id": session_id,
@@ -419,6 +443,10 @@ async def id_verification_webhook(request: Request):
         }
     )
 
+    # ── Log id verification result ────────────────────────────────────────────
+    await log_event(cleo_session_id, thread_id, "process_id_result", "otp_verify",
+                    {"channel": "id_verification", "success": verified})
+
 # ── Auto-resume graph — no user action needed ─────────────────────────────
     current_messages = current_state.values.get("messages", [])
     await graph_app.aupdate_state(
@@ -433,6 +461,8 @@ async def id_verification_webhook(request: Request):
     # Stream result messages to frontend
     async for event in graph_app.astream(None, config=config, stream_mode="updates"):
         for node_name, node_data in event.items():
+            await log_event(cleo_session_id, thread_id, node_name, "node_enter",
+                            {"state_keys": list(node_data.keys()) if node_data else []})
             if node_data and "messages" in node_data:
                 if ws:
                     try:
@@ -448,6 +478,8 @@ async def id_verification_webhook(request: Request):
                                     "content": msg.content,
                                     "messageType": "body"
                                 })
+                                await log_event(cleo_session_id, thread_id, node_name, "ai_message",
+                                                {"content": msg.content, "messageType": "body"})
                     except Exception as e:
                         print(f"[WEBHOOK] Error sending message: {e}")
 
@@ -589,6 +621,10 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
             # Start workflow with streaming (ONLY for new sessions)
             async for event in graph_app.astream(initial_state, config=config, stream_mode="updates"):
                 for node_name, node_data in event.items():
+                    # Log every node entered
+                    await log_event(session_id, thread_id, node_name, "node_enter",
+                                    {"state_keys": list(node_data.keys()) if node_data else []})
+
                     if node_data and "messages" in node_data:
                         messages = node_data["messages"]
                         
@@ -610,6 +646,8 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                                         "content": msg.content,
                                         "messageType": "body"
                                     })
+                                    await log_event(session_id, thread_id, node_name, "ai_message",
+                                                    {"content": msg.content, "messageType": "body"})
                         else:
                             # Normal processing - send last message only
                             msg = messages[-1]
@@ -620,12 +658,13 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                             await asyncio.sleep(0.7)
                             
                             if isinstance(msg, AIMessage):
-                                
                                 await websocket.send_json({
                                     "type": "ai_message",
                                     "content": msg.content,
                                     "messageType": "intro",
                                 })
+                                await log_event(session_id, thread_id, node_name, "ai_message",
+                                                {"content": msg.content, "messageType": "intro"})
         
         while True:
     
@@ -635,6 +674,7 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                 await websocket.send_json({
                     "type": "workflow_complete",
                 })
+                await update_run_status(session_id, "completed", scoring_done=True)
                 break
             
             # print(f"[DEBUG] Waiting for message. Next nodes: {snapshot.next}")  # ADD DEBUG
@@ -706,10 +746,15 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                     }
                 )
 
+                await log_event(session_id, thread_id, "store_address", "user_message",
+                                {"content": f"Address: {display_address}"})
+
                 # Resume workflow
                 async for event in graph_app.astream(None, config=config, stream_mode="updates"):
                     for node_name, node_data in event.items():
                         print(f"[DEBUG] Processing node: {node_name}")
+                        await log_event(session_id, thread_id, node_name, "node_enter",
+                                        {"state_keys": list(node_data.keys()) if node_data else []})
 
                         if node_data and "messages" in node_data:
                             messages = node_data["messages"]
@@ -734,6 +779,8 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                                     "messageType": messageType,
                                     "show_gps_ui": show_gps_ui
                                 })
+                                await log_event(session_id, thread_id, node_name, "ai_message",
+                                                {"content": msg.content, "messageType": messageType})
 
                 continue   # skip normal message processing
 
@@ -765,10 +812,15 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                     }
                 )
 
+                await log_event(session_id, thread_id, "process_gps", "user_message",
+                                {"content": f"GPS: lat={gps_lat}, lng={gps_lng}"})
+
                 # Resume workflow
                 async for event in graph_app.astream(None, config=config, stream_mode="updates"):
                     for node_name, node_data in event.items():
                         print(f"[DEBUG] Processing node: {node_name}")
+                        await log_event(session_id, thread_id, node_name, "node_enter",
+                                        {"state_keys": list(node_data.keys()) if node_data else []})
 
                         if node_data and "messages" in node_data:
                             messages = node_data["messages"]
@@ -787,6 +839,8 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                                     "content": msg.content,
                                     "messageType": messageType
                                 })
+                                await log_event(session_id, thread_id, node_name, "ai_message",
+                                                {"content": msg.content, "messageType": messageType})
 
                 continue   # skip normal message processing
             
@@ -821,14 +875,16 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                         "messages": current_messages + [HumanMessage(content=work_exp_message)]
                     }
                 )
+
+                await log_event(session_id, thread_id, "store_work_experience_response", "user_message",
+                                {"content": work_exp_message})
     
-                
-                # print(f"[DEBUG] Resuming workflow after work experience")  # ADD DEBUG
-                
                 # Continue workflow
                 async for event in graph_app.astream(None, config=config, stream_mode="updates"):
                     for node_name, node_data in event.items():
                         print(f"[DEBUG] Processing node: {node_name}")  # ADD DEBUG
+                        await log_event(session_id, thread_id, node_name, "node_enter",
+                                        {"state_keys": list(node_data.keys()) if node_data else []})
                         
                         if node_data and "messages" in node_data:
                             messages = node_data["messages"]
@@ -848,6 +904,8 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                                             "content": msg.content,
                                             "messageType": "body"
                                         })
+                                        await log_event(session_id, thread_id, node_name, "ai_message",
+                                                        {"content": msg.content, "messageType": "body"})
                             else:
                                 messageType = "body"
                                 if node_name in ["ask_knockout_question", "ask_name", "ask_email", "ask_phone", "ask_question", "ask_work_experience", "ask_education", "ask_id_verification"]:
@@ -882,6 +940,8 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                                                     "show_id_verify_ui": is_last,
                                                     "id_verify_link": node_data.get("id_verify_link", "") if is_last else "",
                                                 })
+                                                await log_event(session_id, thread_id, node_name, "ai_message",
+                                                                {"content": msg.content, "messageType": "body"})
                                         continue
                                     
                                     show_id_verify_ui  = (node_name == "ask_id_verification"  and node_data.get("show_id_verify_ui", False))
@@ -898,6 +958,8 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                                         "show_id_verify_ui": show_id_verify_ui,
                                         "id_verify_link": id_verify_link,
                                     })
+                                    await log_event(session_id, thread_id, node_name, "ai_message",
+                                                    {"content": msg.content, "messageType": messageType})
                 
                 continue  # Skip normal message processing
             
@@ -913,6 +975,9 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
             if not user_input:
                 print(f"[DEBUG] Empty user input, skipping")  # ADD DEBUG
                 continue
+
+            # Log user message
+            await log_event(session_id, thread_id, None, "user_message", {"content": user_input})
             
             current_state = await graph_app.aget_state(config)
             current_messages = current_state.values.get("messages", [])
@@ -931,6 +996,19 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
             async for event in graph_app.astream(None, config=config, stream_mode="updates"):
                 for node_name, node_data in event.items():
                     print(f"[DEBUG] Processing node: {node_name}")  # ADD DEBUG
+
+                    # Log every node entered
+                    await log_event(session_id, thread_id, node_name, "node_enter",
+                                    {"state_keys": list(node_data.keys()) if node_data else []})
+
+                    # Mark scoring done when summary node runs
+                    if node_name == "summary":
+                        await update_run_status(session_id, "completed", scoring_done=True)
+
+                    # Mark knockout failed when evaluate_single_knockout fails
+                    if node_name == "evaluate_single_knockout" and node_data:
+                        if node_data.get("current_knockout_failed", False):
+                            await update_run_status(session_id, "completed", knockout_failed=True)
                     
                     if node_data and "messages" in node_data:
                         messages = node_data["messages"]
@@ -954,6 +1032,8 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                                         "content": msg.content,
                                         "messageType": "body"
                                     })
+                                    await log_event(session_id, thread_id, node_name, "ai_message",
+                                                    {"content": msg.content, "messageType": "body"})
                         else:
                             messageType = "body"
                             
@@ -974,6 +1054,8 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                                             "show_id_verify_ui": is_last,
                                             "id_verify_link": node_data.get("id_verify_link", "") if is_last else "",
                                         })
+                                        await log_event(session_id, thread_id, node_name, "ai_message",
+                                                        {"content": msg.content, "messageType": "body"})
                                 continue
                             # Show typing for 1 second
                             await websocket.send_json({"type": "typing"})
@@ -1003,18 +1085,22 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                                     "show_id_verify_ui": show_id_verify_ui,
                                     "id_verify_link": id_verify_link, 
                                 })
+                                await log_event(session_id, thread_id, node_name, "ai_message",
+                                                {"content": msg.content, "messageType": messageType})
     
     except WebSocketDisconnect:
         print(f"Client disconnected: {session_id}")
         sessions[session_id]["active"] = False
         heartbeat_task.cancel()  # Cancel heartbeat on disconnect
+        await update_run_status(session_id, "completed")
     
     except Exception as e:
-        import traceback
-        error_details = traceback.format_exc()  # Get full error trace
+        error_details = _tb.format_exc()  # Get full error trace
         print(f"Error in WebSocket: {e}")
         print(f"Full traceback:\n{error_details}")
         heartbeat_task.cancel()  # Cancel heartbeat on error
+        await log_error(session_id, thread_id, None, e)
+        await update_run_status(session_id, "errored", error_detail=error_details[:2000])
         await websocket.send_json({
             "type": "error",
             "message": str(e)
@@ -1025,6 +1111,295 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
         # Ensure heartbeat is cancelled
         if not heartbeat_task.done():
             heartbeat_task.cancel()
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# ADMIN ROUTER
+# ══════════════════════════════════════════════════════════════════════════════
+
+ADMIN_KEY = os.getenv("ADMIN_KEY", "cleo_admin_secret_change_me")
+admin_key_header = APIKeyHeader(name="X-Admin-Key", auto_error=True)
+
+async def verify_admin_key(key: str = Depends(admin_key_header)):
+    if key != ADMIN_KEY:
+        raise HTTPException(status_code=403, detail="Invalid admin key")
+
+admin_router = APIRouter(prefix="/admin", dependencies=[Depends(verify_admin_key)])
+
+
+# ── PII masking helpers ────────────────────────────────────────────────────────
+
+def _mask_pii(text: str) -> str:
+    if not text:
+        return text
+    text = _re.sub(r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}', '***@***.***', text)
+    text = _re.sub(r'\+?[\d\s\-\(\)]{10,}', '***-***-****', text)
+    return text
+
+def _mask_event_pii(data: dict) -> dict:
+    if not data:
+        return data
+    masked = dict(data)
+    if "content" in masked:
+        masked["content"] = _mask_pii(str(masked["content"]))
+    return masked
+
+def _mask_state_pii(state: dict) -> dict:
+    masked = dict(state)
+    pd = masked.get("personal_details", {})
+    if pd:
+        safe = dict(pd)
+        if "email" in safe:
+            safe["email"] = _mask_pii(safe["email"])
+        if "phone" in safe:
+            safe["phone"] = _mask_pii(safe["phone"])
+        masked["personal_details"] = safe
+    return masked
+
+async def _get_log_conn():
+    conn_str = os.getenv("POSTGRES_CONNECTION_STRING")
+    return await AsyncConnection.connect(conn_str, autocommit=True, row_factory=dict_row)
+
+
+# ── Admin endpoints ────────────────────────────────────────────────────────────
+
+@admin_router.get("/runs")
+async def list_runs(
+    status: Optional[str] = None,
+    job_type: Optional[str] = None,
+    brand_name: Optional[str] = None,
+    has_error: Optional[bool] = None,
+    knockout_failed: Optional[bool] = None,
+    scoring_done: Optional[bool] = None,
+    from_ts: Optional[str] = None,
+    to_ts: Optional[str] = None,
+    search: Optional[str] = None,
+    limit: int = 50,
+    offset: int = 0,
+    reveal_pii: bool = False,
+):
+    """Home screen: paginated runs list with filters."""
+    conn = await _get_log_conn()
+    try:
+        conditions = []
+        vals = []
+
+        if status:
+            conditions.append("status = %s"); vals.append(status)
+        if job_type:
+            conditions.append("job_type = %s"); vals.append(job_type)
+        if brand_name:
+            conditions.append("brand_name = %s"); vals.append(brand_name)
+        if has_error is not None:
+            conditions.append("has_error = %s"); vals.append(has_error)
+        if knockout_failed is not None:
+            conditions.append("knockout_failed = %s"); vals.append(knockout_failed)
+        if scoring_done is not None:
+            conditions.append("scoring_done = %s"); vals.append(scoring_done)
+        if from_ts:
+            conditions.append("started_at >= %s"); vals.append(from_ts)
+        if to_ts:
+            conditions.append("started_at <= %s"); vals.append(to_ts + "T23:59:59")
+        if search:
+            conditions.append("(thread_id ILIKE %s OR last_user_message ILIKE %s)")
+            vals += [f"%{search}%", f"%{search}%"]
+
+        where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
+        count_vals = vals.copy()
+        vals += [limit, offset]
+
+        cur = await conn.execute(
+            f"""SELECT session_id, thread_id, job_type, brand_name, location,
+                       started_at, last_event_at, status, last_node,
+                       last_user_message, has_error, knockout_failed,
+                       scoring_done, error_detail
+                FROM conversation_runs
+                {where}
+                ORDER BY started_at DESC
+                LIMIT %s OFFSET %s;""",
+            vals
+        )
+        rows = await cur.fetchall()
+
+        result = []
+        for r in rows:
+            row = dict(r)
+            if not reveal_pii and row.get("last_user_message"):
+                row["last_user_message"] = _mask_pii(row["last_user_message"])
+            result.append(row)
+
+        cur = await conn.execute(
+            f"SELECT COUNT(*) as total FROM conversation_runs {where};",
+            count_vals
+        )
+        count_row = await cur.fetchone()
+        return {"runs": result, "total": count_row["total"], "limit": limit, "offset": offset}
+    finally:
+        await conn.close()
+
+
+@admin_router.get("/runs/{session_id}")
+async def get_run_detail(session_id: str, reveal_pii: bool = False):
+    """All events for one run + run metadata."""
+    conn = await _get_log_conn()
+    try:
+        cur = await conn.execute(
+            "SELECT * FROM conversation_runs WHERE session_id = %s;", [session_id]
+        )
+        run = await cur.fetchone()
+        if not run:
+            raise HTTPException(status_code=404, detail="Run not found")
+
+        cur = await conn.execute(
+            """SELECT id, node_name, event_type, event_data, timestamp
+               FROM conversation_events
+               WHERE session_id = %s
+               ORDER BY timestamp ASC;""",
+            [session_id]
+        )
+        events = await cur.fetchall()
+
+        events_list = []
+        for e in events:
+            ev = dict(e)
+            if not reveal_pii:
+                ev["event_data"] = _mask_event_pii(ev.get("event_data", {}))
+            events_list.append(ev)
+
+        return {"run": dict(run), "events": events_list}
+    finally:
+        await conn.close()
+
+
+@admin_router.get("/runs/{session_id}/state")
+async def get_run_state(session_id: str, reveal_pii: bool = False):
+    """Current LangGraph state for a run."""
+    session = sessions.get(session_id)
+    if not session:
+        conn = await _get_log_conn()
+        try:
+            cur = await conn.execute(
+                "SELECT thread_id FROM conversation_runs WHERE session_id = %s;", [session_id]
+            )
+            row = await cur.fetchone()
+            if not row:
+                raise HTTPException(status_code=404, detail="Session not found")
+            thread_id = row["thread_id"]
+        finally:
+            await conn.close()
+    else:
+        thread_id = session["thread_id"]
+
+    cfg = {"configurable": {"thread_id": thread_id}}
+    state = await graph_app.aget_state(cfg)
+    if not state:
+        raise HTTPException(status_code=404, detail="No state found")
+
+    state_dict = dict(state.values)
+    if not reveal_pii:
+        state_dict = _mask_state_pii(state_dict)
+
+    return {"state": state_dict, "next": list(state.next)}
+
+
+@admin_router.get("/runs/{session_id}/state-diff")
+async def get_state_diff(session_id: str):
+    """Per-checkpoint state diffs — powers the right-pane diff view."""
+    session = sessions.get(session_id)
+    if not session:
+        conn = await _get_log_conn()
+        try:
+            cur = await conn.execute(
+                "SELECT thread_id FROM conversation_runs WHERE session_id = %s;", [session_id]
+            )
+            row = await cur.fetchone()
+            if not row:
+                raise HTTPException(status_code=404, detail="Session not found")
+            thread_id = row["thread_id"]
+        finally:
+            await conn.close()
+    else:
+        thread_id = session["thread_id"]
+
+    cfg = {"configurable": {"thread_id": thread_id}}
+
+    TRACKED_KEYS = [
+        "current_question_index", "current_knockout_question_index",
+        "knockout_passed", "current_knockout_failed",
+        "email_verified", "phone_verified", "id_verified",
+        "email_otp_attempts", "phone_otp_attempts",
+        "email_attempt_count", "phone_attempt_count",
+        "score", "total_score", "scores",
+        "personal_details", "answers", "knockout_answers",
+        "delay_node_type", "acknowledgement_type",
+        "gps_verified", "gps_flagged", "address",
+    ]
+
+    history = []
+    prev_vals = {}
+
+    async for checkpoint in graph_app.aget_state_history(cfg):
+        vals = dict(checkpoint.values)
+        diff = {}
+        for key in TRACKED_KEYS:
+            if key in vals and vals[key] != prev_vals.get(key):
+                diff[key] = {"before": prev_vals.get(key), "after": vals[key]}
+        prev_vals = {k: vals.get(k) for k in TRACKED_KEYS}
+
+        history.append({
+            "checkpoint_id": str(checkpoint.config.get("configurable", {}).get("checkpoint_id", "")),
+            "next": list(checkpoint.next),
+            "diff": diff,
+            "timestamp": checkpoint.metadata.get("created_at", ""),
+        })
+
+    history.reverse()
+    return {"diffs": history}
+
+
+@admin_router.get("/runs/{session_id}/checkpoints")
+async def get_checkpoints(session_id: str):
+    """Raw LangGraph checkpoint list for the flow navigator."""
+    session = sessions.get(session_id)
+    if not session:
+        conn = await _get_log_conn()
+        try:
+            cur = await conn.execute(
+                "SELECT thread_id FROM conversation_runs WHERE session_id = %s;", [session_id]
+            )
+            row = await cur.fetchone()
+            if not row:
+                raise HTTPException(status_code=404, detail="Session not found")
+            thread_id = row["thread_id"]
+        finally:
+            await conn.close()
+    else:
+        thread_id = session["thread_id"]
+
+    cfg = {"configurable": {"thread_id": thread_id}}
+    checkpoints = []
+    async for cp in graph_app.aget_state_history(cfg):
+        checkpoints.append({
+            "checkpoint_id": str(cp.config.get("configurable", {}).get("checkpoint_id", "")),
+            "next": list(cp.next),
+            "metadata": cp.metadata,
+        })
+    checkpoints.reverse()
+    return {"checkpoints": checkpoints}
+
+
+# ── Serve log viewer HTML ──────────────────────────────────────────────────────
+
+@app.get("/admin/log-viewer")
+async def serve_log_viewer():
+    """Serve the admin log viewer UI — no auth (key is entered in the UI itself)"""
+    return FileResponse("log_viewer.html", media_type="text/html",
+                        headers={"Cache-Control": "no-store"})
+
+
+# Register admin router
+app.include_router(admin_router)
+
 
 if __name__ == "__main__":
     import uvicorn
