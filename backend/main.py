@@ -1117,7 +1117,9 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
 # ADMIN ROUTER
 # ══════════════════════════════════════════════════════════════════════════════
 
-ADMIN_KEY = os.getenv("ADMIN_KEY", "cleo_admin_secret_change_me")
+# ADMIN_KEY = os.getenv("ADMIN_KEY", "cleo_admin_secret_change_me")
+ADMIN_KEY = "admin_secret_key1234"
+
 admin_key_header = APIKeyHeader(name="X-Admin-Key", auto_error=True)
 
 async def verify_admin_key(key: str = Depends(admin_key_header)):
