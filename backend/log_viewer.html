@@ -660,8 +660,10 @@
 // ─────────────────────────────────────────────
 // CONFIG
 // ─────────────────────────────────────────────
-// Point to your FastAPI backend. Change this if your backend runs on a different port/host.
-const API_BASE = "http://127.0.0.1:8000";
+// Auto-detect: localhost uses port 8000, production uses same origin
+const API_BASE = window.location.hostname === "127.0.0.1" || window.location.hostname === "localhost"
+  ? "http://127.0.0.1:8000"
+  : window.location.origin;
 
 // All nodes in graph order (from build_graph)
 const ALL_NODES = [
