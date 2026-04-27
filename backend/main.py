@@ -245,7 +245,7 @@ async def validate_domain(
 
 
 @app.post("/start-session")
-async def start_session(job_type: str = Query(...), api_key: str = Query(...), location: str = Query(...), job_id: str = Query(...), company_id: str = Query(...), is_live: bool = Query(...)):
+async def start_session(job_type: str = Query(...), api_key: str = Query(...), location: str = Query(...), job_id: str = Query(...), company_id: str = Query(...), is_live: bool = Query(...), job_shift: str = Query(...)) -> dict:
     """Create new screening session for a specific job type"""
 
     print(f"Starting session for job_type: {job_type} at location: {location}")
@@ -274,6 +274,7 @@ async def start_session(job_type: str = Query(...), api_key: str = Query(...), l
         "job_id": job_id,
         "company_id": company_id,
         "is_live": is_live,
+        "job_shift": job_shift,
         "active": True,
         "created_at": time.time(),
         "last_activity": time.time()  # Track last activity
@@ -291,7 +292,7 @@ async def start_session(job_type: str = Query(...), api_key: str = Query(...), l
     return {
         "session_id": session_id,
         "job_type": job_type,
-        "position": job_type.replace('_', ' ').title()
+        "position": job_type.replace('_', ' ').title(),
     }
 
 
@@ -520,6 +521,7 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
     job_id = session["job_id"]
     company_id = session["company_id"]
     is_live = session["is_live"]
+    job_shift = session["job_shift"]
 
     # if sys.platform == 'win32':
     #     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
@@ -559,7 +561,7 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                 knockout_answers={},
                 current_knockout_question_index=0,
                 knockout_questions=job["knockout_questions"],
-                
+                job_shift=job_shift,
                 email_attempt_count=0,
                 phone_attempt_count=0,
                 email_validation_failed=False,

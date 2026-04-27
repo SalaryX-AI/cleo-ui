@@ -310,6 +310,7 @@
                 console.log('Location:', job.job_location);
                 console.log('Job ID:', job.id);
                 console.log('Company ID:', job.related_company);
+                console.log('Job Shift:', job.Shift);
                
                 // Set job_type, job_location, job_id, and company_id in the chatbot container
                 document.getElementById('cleo-chatbot').setAttribute('data-job-type', job.job_template);
@@ -317,6 +318,7 @@
                 document.getElementById('cleo-chatbot').setAttribute('data-job-id', job.id);
                 document.getElementById('cleo-chatbot').setAttribute('data-company-id', job.related_company);
                 document.getElementById('cleo-chatbot').setAttribute('data-isLive', "true");
+                document.getElementById('cleo-chatbot').setAttribute('data-job-shift', job.Shift);
                 
                 // Load Cleo Assistant script
                 const script = document.createElement("script"); 

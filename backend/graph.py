@@ -156,6 +156,8 @@ class ChatbotState(MessagesState):
     gps_flag_reason: str = ""
     gps_distance_miles: float = 0.0
     show_gps_ui: bool = False
+    
+    job_shift: str = ""
 
 
 # ==================== Acknowledgement ====================
@@ -311,7 +313,10 @@ def ask_knockout_question_node(state: ChatbotState) -> ChatbotState:
     
         #     state["messages"].append(AIMessage(content=response.content))
 
-        state["messages"].append(AIMessage(content=knockout_question))
+        if idx == 2:
+             state["messages"].append(AIMessage(content=f"We are currently hiring specifically for {state['job_shift']}. Is your general availability a fit for that schedule?"))
+        else:
+            state["messages"].append(AIMessage(content=knockout_question))
     
     return state
 
