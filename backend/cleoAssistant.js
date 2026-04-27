@@ -38,6 +38,7 @@ document.head.appendChild(link);
                 jobType: options.jobType,
                 jobLocation: options.jobLocation,
                 jobID: options.jobID,
+                jobShift: options.jobShift,
                 companyID: options.companyID,
                 isLive: options.isLive,
                 apiKey: options.apiKey,
@@ -517,9 +518,10 @@ document.head.appendChild(link);
                 const jobID = this.config.jobID;
                 const companyID = this.config.companyID;
                 const isLive = this.config.isLive;
+                const jobShift = this.config.jobShift;
 
                 const response = await fetch(
-                    `${this.config.apiUrl}/start-session?job_type=${jobType}&api_key=${apiKey}&location=${location}&job_id=${jobID}&company_id=${companyID}&is_live=${isLive}`,
+                    `${this.config.apiUrl}/start-session?job_type=${jobType}&api_key=${apiKey}&location=${location}&job_id=${jobID}&company_id=${companyID}&is_live=${isLive}&job_shift=${jobShift}`,
                     { method: 'POST' }
                 );
                 
@@ -2668,13 +2670,15 @@ document.head.appendChild(link);
         const jobID = container.getAttribute('data-job-id') || '123';
         const companyID = container.getAttribute('data-company-id') || '987';
         const isLive = container.getAttribute('data-isLive') === 'true';
+        const jobShift = container.getAttribute('data-job-shift') || 'unknown';
 
         console.log('CleoChatbot: jobType from data attribute:', container.getAttribute('data-job-type'));
         console.log('CleoChatbot: jobLocation from data attribute:', container.getAttribute('data-job-location'));
         console.log('CleoChatbot: jobID from data attribute:', container.getAttribute('data-job-id'));
         console.log('CleoChatbot: companyID from data attribute:', container.getAttribute('data-company-id'));
         console.log('CleoChatbot: isLive from data attribute:', isLive);
-        
+        console.log('CleoChatbot: jobShift from data attribute:', jobShift);
+
         // Get job_id from URL parameters
         // const urlParams = new URLSearchParams(window.location.search);
         // const jobID = urlParams.get('job_id');
@@ -2717,6 +2721,7 @@ document.head.appendChild(link);
                 jobID: jobID,
                 companyID: companyID,
                 isLive: isLive,
+                jobShift: jobShift,
                 apiKey: config.apiKey,
                 apiUrl: CHATBOT_CONFIG.apiBaseUrl,
                 wsUrl: CHATBOT_CONFIG.wsBaseUrl
