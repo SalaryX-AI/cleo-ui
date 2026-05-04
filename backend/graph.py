@@ -1445,7 +1445,15 @@ def process_id_result_node(state: ChatbotState) -> ChatbotState:
 
     return state
 
+def id_verification_router(state: ChatbotState) -> Literal["ask_question", "score"]:
+    """Route to next question or scoring"""
+    
+    print("id_verification_router called")
+    
+    if state.get("job_type") == "server":
+        return "score"
 
+    return "ask_question"
 
 # ==================== QUESTIONS LOOP ====================
 def ask_question_node(state: ChatbotState) -> ChatbotState:
@@ -1798,7 +1806,7 @@ def build_graph(checkpointer):
 
     # ID Verification flow
     workflow.add_edge("ask_id_verification", "process_id_result")
-    workflow.add_edge("process_id_result",   "ask_question")
+    workflow.add_conditional_edges("process_id_result", id_verification_router)
  
     # Questions loop
     workflow.add_edge("ask_question", "store_answer")
