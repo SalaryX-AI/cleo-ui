@@ -459,17 +459,16 @@ async def id_verification_webhook(request: Request):
 
     ws = session.get("websocket")
 
-    # Stream result messages to frontend
+    # Stream result messages to frontend — ONLY process_id_result, let WebSocket handle the rest
     async for event in graph_app.astream(None, config=config, stream_mode="updates"):
         for node_name, node_data in event.items():
             await log_event(cleo_session_id, thread_id, node_name, "node_enter",
                             {"state_keys": list(node_data.keys()) if node_data else []})
-            if node_data and "messages" in node_data:
+
+            if node_name == "process_id_result" and node_data and "messages" in node_data:
                 if ws:
                     try:
-                        # process_id_result adds 2 messages — send all new AIMessages
-                        msgs_to_send = node_data["messages"][-2:] if node_name == "process_id_result" else node_data["messages"][-1:]
-                        for msg in msgs_to_send:
+                        for msg in node_data["messages"][-2:]:
                             if isinstance(msg, AIMessage):
                                 await ws.send_json({"type": "typing"})
                                 await asyncio.sleep(0.7)
@@ -484,6 +483,7 @@ async def id_verification_webhook(request: Request):
                     except Exception as e:
                         print(f"[WEBHOOK] Error sending message: {e}")
 
+                        
     # ── Push id_verify_result to close the modal ──────────────────────────────
     if ws:
         try:
