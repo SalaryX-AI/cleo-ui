@@ -194,11 +194,10 @@ ASK_QUESTION_PROMPT = PromptTemplate(
 
 
 # ==========================================================================================================
-# Scoring prompt
 SCORING_PROMPT = PromptTemplate(
     input_variables=["answers", "scoring_model"],
     template="""
-    Calculate the score for each question based on the answers and scoring rules provided.
+    Calculate the score for each question based on the candidate's answers and the scoring rules provided.
 
     Candidate Answers:
     {answers}
@@ -207,29 +206,68 @@ SCORING_PROMPT = PromptTemplate(
     {scoring_model}
 
     INSTRUCTIONS:
+
       1. Extract numbers from text answers:
-        - "6 years" -> 6
-        - "twenty years" -> 20
-        - "yes" or "no" -> boolean
+         - "6 years" -> 6
+         - "twenty years" -> 20
+         - "yes" or "no" -> boolean
 
       2. Apply formulas EXACTLY:
-        - "Score = years * 5" with "6 years" -> 6 * 5 = 30
-        - "Score = min(years, 5) * 5" with "6 years" -> min(6, 5) * 5 = 5 * 5 = 25
-        - "Score = months / 2" with "12 months" -> 12 / 2 = 6
+         - "Score = years * 5" with "6 years" -> 6 * 5 = 30
+         - "Score = min(years, 5) * 5" with "6 years" -> min(6,5) * 5 = 25
+         - "Score = months / 2" with "12 months" -> 12 / 2 = 6
 
       3. For Yes/No rules:
-        - "Yes -> 10, No -> 0" with "yes" -> 10
-        - "Yes -> 10, No -> 0" with "no" -> 0
+         - "Yes -> 5, No -> 0" with "yes" -> 5
+         - "Yes -> 5, No -> 0" with "no" -> 0
+
+      4. For tiered text rules — use semantic understanding to pick the best tier:
+         - "Yes -> 4, Partial -> 2, No -> 0":
+             "I can do some weekends" -> 2 (Partial)
+             "Absolutely, fully flexible" -> 4 (Yes)
+             "No I can't" -> 0 (No)
+         - "Yes -> 3, Somewhat -> 2, No -> 0":
+             "I have some experience but not extensive" -> 2 (Somewhat)
+             "Very comfortable, worked fine dining for 3 years" -> 3 (Yes)
+         - "Yes -> 3, Willing to learn -> 2, No -> 0":
+             "I don't know much about menus but I'm happy to learn" -> 2 (Willing to learn)
+             "I know how to build menu knowledge" -> 3 (Yes)
+         - "Right away -> 3, This week -> 2, Next week -> 1, Later -> 0":
+             "I can start immediately" -> 3
+             "I need about a week" -> 2
+             "Two weeks from now" -> 1
+             "Next month" -> 0
+
+      5. For experience/location-based rules:
+         - "Senior living or fine dining -> 2, Other hospitality -> 1, No relevant exp -> 0":
+             "I worked at a senior care facility" -> 2
+             "I worked at a casual restaurant" -> 1
+             "No prior serving experience" -> 0
+
+      6. For certification rules:
+         - "ServSafe/TIPS/Food Safety cert present -> 2, Other cert -> 1, None -> 0":
+             "I have ServSafe certification" -> 2
+             "I have a CPR certification" -> 1
+             "No certifications" -> 0
+
+      7. If a question was not answered or is missing from the answers, assign 0.
+
+      8. The "weight" field in each rule is for reference only — do NOT multiply by it.
+         Scores are already expressed as the final weighted value in the rule itself.
 
     Return ONLY a JSON object in this exact format:
     {{
         "scores": {{"question1": score1, "question2": score2, ...}},
         "score": total_sum,
-        "total_score": 20
+        "total_score": 46
     }}
 
-    CRITICAL: Apply min(), max(), and other functions correctly in formulas!
-    Be precise with numbers and ensure score is the sum of all individual scores."""
+    CRITICAL:
+    - Apply min(), max(), and other functions correctly.
+    - Use semantic reasoning for tiered answers — do not require exact keyword matches.
+    - "score" must be the sum of ALL individual scores.
+    - "total_score" is always 51 for this role.
+    - Return ONLY the JSON — no explanation, no markdown, no extra text."""
 )
 
 # Summary prompt

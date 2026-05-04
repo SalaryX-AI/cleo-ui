@@ -18,6 +18,113 @@ JOB_CONFIGS = {
             "How many years of experience do you have?": {"rule": "Score = min(years, 5) * 5"}
         }
     },
+    "server": {
+        "knockout_questions": [
+            "To work here, you must be legally eligible to work in the U.S. Can you confirm that you are?",
+            "You must be at least 18 years old for this role. Are you 18 or older?"
+        ],
+        "questions": [
+            "This position requires 1 to 2 years of server experience. Do you have at least 1 year of experience working as a server?",
+            "Where have you worked as a server before? (For example: restaurant, hotel, senior living, or catering.)",
+            "Are you comfortable with fine dining service standards — things like formal table settings, order precision, and serving multiple courses?",
+            "Our servers regularly assist residents with menu questions — including ingredient details, dietary needs, and food preparation. Are you comfortable building that kind of menu knowledge?",
+            "This role involves serving senior residents, building genuine connections, and maintaining patience and warmth at all times. Are you comfortable working in that kind of environment?",
+            "This is a full-time position that requires schedule flexibility — including mornings, evenings, and weekend availability as needed. Can you accommodate a full-time, flexible schedule?",
+            "Just so you know — this position pays $17.50/hour flat rate with no tips. Does that work for you?",
+            "The position is at Sinai Residences in Boca Raton, FL. Do you have reliable transportation to and from work?",
+            "How soon could you start if selected? Right away, this week, or next week?"
+        ],
+        "scoring_model": {
+            # Basic Requirements (weight: 5 each)
+            "To work here, you must be legally eligible to work in the U.S. Can you confirm that you are?": {
+                "rule": "Yes -> 5, No -> 0",
+                "weight": 5,
+                "category": "Basic Requirements"
+            },
+            "You must be at least 18 years old for this role. Are you 18 or older?": {
+                "rule": "Yes -> 5, No -> 0",
+                "weight": 5,
+                "category": "Basic Requirements"
+            },
+
+            # Compliance (weight: 5)
+            "Are you aware of and comfortable with this requirement?": {
+                "rule": "Yes -> 5, No -> 0",
+                "weight": 5,
+                "category": "Compliance"
+            },
+
+            # Experience (weight: 5)
+            "This position requires 1 to 2 years of server experience. Do you have at least 1 year of experience working as a server?": {
+                "rule": "Yes -> 5, Partial/Some -> 3, No -> 0",
+                "weight": 5,
+                "category": "Experience"
+            },
+
+            # Commitment (weight: 4)
+            "This is a part-time position that requires schedule flexibility — including availability for mornings, evenings, and weekends as needed. Can you accommodate a flexible schedule?": {
+                "rule": "Yes -> 4, Partial -> 2, No -> 0",
+                "weight": 4,
+                "category": "Commitment"
+            },
+
+            # Logistics (weight: 4)
+            "The position is at Sinai Residences in Boca Raton, FL. Do you have reliable transportation to and from work?": {
+                "rule": "Yes -> 4, No -> 0",
+                "weight": 4,
+                "category": "Logistics"
+            },
+
+            # Skills (weight: 3)
+            "Are you comfortable with fine dining service standards — things like formal table settings, order precision, and serving multiple courses?": {
+                "rule": "Yes -> 3, Somewhat -> 2, No -> 0",
+                "weight": 3,
+                "category": "Skills"
+            },
+
+            # Culture (weight: 3)
+            "This role involves serving senior residents, building genuine connections, and maintaining patience and warmth at all times. Are you comfortable working in that kind of environment?": {
+                "rule": "Yes -> 3, Somewhat -> 2, No -> 0",
+                "weight": 3,
+                "category": "Culture"
+            },
+
+            # Skills (weight: 3)
+            "Our servers regularly assist residents with menu questions — including ingredient details, dietary needs, and food preparation. Are you comfortable building that kind of menu knowledge?": {
+                "rule": "Yes -> 3, Willing to learn -> 2, No -> 0",
+                "weight": 3,
+                "category": "Skills"
+            },
+
+            # Commitment (weight: 3)
+            "Just so you know — this position pays $17.50/hour flat rate with no tips. Does that work for you?": {
+                "rule": "Yes -> 3, No -> 0",
+                "weight": 3,
+                "category": "Commitment"
+            },
+
+            # Availability (weight: 3)
+            "How soon could you start if selected? Right away, this week, or next week?": {
+                "rule": "Right away -> 3, This week -> 2, Next week -> 1, Later -> 0",
+                "weight": 3,
+                "category": "Availability"
+            },
+
+            # Certifications (weight: 2) — answered in ask_certifications node
+            "Do you have any certifications to share? For example: food safety (ServSafe), TIPS alcohol service, or CPR.": {
+                "rule": "ServSafe/TIPS/Food Safety cert present -> 2, Other cert -> 1, None -> 0",
+                "weight": 2,
+                "category": "Certifications"
+            },
+
+            # Experience — fine dining / senior living (weight: 2)
+            "Where have you worked as a server before? (For example: restaurant, hotel, senior living, or catering.)": {
+                "rule": "Senior living or fine dining -> 2, Other hospitality -> 1, No relevant exp -> 0",
+                "weight": 2,
+                "category": "Experience"
+            }
+        }
+    },
     "assistant_manager": {
         "knockout_questions": [
             "To work here, you must be legally eligible to work in the U.S. Can you confirm that you are?",

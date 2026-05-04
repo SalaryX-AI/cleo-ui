@@ -618,6 +618,14 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                 gps_flag_reason="",
                 gps_distance_miles=0.0,
                 show_gps_ui=False,
+
+                job_type=job_type,
+
+                certifications=[],
+                military_served=False,
+                military_details={},
+                military_follow_up_done=False,
+                background_check_consented=False,
             )
             
             # Start workflow with streaming (ONLY for new sessions)

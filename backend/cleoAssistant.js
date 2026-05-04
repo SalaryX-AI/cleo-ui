@@ -778,7 +778,7 @@ document.head.appendChild(link);
     const WorkExperienceUI = {
         
         jobRoles: [
-            'Assistant Manager', 'Assistant Store Manager', 'Barista', 'Cashier',
+            'Assistant Manager', 'Server', 'Assistant Store Manager', 'Barista', 'Cashier',
             'Coffee Specialist', 'Cook', 'Crew Member', 'Customer Support',
             'Dining Room', 'Dishwasher', 'Drive Thru', 'Grill Cook',
             'Guest Experience', 'Host', 'Kitchen Staff', 'Maintenance',

@@ -158,6 +158,18 @@ class ChatbotState(MessagesState):
     show_gps_ui: bool = False
     
     job_shift: str = ""
+    job_type: str = ""
+
+    # Certifications
+    certifications: List[Dict[str, str]] = []   # [{"name": "ServSafe", "date": "2023"}]
+
+    # Military service
+    military_served: bool = False
+    military_details: Dict[str, str] = {}       # {"branch": "", "duty": "", "rank": ""}
+    military_follow_up_done: bool = False
+
+    # Background check consent
+    background_check_consented: bool = False
 
 
 # ==================== Acknowledgement ====================
@@ -176,11 +188,16 @@ def acknowledge_node(state: ChatbotState) -> ChatbotState:
     return state
 
 
-def post_acknowledgement_router(state: ChatbotState) -> Literal["ask_knockout_question", "ask_id_verification"]:
+def post_acknowledgement_router(state: ChatbotState) -> Literal["ask_knockout_question", "ask_id_verification", "ask_work_experience"]:
     """Decide where to go after acknowledgement"""
     
-    # If we're done with personal details, start questions
+    # If we're done with personal details, go to ID verification
+    if state.get("acknowledgement_type") == "questions" and state.get("job_type") == "server":
+        print("Routing to ask_work_experience due to server role after questions acknowledgement")
+        return "ask_work_experience"
+    
     if state.get("acknowledgement_type") == "questions":
+        print("Routing to ask_id_verification due to questions acknowledgement")
         return "ask_id_verification"
     
     # Otherwise, start knockout questions
@@ -193,18 +210,31 @@ def delay_messages_node(state: ChatbotState) -> ChatbotState:
     """Node that adds delayed messages"""
     
     print(f"delay_messages_node called (type: {state['delay_node_type']})")
-    
-    delay_messages = {
-        "greeting": [
-            "Thanks for your interest — we're a friendly, locally-owned team. My job is to make your application process super fast and easy.",
-            "I just need to ask a few quick screening questions - it'll take less than 3 minutes total. Ready to jump in?"
-        ],
-        "end": [
-            "Our hiring team will take it from here. Your application will be carefully reviewed. If you are selected to move forward, we will contact you via email or phone to schedule an interview or conduct a brief background check prior to scheduling the interview.",
-            f"You can expect to hear from us regarding your status within 1-2 business days. Thank you again for your time and interest in working with {state.get("brand_name")}."
-        ],
-        "default": "Let's continue!"
-    }
+
+    if state.get("job_type") == "server":
+        delay_messages = {
+            "greeting": [
+                "Our servers are the heart of the dining experience at Sinai Residences — a five-star senior living community in Boca Raton. This is fine dining with purpose every meal matters to our residents.",
+                "I just need to ask a few quick screening questions — less than 2 minutes. Ready to jump in? (You can type 'Stop' anytime.)"
+            ],
+            "end": [
+                "Our hiring team will take it from here. Your application will be carefully reviewed. If you are selected to move forward, we will contact you via email or phone to schedule an interview or conduct a brief background check prior to scheduling the interview.",
+                "You can expect to hear from us within 1 business day. Thank you again for your time and interest in working with Sinai Residences!"
+            ],
+            "default": "Let's continue!"
+        }
+    else:
+        delay_messages = {
+            "greeting": [
+                "Thanks for your interest — we're a friendly, locally-owned team. My job is to make your application process super fast and easy.",
+                "I just need to ask a few quick screening questions - it'll take less than 3 minutes total. Ready to jump in?"
+            ],
+            "end": [
+                "Our hiring team will take it from here. Your application will be carefully reviewed. If you are selected to move forward, we will contact you via email or phone to schedule an interview or conduct a brief background check prior to scheduling the interview.",
+                f"You can expect to hear from us regarding your status within 1-2 business days. Thank you again for your time and interest in working with {state.get("brand_name")}."
+            ],
+            "default": "Let's continue!"
+        }
     
     delay_node_type = state.get("delay_node_type", "default")
     messages = delay_messages.get(delay_node_type)
@@ -235,8 +265,12 @@ def start_node(state: ChatbotState) -> ChatbotState:
     """Send greeting"""
 
     print("start_node called")
-    
-    state["messages"].append(AIMessage(content=f"Hello! I'm Cleo, the hiring assistant for {state['brand_name']}."))
+
+    if state.get("job_type") == "server":
+        state["messages"].append(AIMessage(content="Hello! I'm Cleo, the hiring assistant for Sinai Residences. Thank you for your interest in the Part-Time Server position."))
+    else:
+        state["messages"].append(AIMessage(content=f"Hello! I'm Cleo, the hiring assistant for {state['brand_name']}."))
+
 
     state["delay_node_type"] = "greeting"
     
@@ -294,24 +328,6 @@ def ask_knockout_question_node(state: ChatbotState) -> ChatbotState:
     
     if idx < len(knockout_questions):
         knockout_question = knockout_questions[idx]
-        
-        # prompt = ASK_KNOCKOUT_QUESTION_PROMPT.format(
-        #     question=knockout_question,
-        #     previous_question = knockout_questions[idx-1] if idx > 0 else "None",
-        #     previous_answer = state["knockout_answers"][knockout_questions[idx-1]] if idx > 0 else "None",
-        #     )
-
-        # if idx == 0 or idx == 1:
-        #     #  response = llm.invoke(prompt)
-        #      state["messages"].append(AIMessage(content=knockout_question))
-        # else:
-        #     # Use the chat template
-        #     messages = chat_template.format_messages(user_input=prompt)
-        #     response = llm.invoke(messages)
-
-        #     prompt = prompt + "\n(Note: This is the first question.)"
-    
-        #     state["messages"].append(AIMessage(content=response.content))
 
         if idx == 2:
              state["messages"].append(AIMessage(content=f"We are currently hiring specifically for {state['job_shift']}. Is your general availability a fit for that schedule?"))
@@ -457,7 +473,7 @@ def evaluate_single_knockout_node(state: ChatbotState) -> ChatbotState:
     return state
 
 
-def single_knockout_router(state: ChatbotState) -> Literal["ask_knockout_question", "ask_address", "__end__"]:
+def single_knockout_router(state: ChatbotState) -> Literal["ask_knockout_question", "ask_address", "ask_question", "__end__"]:
     """Route based on single knockout evaluation"""
     
     print("single_knockout_router called")
@@ -469,6 +485,9 @@ def single_knockout_router(state: ChatbotState) -> Literal["ask_knockout_questio
     # Check if more questions remain
     if state["current_knockout_question_index"] < len(state["knockout_questions"]):
         return "ask_knockout_question"  # Ask next question
+    
+    if state.get("job_type") == "server":
+        return "ask_question"
     
     # All questions passed
     return "ask_address"  # Continue to work experience
@@ -704,6 +723,154 @@ def store_education_node(state: ChatbotState) -> ChatbotState:
     
     print(f"Stored education level: {state['education_level']}")
     return state
+
+
+# ==================== CERTIFICATIONS ====================
+
+def ask_certifications_node(state: ChatbotState) -> ChatbotState:
+    print("ask_certifications_node called")
+    state["messages"].append(AIMessage(
+        content="Do you have any certifications to share? For example: food safety (ServSafe), TIPS alcohol service, or CPR. If yes, please share the certification name and date. If none, just say 'No'."
+    ))
+    return state
+
+
+def store_certifications_node(state: ChatbotState) -> ChatbotState:
+    print("store_certifications_node called")
+
+    messages = state["messages"]
+    last_message = messages[-1] if messages else None
+
+    if isinstance(last_message, HumanMessage):
+        user_text = last_message.content.strip().lower()
+
+        if user_text in ["no", "none", "n/a", "nope", "no certifications"]:
+            state["certifications"] = []
+            state["messages"].append(AIMessage(content="No problem! Moving on. 👍"))
+        else:
+            # Use LLM to extract cert name + date
+            prompt = f"""Extract certifications from this text. Return a JSON array of objects with "name" and "date" keys.
+If no date is mentioned use "Not specified".
+Text: "{last_message.content}"
+Return ONLY the JSON array, nothing else. Example: [{{"name": "ServSafe", "date": "2023"}}]"""
+            response = llm.invoke([HumanMessage(content=prompt)])
+            try:
+                import json as _json
+                certs = _json.loads(response.content.strip())
+                state["certifications"] = certs if isinstance(certs, list) else []
+            except Exception:
+                state["certifications"] = [{"name": last_message.content, "date": "Not specified"}]
+
+            state["messages"].append(AIMessage(content="Thank you! Saved. 📋"))
+
+    return state
+
+
+# ==================== MILITARY SERVICE ====================
+
+def ask_military_node(state: ChatbotState) -> ChatbotState:
+    print("ask_military_node called")
+
+    if state.get("military_served") and not state.get("military_follow_up_done"):
+        # Follow-up for branch/duty/rank
+        state["messages"].append(AIMessage(
+            content="Thank you for your service 🇺🇸 Could you optionally share your Branch, Duty Status, and Rank? Or just say 'Skip' to continue."
+        ))
+    else:
+        state["messages"].append(AIMessage(
+            content="One optional question 💙 — Have you ever served in the U.S. military? (Yes / No — this will not affect your application.)"
+        ))
+
+    return state
+
+
+def store_military_node(state: ChatbotState) -> ChatbotState:
+    print("store_military_node called")
+
+    messages = state["messages"]
+    last_message = messages[-1] if messages else None
+
+    if isinstance(last_message, HumanMessage):
+        user_text = last_message.content.strip().lower()
+
+        if not state.get("military_served"):
+            # First response — yes/no
+            if any(word in user_text for word in ["yes", "yeah", "yep", "served", "veteran", "army", "navy", "marines", "air force", "coast guard", "national guard"]):
+                state["military_served"] = True
+                # Don't set follow_up_done — will ask follow-up next
+            else:
+                state["military_served"] = False
+                state["military_follow_up_done"] = True   # Skip follow-up
+        else:
+            # Follow-up response — branch/duty/rank
+            state["military_follow_up_done"] = True
+            if user_text not in ["skip", "no", "none", "n/a"]:
+                state["military_details"] = {"details": last_message.content}
+
+    return state
+
+
+def military_router(state: ChatbotState) -> Literal["ask_military", "ask_background_check"]:
+    """If served but follow-up not done, loop back for branch/duty/rank"""
+    if state.get("military_served") and not state.get("military_follow_up_done"):
+        return "ask_military"
+    return "ask_background_check"
+
+
+# ==================== BACKGROUND CHECK CONSENT ====================
+
+def ask_background_check_node(state: ChatbotState) -> ChatbotState:
+    print("ask_background_check_node called")
+    state["messages"].append(AIMessage(
+        content=(
+            "📋 Background Check Disclosure — Level II (Florida)\n\n"
+            "Sinai Residences is required by Florida law to conduct a Level II background check "
+            "through the FL Clearinghouse for all employees. This is a fingerprint-based FBI/FDLE check. "
+            "Employment is contingent on successful clearance.\n\n"
+            "Are you aware of and comfortable with this requirement? (Yes / No)"
+        )
+    ))
+    return state
+
+
+def store_background_check_node(state: ChatbotState) -> ChatbotState:
+    print("store_background_check_node called")
+
+    messages = state["messages"]
+    last_message = messages[-1] if messages else None
+
+    if isinstance(last_message, HumanMessage):
+        user_text = last_message.content.strip()
+
+        # Use LLM to determine consent
+        prompt = f"""The candidate was asked if they are aware of and comfortable with a mandatory Level II background check (fingerprint-based FBI/FDLE check) required by Florida law.
+
+Their response: "{user_text}"
+
+Does this response indicate consent/agreement? Answer with ONLY "yes" or "no"."""
+
+        response = llm.invoke([HumanMessage(content=prompt)])
+        consented = response.content.strip().lower() == "yes"
+
+        if consented:
+            state["background_check_consented"] = True
+            state["messages"].append(AIMessage(content="Got it — understood. ✅ Let's continue!"))
+        else:
+            state["background_check_consented"] = False
+            state["messages"].append(AIMessage(
+                content="That's a state requirement for all employees here. I'll end the application here for now — thank you so much for your time! 🙏"
+            ))
+
+    return state
+
+
+def background_check_router(state: ChatbotState) -> Literal["ask_id_verification", "__end__"]:
+    """Continue if consented, hard stop if refused"""
+    if state.get("background_check_consented"):
+        return "ask_id_verification"
+    return "__end__"
+
+
 
 # ==================== PERSONAL DETAILS COLLECTION ====================
 
@@ -1087,22 +1254,22 @@ def send_phone_otp_node(state: ChatbotState) -> ChatbotState:
     
     phone = state["personal_details"].get("phone", "")
 
-    # otp_code = "123456"  # For testing
-    # state["phone_otp_code"] = otp_code
+    otp_code = "123456"  # For testing
+    state["phone_otp_code"] = otp_code
 
     # Create Plivo Verify session (Plivo generates + sends OTP internally)
-    session_uuid = create_phone_verify_session(phone)
+    # session_uuid = create_phone_verify_session(phone)
 
-    if session_uuid:
-        state["phone_verify_session_uuid"] = session_uuid
-        state["phone_otp_sent"] = True
-        message = f"I'm sending a verification text with a 6-digit code to {phone} now. Please check your messages."
-    else:
-        state["phone_otp_sent_failed"] = True
-        message = cleo_engagement.otp_failure_message
+    # if session_uuid:
+    #     state["phone_verify_session_uuid"] = session_uuid
+    #     state["phone_otp_sent"] = True
+    #     message = f"I'm sending a verification text with a 6-digit code to {phone} now. Please check your messages."
+    # else:
+    #     state["phone_otp_sent_failed"] = True
+    #     message = cleo_engagement.otp_failure_message
     
-    state["messages"].append(AIMessage(content=message))
-    # state["messages"].append(AIMessage(content=f"I'm sending a verification text with a 6-digit code to {phone} now. Please check your messages."))  # for testing without Plivo
+    # state["messages"].append(AIMessage(content=message))
+    state["messages"].append(AIMessage(content=f"I'm sending a verification text with a 6-digit code to {phone} now. Please check your messages."))  # for testing without Plivo
     
     return state
 
@@ -1121,40 +1288,33 @@ def ask_phone_otp_node(state: ChatbotState) -> ChatbotState:
 
 
 def verify_phone_otp_node(state: ChatbotState) -> ChatbotState:
-    """Verify the phone OTP code entered by user"""
-    
     print("verify_phone_otp_node called")
-    
+
     messages = state["messages"]
     last_message = messages[-1] if messages else None
-    
+
     if isinstance(last_message, HumanMessage):
         user_input = last_message.content.strip()
-        
+
         # Check for resend request
         if user_input.lower() in ["resend", "send again", "resend code"]:
-            state["phone_otp_attempts"] = 0  # Reset attempts for resend
+            state["phone_otp_attempts"] = 0
             return state
-        
-        # For testing without Plivo, compare against stored OTP code
-        # otp_code = state.get("phone_otp_code", "")  
-        # otp_input = user_input.strip()
 
-        # if otp_input == otp_code:
-        #     state["phone_verified"] = True
-        #     state["acknowledgement_type"] = "questions"
-        
-        # Verify OTP via Plivo Verify API
-        session_uuid = state.get("phone_verify_session_uuid", "")
         otp_input = user_input.strip()
 
-        if not otp_input.isdigit() or len(otp_input) != 6:
-            state["messages"].append(AIMessage(content="Please enter a 6-digit code (numbers only)."))
-            return state
+        # ── TESTING MODE: static OTP "123456" ────────────────────────────────
+        stored_otp = state.get("phone_otp_code", "")
+        is_valid = (otp_input == stored_otp)
+        error = "none" if is_valid else "incorrect"
 
-        is_valid, error = validate_phone_otp(session_uuid, otp_input)
-
-        print(f"Phone OTP verification result: is_valid={is_valid}, error={error}")
+        # ── PRODUCTION MODE: uncomment below ──────────────────────────────────────
+        # if not otp_input.isdigit() or len(otp_input) != 6:
+        #     state["messages"].append(AIMessage(content="Please enter a 6-digit code (numbers only)."))
+        #     return state
+        # session_uuid = state.get("phone_verify_session_uuid", "")
+        # is_valid, error = validate_phone_otp(session_uuid, otp_input)
+        # ─────────────────────────────────────────────────────────────────────
 
         if is_valid:
             state["phone_verified"] = True
@@ -1166,7 +1326,6 @@ def verify_phone_otp_node(state: ChatbotState) -> ChatbotState:
             if error == "expired":
                 state["messages"].append(AIMessage(content=cleo_engagement.otp_expired_message))
                 state["phone_otp_attempts"] = 0
-            
             elif error == "incorrect":
                 if attempts >= 3:
                     state["messages"].append(AIMessage(content=cleo_engagement.phone_otp_failure_message))
@@ -1176,7 +1335,7 @@ def verify_phone_otp_node(state: ChatbotState) -> ChatbotState:
                     ))
             else:
                 state["messages"].append(AIMessage(content=cleo_engagement.otp_failure_message))
-    
+
     return state
 
 
@@ -1330,13 +1489,17 @@ def store_answer_node(state: ChatbotState) -> ChatbotState:
     return state
 
 
-def question_router(state: ChatbotState) -> Literal["ask_question", "score"]:
+def question_router(state: ChatbotState) -> Literal["ask_question", "ask_name", "score"]:
     """Route to next question or scoring"""
     
     print("question_router called")
     
     if state["current_question_index"] < len(state["questions"]):
         return "ask_question"
+    
+    if state.get("job_type") == "server":
+        return "ask_name"
+
     return "score"
 
 
@@ -1541,6 +1704,13 @@ def build_graph(checkpointer):
     
     workflow.add_node("ask_education", ask_education_node)
     workflow.add_node("store_education", store_education_node)
+
+    workflow.add_node("ask_certifications",    ask_certifications_node)
+    workflow.add_node("store_certifications",  store_certifications_node)
+    workflow.add_node("ask_military",          ask_military_node)
+    workflow.add_node("store_military",        store_military_node)
+    workflow.add_node("ask_background_check",  ask_background_check_node)
+    workflow.add_node("store_background_check", store_background_check_node)
     
     workflow.add_node("ask_name", ask_name_node)
     workflow.add_node("store_name", store_name_node)
@@ -1598,7 +1768,14 @@ def build_graph(checkpointer):
 
     # Education flow
     workflow.add_edge("ask_education", "store_education")
-    workflow.add_edge("store_education", "ask_name")
+    workflow.add_edge("store_education",          "ask_certifications")
+    
+    workflow.add_edge("ask_certifications",       "store_certifications")
+    workflow.add_edge("store_certifications",     "ask_military")
+    workflow.add_edge("ask_military",             "store_military")
+    workflow.add_conditional_edges("store_military", military_router)
+    workflow.add_edge("ask_background_check",    "store_background_check")
+    workflow.add_conditional_edges("store_background_check", background_check_router)
     
     # Personal details flow with validation
     workflow.add_edge("ask_name", "store_name")
@@ -1634,7 +1811,7 @@ def build_graph(checkpointer):
     
     app = workflow.compile(
         checkpointer=checkpointer,
-        interrupt_after=["delay_messages", "ask_knockout_question",  "ask_address", "ask_gps_verification", "ask_work_experience", "store_work_experience_response", "ask_education", "ask_name", "ask_email", "ask_email_otp", "ask_phone", "ask_phone_otp", "ask_id_verification", "ask_question"]
+        interrupt_after=["delay_messages", "ask_knockout_question",  "ask_address", "ask_gps_verification", "ask_work_experience", "store_work_experience_response", "ask_education", "ask_certifications", "ask_military", "ask_background_check", "ask_name", "ask_email", "ask_email_otp", "ask_phone", "ask_phone_otp", "ask_id_verification", "ask_question"]
     )
     
     return app
