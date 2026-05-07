@@ -188,7 +188,7 @@ def acknowledge_node(state: ChatbotState) -> ChatbotState:
     return state
 
 
-def post_acknowledgement_router(state: ChatbotState) -> Literal["ask_knockout_question", "ask_work_experience", "score"]:
+def post_acknowledgement_router(state: ChatbotState) -> Literal["ask_knockout_question", "ask_work_experience", "ask_id_verification"]:
     """Decide where to go after acknowledgement"""
     
     # If we're done with personal details, go to ID verification
@@ -198,7 +198,7 @@ def post_acknowledgement_router(state: ChatbotState) -> Literal["ask_knockout_qu
     
     if state.get("acknowledgement_type") == "questions":
         print("Routing to ask_id_verification due to questions acknowledgement")
-        return "score"
+        return "ask_id_verification"
     
     # Otherwise, start knockout questions
     return "ask_knockout_question"
@@ -810,13 +810,13 @@ def store_military_node(state: ChatbotState) -> ChatbotState:
     return state
 
 
-def military_router(state: ChatbotState) -> Literal["ask_military", "score", "ask_name"]:
+def military_router(state: ChatbotState) -> Literal["ask_military", "ask_id_verification", "ask_name"]:
     """If served but follow-up not done, loop back for branch/duty/rank"""
     if state.get("military_served") and not state.get("military_follow_up_done"):
         return "ask_military"
 
     if state.get("job_type") == "server":
-        return "score"
+        return "ask_id_verification"
 
     return "ask_name"
 
@@ -1721,8 +1721,8 @@ def build_graph(checkpointer):
     workflow.add_node("store_certifications",  store_certifications_node)
     workflow.add_node("ask_military",          ask_military_node)
     workflow.add_node("store_military",        store_military_node)
-    # workflow.add_node("ask_background_check",  ask_background_check_node)
-    # workflow.add_node("store_background_check", store_background_check_node)
+    workflow.add_node("ask_background_check",  ask_background_check_node)
+    workflow.add_node("store_background_check", store_background_check_node)
     
     workflow.add_node("ask_name", ask_name_node)
     workflow.add_node("store_name", store_name_node)
@@ -1786,8 +1786,8 @@ def build_graph(checkpointer):
     workflow.add_edge("store_certifications",     "ask_military")
     workflow.add_edge("ask_military",             "store_military")
     workflow.add_conditional_edges("store_military", military_router)
-    # workflow.add_edge("ask_background_check",    "store_background_check")
-    # workflow.add_conditional_edges("store_background_check", background_check_router)
+    workflow.add_edge("ask_background_check",    "store_background_check")
+    workflow.add_conditional_edges("store_background_check", background_check_router)
     
     # Personal details flow with validation
     workflow.add_edge("ask_name", "store_name")
@@ -1823,7 +1823,7 @@ def build_graph(checkpointer):
     
     app = workflow.compile(
         checkpointer=checkpointer,
-        interrupt_after=["delay_messages", "ask_knockout_question",  "ask_address", "ask_gps_verification", "ask_work_experience", "store_work_experience_response", "ask_education", "ask_certifications", "ask_military", "ask_name", "ask_email", "ask_email_otp", "ask_phone", "ask_phone_otp", "ask_id_verification", "ask_question"]
+        interrupt_after=["delay_messages", "ask_knockout_question",  "ask_address", "ask_gps_verification", "ask_work_experience", "store_work_experience_response", "ask_education", "ask_certifications", "ask_military", "ask_background_check", "ask_name", "ask_email", "ask_email_otp", "ask_phone", "ask_phone_otp", "ask_id_verification", "ask_question"]
     )
     
     return app
