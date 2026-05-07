@@ -810,11 +810,15 @@ def store_military_node(state: ChatbotState) -> ChatbotState:
     return state
 
 
-def military_router(state: ChatbotState) -> Literal["ask_military", "score"]:
+def military_router(state: ChatbotState) -> Literal["ask_military", "score", "ask_name"]:
     """If served but follow-up not done, loop back for branch/duty/rank"""
     if state.get("military_served") and not state.get("military_follow_up_done"):
         return "ask_military"
-    return "score"
+
+    if state.get("job_type") == "server":
+        return "score"
+
+    return "ask_name"
 
 
 # ==================== BACKGROUND CHECK CONSENT ====================
