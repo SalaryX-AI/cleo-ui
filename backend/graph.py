@@ -188,7 +188,7 @@ def acknowledge_node(state: ChatbotState) -> ChatbotState:
     return state
 
 
-def post_acknowledgement_router(state: ChatbotState) -> Literal["ask_knockout_question", "ask_id_verification", "ask_work_experience"]:
+def post_acknowledgement_router(state: ChatbotState) -> Literal["ask_knockout_question", "ask_work_experience", "score"]:
     """Decide where to go after acknowledgement"""
     
     # If we're done with personal details, go to ID verification
@@ -198,7 +198,7 @@ def post_acknowledgement_router(state: ChatbotState) -> Literal["ask_knockout_qu
     
     if state.get("acknowledgement_type") == "questions":
         print("Routing to ask_id_verification due to questions acknowledgement")
-        return "ask_id_verification"
+        return "score"
     
     # Otherwise, start knockout questions
     return "ask_knockout_question"
