@@ -448,26 +448,24 @@ async def id_verification_webhook(request: Request):
     await log_event(cleo_session_id, thread_id, "process_id_result", "otp_verify",
                     {"channel": "id_verification", "success": verified})
 
-# ── Auto-resume graph — no user action needed ─────────────────────────────
+
+# ── Auto-resume graph in background — return 200 immediately ─────────────
     current_messages = current_state.values.get("messages", [])
     await graph_app.aupdate_state(
         config,
-        {
-            "messages": current_messages + [HumanMessage(content="id_verify_webhook")]
-        }
+        {"messages": current_messages + [HumanMessage(content="id_verify_webhook")]}
     )
 
     ws = session.get("websocket")
 
-    # Stream result messages to frontend — ONLY process_id_result, let WebSocket handle the rest
-    async for event in graph_app.astream(None, config=config, stream_mode="updates"):
-        for node_name, node_data in event.items():
-            await log_event(cleo_session_id, thread_id, node_name, "node_enter",
-                            {"state_keys": list(node_data.keys()) if node_data else []})
+    async def stream_and_notify():
+        try:
+            async for event in graph_app.astream(None, config=config, stream_mode="updates"):
+                for node_name, node_data in event.items():
+                    await log_event(cleo_session_id, thread_id, node_name, "node_enter",
+                                    {"state_keys": list(node_data.keys()) if node_data else []})
 
-            if node_data and "messages" in node_data:
-                if ws:
-                    try:
+                    if node_data and "messages" in node_data and ws:
                         if node_name == "delay_messages":
                             msgs_to_send = node_data["messages"][-2:]
                         elif node_name == "process_id_result":
@@ -487,22 +485,18 @@ async def id_verification_webhook(request: Request):
                                 })
                                 await log_event(cleo_session_id, thread_id, node_name, "ai_message",
                                                 {"content": msg.content, "messageType": "body"})
-                    except Exception as e:
-                        print(f"[WEBHOOK] Error sending message: {e}")
 
-                        
-    # ── Push id_verify_result to close the modal ──────────────────────────────
-    if ws:
-        try:
-            await ws.send_json({
-                "type":     "id_verify_result",
-                "verified": verified
-            })
-            print(f"[WEBHOOK] Pushed id_verify_result to WebSocket for {cleo_session_id}")
+            # Close modal after all messages sent
+            if ws:
+                await ws.send_json({"type": "id_verify_result", "verified": verified})
+                print(f"[WEBHOOK] Pushed id_verify_result to WebSocket for {cleo_session_id}")
+
         except Exception as e:
-            print(f"[WEBHOOK] Could not push to WebSocket: {e}")
+            print(f"[WEBHOOK] Error in background stream: {e}")
 
-    return {"status": "ok", "verified": verified}
+    asyncio.create_task(stream_and_notify())
+
+    return {"status": "ok", "verified": verified}  # ← returns immediately to Simplici
 
 @app.websocket("/ws/{session_id}")
 async def websocket_endpoint(websocket: WebSocket, session_id: str):
