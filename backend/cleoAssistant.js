@@ -633,7 +633,7 @@ document.head.appendChild(link);
                 IdVerificationUI.showWebhookResult(data.verified);
                 // Auto-close modal after 1.5s so user sees the status briefly
                 IdVerificationUI.closeModal()
-                // setTimeout(() => IdVerificationUI.closeModal(), 1500);
+                setTimeout(() => IdVerificationUI.closeModal(), 800);
             }
         },
         
