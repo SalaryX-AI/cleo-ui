@@ -365,16 +365,6 @@ def store_kq_answer_node(state: ChatbotState) -> ChatbotState:
     return state
 
 
-# def knockout_question_router(state: ChatbotState) -> Literal["ask_knockout_question", "evaluate_knockout"]:
-#     """Route to next knockout_question or evaluation"""
-    
-#     print("knockout_question_router called")
-    
-#     if state["current_knockout_question_index"] < len(state["knockout_questions"]):
-#         return "ask_knockout_question"
-#     return "evaluate_knockout"
-
-
 # ==================== KNOCKOUT EVALUATION (Per Question) ====================
 
 def evaluate_single_knockout_node(state: ChatbotState) -> ChatbotState:
@@ -810,15 +800,15 @@ def store_military_node(state: ChatbotState) -> ChatbotState:
     return state
 
 
-def military_router(state: ChatbotState) -> Literal["ask_military", "ask_id_verification", "ask_name"]:
+def military_router(state: ChatbotState) -> Literal["ask_military", "ask_background_check"]:
     """If served but follow-up not done, loop back for branch/duty/rank"""
     if state.get("military_served") and not state.get("military_follow_up_done"):
         return "ask_military"
 
-    if state.get("job_type") == "server":
-        return "ask_id_verification"
+    # if state.get("job_type") == "server":
+    #     return "ask_background_check"
 
-    return "ask_name"
+    return "ask_background_check"
 
 
 # ==================== BACKGROUND CHECK CONSENT ====================
@@ -1761,10 +1751,7 @@ def build_graph(checkpointer):
     workflow.add_conditional_edges("acknowledgement", post_acknowledgement_router)
     
     workflow.add_edge("ask_knockout_question", "store_kq_answer")
-    # workflow.add_conditional_edges("store_kq_answer", knockout_question_router)
-
     workflow.add_edge("store_kq_answer", "evaluate_single_knockout")
-
     # Route based on evaluation result
     workflow.add_conditional_edges("evaluate_single_knockout", single_knockout_router)
 
