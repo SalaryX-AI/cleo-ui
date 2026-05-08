@@ -192,13 +192,13 @@ def post_acknowledgement_router(state: ChatbotState) -> Literal["ask_knockout_qu
     """Decide where to go after acknowledgement"""
     
     # If we're done with personal details, go to ID verification
-    if state.get("acknowledgement_type") == "questions" and state.get("job_type") == "server":
-        print("Routing to ask_work_experience due to server role after questions acknowledgement")
-        return "ask_work_experience"
+    # if state.get("acknowledgement_type") == "questions" and state.get("job_type") == "server":
+    #     print("Routing to ask_work_experience due to server role after questions acknowledgement")
+    #     return "ask_work_experience"
     
     if state.get("acknowledgement_type") == "questions":
         print("Routing to ask_id_verification due to questions acknowledgement")
-        return "ask_id_verification"
+        return "ask_work_experience"
     
     # Otherwise, start knockout questions
     return "ask_knockout_question"
@@ -463,7 +463,7 @@ def evaluate_single_knockout_node(state: ChatbotState) -> ChatbotState:
     return state
 
 
-def single_knockout_router(state: ChatbotState) -> Literal["ask_knockout_question", "ask_address", "ask_question", "__end__"]:
+def single_knockout_router(state: ChatbotState) -> Literal["ask_knockout_question", "ask_question", "__end__"]:
     """Route based on single knockout evaluation"""
     
     print("single_knockout_router called")
@@ -476,11 +476,11 @@ def single_knockout_router(state: ChatbotState) -> Literal["ask_knockout_questio
     if state["current_knockout_question_index"] < len(state["knockout_questions"]):
         return "ask_knockout_question"  # Ask next question
     
-    if state.get("job_type") == "server":
-        return "ask_question"
+    # if state.get("job_type") == "server":
+    #     return "ask_question"
     
     # All questions passed
-    return "ask_address"  # Continue to work experience
+    return "ask_question"  # Continue to work experience
 
 # ================================= ADDRESS =========================================
 
@@ -604,7 +604,7 @@ def process_gps_node(state: ChatbotState) -> ChatbotState:
     return state
 
 
-def gps_router(state: ChatbotState) -> Literal["ask_work_experience", "ask_gps_verification"]:
+def gps_router(state: ChatbotState) -> Literal["ask_name"]:
     """
     Route after GPS processing.
     Flagged addresses get a soft clarifying question but still continue.
@@ -613,7 +613,7 @@ def gps_router(state: ChatbotState) -> Literal["ask_work_experience", "ask_gps_v
     print("gps_router called")
     # Always continue to questions regardless of flag
     # Flag is stored in state for XANO/hiring manager review
-    return "ask_work_experience"
+    return "ask_name"
 
 # ==================== WORK EXPERIENCE COLLECTION ====================
 
@@ -1333,7 +1333,7 @@ def verify_phone_otp_node(state: ChatbotState) -> ChatbotState:
     return state
 
 
-def phone_otp_router(state: ChatbotState) -> Literal["acknowledgement", "ask_id_verification" ,"send_phone_otp", "ask_phone", "ask_phone_otp", "__end__"]:
+def phone_otp_router(state: ChatbotState) -> Literal["acknowledgement","send_phone_otp", "ask_phone", "ask_phone_otp", "__end__"]:
     """Route based on phone OTP verification status"""
     
     print("phone_otp_router called")
@@ -1491,7 +1491,7 @@ def store_answer_node(state: ChatbotState) -> ChatbotState:
     return state
 
 
-def question_router(state: ChatbotState) -> Literal["ask_question", "ask_name", "score"]:
+def question_router(state: ChatbotState) -> Literal["ask_question", "ask_address"]:
     """Route to next question or scoring"""
     
     print("question_router called")
@@ -1499,10 +1499,10 @@ def question_router(state: ChatbotState) -> Literal["ask_question", "ask_name", 
     if state["current_question_index"] < len(state["questions"]):
         return "ask_question"
     
-    if state.get("job_type") == "server":
-        return "ask_name"
+    # if state.get("job_type") == "server":
+    #     return "ask_name"
 
-    return "score"
+    return "ask_address"
 
 
 # ==================== SCORING & SUMMARY ====================
@@ -1741,7 +1741,7 @@ def build_graph(checkpointer):
     # Set entry point
     workflow.set_entry_point("start")
     
-    # Build flow
+    # ======================== Build flow ==========================================
     workflow.add_edge("start", "delay_messages")
     workflow.add_conditional_edges("delay_messages", post_delay_router)
     
@@ -1752,30 +1752,18 @@ def build_graph(checkpointer):
     
     workflow.add_edge("ask_knockout_question", "store_kq_answer")
     workflow.add_edge("store_kq_answer", "evaluate_single_knockout")
-    # Route based on evaluation result
     workflow.add_conditional_edges("evaluate_single_knockout", single_knockout_router)
+
+    # Questions loop
+    workflow.add_edge("ask_question", "store_answer")
+    workflow.add_conditional_edges("store_answer", question_router)
 
     # Address + GPS flow (between phone verification and questions)
     workflow.add_edge("ask_address", "store_address")
     workflow.add_edge("store_address", "ask_gps_verification")
     workflow.add_edge("ask_gps_verification", "process_gps")
     workflow.add_conditional_edges("process_gps", gps_router)
-    
-    # Work experience flow
-    workflow.add_edge("ask_work_experience", "store_work_experience_response")
-    workflow.add_edge("store_work_experience_response", "ask_education")
 
-    # Education flow
-    workflow.add_edge("ask_education", "store_education")
-    workflow.add_edge("store_education",          "ask_certifications")
-    
-    workflow.add_edge("ask_certifications",       "store_certifications")
-    workflow.add_edge("store_certifications",     "ask_military")
-    workflow.add_edge("ask_military",             "store_military")
-    workflow.add_conditional_edges("store_military", military_router)
-    workflow.add_edge("ask_background_check",    "store_background_check")
-    workflow.add_conditional_edges("store_background_check", background_check_router)
-    
     # Personal details flow with validation
     workflow.add_edge("ask_name", "store_name")
     workflow.add_edge("store_name", "ask_email")
@@ -1795,13 +1783,27 @@ def build_graph(checkpointer):
     workflow.add_edge("ask_phone_otp", "verify_phone_otp")
     workflow.add_conditional_edges("verify_phone_otp", phone_otp_router)
 
+    # Work experience flow
+    workflow.add_edge("ask_work_experience", "store_work_experience_response")
+    workflow.add_edge("store_work_experience_response", "ask_education")
+
+    # Education flow
+    workflow.add_edge("ask_education", "store_education")
+    workflow.add_edge("store_education", "ask_certifications")
+    
+    # Certifications and military service flow
+    workflow.add_edge("ask_certifications",       "store_certifications")
+    workflow.add_edge("store_certifications",     "ask_military")
+    workflow.add_edge("ask_military",             "store_military")
+    workflow.add_conditional_edges("store_military", military_router)
+    
+    # Background check flow
+    workflow.add_edge("ask_background_check",    "store_background_check")
+    workflow.add_conditional_edges("store_background_check", background_check_router)
+
     # ID Verification flow
     workflow.add_edge("ask_id_verification", "process_id_result")
     workflow.add_conditional_edges("process_id_result", id_verification_router)
- 
-    # Questions loop
-    workflow.add_edge("ask_question", "store_answer")
-    workflow.add_conditional_edges("store_answer", question_router)
 
     # Scoring and end
     workflow.add_edge("score", "summary")
