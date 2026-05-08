@@ -1439,15 +1439,15 @@ def process_id_result_node(state: ChatbotState) -> ChatbotState:
 
     return state
 
-def id_verification_router(state: ChatbotState) -> Literal["ask_question", "score"]:
+def id_verification_router(state: ChatbotState) -> Literal["score"]:
     """Route to next question or scoring"""
     
     print("id_verification_router called")
     
-    if state.get("job_type") == "server":
-        return "score"
+    # if state.get("job_type") == "server":
+    #     return "score"
 
-    return "ask_question"
+    return "score"
 
 # ==================== QUESTIONS LOOP ====================
 def ask_question_node(state: ChatbotState) -> ChatbotState:
