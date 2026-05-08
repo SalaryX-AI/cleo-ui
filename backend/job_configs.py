@@ -26,8 +26,6 @@ JOB_CONFIGS = {
             "Do you have reliable transportation to and from our store located at {address}?"
         ],
         "questions": [
-            "This position requires 1 to 2 years of server experience. Do you have at least 1 year of experience working as a server?",
-            "Where have you worked as a server before? (For example: restaurant, hotel, senior living, or catering.)",
             "Are you comfortable with fine dining service standards — things like formal table settings, order precision, and serving multiple courses?",
             "Our servers regularly assist residents with menu questions — including ingredient details, dietary needs, and food preparation. Are you comfortable building that kind of menu knowledge?",
             "This role involves serving senior residents, building genuine connections, and maintaining patience and warmth at all times. Are you comfortable working in that kind of environment?",
