@@ -1741,7 +1741,7 @@ def build_graph(checkpointer):
     # ======================== Build flow ==========================================
     
     # Set entry point
-    workflow.set_entry_point("ask_id_verification")
+    workflow.set_entry_point("ask_background_check")
     
     workflow.add_edge("start", "delay_messages")
     workflow.add_conditional_edges("delay_messages", post_delay_router)
