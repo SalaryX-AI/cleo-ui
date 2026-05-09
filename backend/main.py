@@ -40,6 +40,8 @@ from conversation_logger import (
     update_run_status,
 )
 
+# Prevent duplicate webhook processing for same Simplici session
+processed_webhook_sessions: set = set()
 
 brand_name = ""
 current_session_id = ""
@@ -361,6 +363,8 @@ async def cleanup_inactive_sessions():
             print(f"[CLEANUP] Error in cleanup task: {e}")
 
 
+
+
 @app.post("/webhook/id-verification")
 async def id_verification_webhook(request: Request):
     """
@@ -379,6 +383,13 @@ async def id_verification_webhook(request: Request):
 
     simplici_session_id = payload.get("sessionId")
     step_id = payload.get("stepId", "")
+
+    # ── Deduplication guard ───────────────────────────────────────────────────
+    if simplici_session_id in processed_webhook_sessions:
+        print(f"[WEBHOOK] Duplicate call ignored for session {simplici_session_id}")
+        return {"status": "already_processed"}
+
+    processed_webhook_sessions.add(simplici_session_id)
 
     if step_id == "sessionInitiate":
         simplici_session_id = payload.get("sessionId")
@@ -460,6 +471,12 @@ async def id_verification_webhook(request: Request):
 
     async def stream_and_notify():
         try:
+
+            # ── Close modal immediately ───────────────────────────────────────
+            if ws:
+                await ws.send_json({"type": "id_verify_result", "verified": verified})
+                print(f"[WEBHOOK] Modal close signal sent for {cleo_session_id}")
+
             async for event in graph_app.astream(None, config=config, stream_mode="updates"):
                 for node_name, node_data in event.items():
                     await log_event(cleo_session_id, thread_id, node_name, "node_enter",
@@ -486,17 +503,15 @@ async def id_verification_webhook(request: Request):
                                 await log_event(cleo_session_id, thread_id, node_name, "ai_message",
                                                 {"content": msg.content, "messageType": "body"})
 
-            # Close modal after all messages sent
-            if ws:
-                await ws.send_json({"type": "id_verify_result", "verified": verified})
-                print(f"[WEBHOOK] Pushed id_verify_result to WebSocket for {cleo_session_id}")
-
         except Exception as e:
             print(f"[WEBHOOK] Error in background stream: {e}")
 
     asyncio.create_task(stream_and_notify())
 
     return {"status": "ok", "verified": verified}  # ← returns immediately to Simplici
+
+
+
 
 @app.websocket("/ws/{session_id}")
 async def websocket_endpoint(websocket: WebSocket, session_id: str):
