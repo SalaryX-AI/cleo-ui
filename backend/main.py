@@ -400,7 +400,7 @@ async def id_verification_webhook(request: Request):
         print(f"[WEBHOOK] Ignoring step: {step_id}")
         return {"status": "ignored"}
 
-    # ── new Atomic deduplication guard ────────────────────────────────────────────
+    # ── Atomic deduplication guard ────────────────────────────────────────────
     kyc_key = f"kyc_{simplici_session_id}"
     async with webhook_dedup_lock:
         if kyc_key in processed_webhook_sessions:
@@ -475,21 +475,25 @@ async def id_verification_webhook(request: Request):
 
     async def stream_and_notify():
         try:
-
             # ── Close modal immediately ───────────────────────────────────────
             if ws:
                 await ws.send_json({"type": "id_verify_result", "verified": verified})
                 print(f"[WEBHOOK] Modal close signal sent for {cleo_session_id}")
+
+            # Only these nodes add new messages — all others are skipped
+            NODES_WITH_NEW_MESSAGES = {"process_id_result", "end", "delay_messages"}
 
             async for event in graph_app.astream(None, config=config, stream_mode="updates"):
                 for node_name, node_data in event.items():
                     await log_event(cleo_session_id, thread_id, node_name, "node_enter",
                                     {"state_keys": list(node_data.keys()) if node_data else []})
 
+                    # Skip nodes that don't add new messages
+                    if node_name not in NODES_WITH_NEW_MESSAGES:
+                        continue
+
                     if node_data and "messages" in node_data and ws:
-                        if node_name == "delay_messages":
-                            msgs_to_send = node_data["messages"][-2:]
-                        elif node_name == "process_id_result":
+                        if node_name in ("process_id_result", "delay_messages"):
                             msgs_to_send = node_data["messages"][-2:]
                         else:
                             msgs_to_send = node_data["messages"][-1:]
@@ -510,6 +514,7 @@ async def id_verification_webhook(request: Request):
         except Exception as e:
             print(f"[WEBHOOK] Error in background stream: {e}")
 
+            
     asyncio.create_task(stream_and_notify())
 
     return {"status": "ok", "verified": verified}  # ← returns immediately to Simplici
