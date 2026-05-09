@@ -400,7 +400,7 @@ async def id_verification_webhook(request: Request):
         print(f"[WEBHOOK] Ignoring step: {step_id}")
         return {"status": "ignored"}
 
-    # ── Atomic deduplication guard ────────────────────────────────────────────
+    # ── new Atomic deduplication guard ────────────────────────────────────────────
     kyc_key = f"kyc_{simplici_session_id}"
     async with webhook_dedup_lock:
         if kyc_key in processed_webhook_sessions:
