@@ -42,6 +42,7 @@ from conversation_logger import (
 
 # Prevent duplicate webhook processing for same Simplici session
 processed_webhook_sessions: set = set()
+webhook_dedup_lock = asyncio.Lock()
 
 brand_name = ""
 current_session_id = ""
@@ -399,12 +400,13 @@ async def id_verification_webhook(request: Request):
         print(f"[WEBHOOK] Ignoring step: {step_id}")
         return {"status": "ignored"}
 
-    # ── Deduplication guard — only for kyc step ───────────────────────────────
+    # ── Atomic deduplication guard ────────────────────────────────────────────
     kyc_key = f"kyc_{simplici_session_id}"
-    if kyc_key in processed_webhook_sessions:
-        print(f"[WEBHOOK] Duplicate kyc call ignored for session {simplici_session_id}")
-        return {"status": "already_processed"}
-    processed_webhook_sessions.add(kyc_key)    
+    async with webhook_dedup_lock:
+        if kyc_key in processed_webhook_sessions:
+            print(f"[WEBHOOK] Duplicate kyc call ignored for session {simplici_session_id}")
+            return {"status": "already_processed"}
+        processed_webhook_sessions.add(kyc_key)
     
     event_payload = payload.get("payload", {})
 
