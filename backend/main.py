@@ -384,11 +384,6 @@ async def id_verification_webhook(request: Request):
     simplici_session_id = payload.get("sessionId")
     step_id = payload.get("stepId", "")
 
-    # ── Deduplication guard ───────────────────────────────────────────────────
-    if simplici_session_id in processed_webhook_sessions:
-        print(f"[WEBHOOK] Duplicate call ignored for session {simplici_session_id}")
-        return {"status": "already_processed"}
-
     processed_webhook_sessions.add(simplici_session_id)
 
     if step_id == "sessionInitiate":
@@ -403,6 +398,13 @@ async def id_verification_webhook(request: Request):
     if step_id != "kyc":
         print(f"[WEBHOOK] Ignoring step: {step_id}")
         return {"status": "ignored"}
+
+    # ── Deduplication guard — only for kyc step ───────────────────────────────
+    kyc_key = f"kyc_{simplici_session_id}"
+    if kyc_key in processed_webhook_sessions:
+        print(f"[WEBHOOK] Duplicate kyc call ignored for session {simplici_session_id}")
+        return {"status": "already_processed"}
+    processed_webhook_sessions.add(kyc_key)    
     
     event_payload = payload.get("payload", {})
 
