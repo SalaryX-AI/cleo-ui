@@ -20,14 +20,15 @@ JOB_CONFIGS = {
     },
     "server": {
         "knockout_questions": [
-            "To work here, you must be legally eligible to work in the U.S. Can you confirm that you are?",
-            "You must be at least 18 years old for this role. Are you 18 or older?",
+            "Are you legally eligible to work in the United States?",
+            "Are you 18 or older?",
             "We are currently hiring specifically for evening and weekend shifts. Is your general availability a fit for that schedule?",
             "Do you have reliable transportation to and from our store located at {address}?"
         ],
         "questions": [
-            "Are you comfortable with fine dining service standards — things like formal table settings, order precision, and serving multiple courses?",
-            "Our servers regularly assist residents with menu questions — including ingredient details, dietary needs, and food preparation. Are you comfortable building that kind of menu knowledge?",
+            "Are you experienced with table service dining standards — things like setting tables for service, attention to detail, and handling multiple courses?",
+            "Are you willing to provide friendly, attentive, and personalized service?",
+            "Are you comfortable assisting diners with menu selections by demonstrating a thorough knowledge of food, beverages, and ingredients?",
             "This role involves serving senior residents, building genuine connections, and maintaining patience and warmth at all times. Are you comfortable working in that kind of environment?",
 
         ],

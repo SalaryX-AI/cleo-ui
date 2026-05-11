@@ -514,7 +514,7 @@ async def id_verification_webhook(request: Request):
         except Exception as e:
             print(f"[WEBHOOK] Error in background stream: {e}")
 
-            
+
     asyncio.create_task(stream_and_notify())
 
     return {"status": "ok", "verified": verified}  # ← returns immediately to Simplici
@@ -651,6 +651,8 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                 military_details={},
                 military_follow_up_done=False,
                 background_check_consented=False,
+
+                referral_source="",
             )
             
             # Start workflow with streaming (ONLY for new sessions)

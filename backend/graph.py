@@ -171,6 +171,8 @@ class ChatbotState(MessagesState):
     # Background check consent
     background_check_consented: bool = False
 
+    referral_source: str = ""
+
 
 # ==================== Acknowledgement ====================
 def acknowledge_node(state: ChatbotState) -> ChatbotState:
@@ -214,12 +216,13 @@ def delay_messages_node(state: ChatbotState) -> ChatbotState:
     if state.get("job_type") == "server":
         delay_messages = {
             "greeting": [
-                "Our servers are the heart of the dining experience at Sinai Residences — a five-star senior living community in Boca Raton. This is fine dining with purpose every meal matters to our residents.",
+                "Our employees are the heart of Sinai Residences — a five-star senior living community in Boca Raton.",
                 "I just need to ask a few quick screening questions — less than 2 minutes. Ready to jump in? (You can type 'Stop' anytime.)"
             ],
             "end": [
                 "Our hiring team will take it from here. Your application will be carefully reviewed. If you are selected to move forward, we will contact you via email or phone to schedule an interview or conduct a brief background check prior to scheduling the interview.",
-                "You can expect to hear from us within 1 business day. Thank you again for your time and interest in working with Sinai Residences!"
+                "You can expect to hear from us within 1 business day. Thank you again for your time and interest in working with Sinai Residences!",
+                "Good Bye! 👋"
             ],
             "default": "Let's continue!"
         }
@@ -231,7 +234,8 @@ def delay_messages_node(state: ChatbotState) -> ChatbotState:
             ],
             "end": [
                 "Our hiring team will take it from here. Your application will be carefully reviewed. If you are selected to move forward, we will contact you via email or phone to schedule an interview or conduct a brief background check prior to scheduling the interview.",
-                f"You can expect to hear from us regarding your status within 1-2 business days. Thank you again for your time and interest in working with {state.get("brand_name")}."
+                f"You can expect to hear from us regarding your status within 1-2 business days. Thank you again for your time and interest in working with {state.get("brand_name")}.",
+                "Good Bye! 👋"
             ],
             "default": "Let's continue!"
         }
@@ -755,6 +759,26 @@ Return ONLY the JSON array, nothing else. Example: [{{"name": "ServSafe", "date"
 
     return state
 
+
+def ask_referral_node(state: ChatbotState) -> ChatbotState:
+    print("ask_referral_node called")
+    state["messages"].append(AIMessage(
+        content="How did you hear about this position? Were you referred by a current employee or resident? If so, please let us know who! 😊"
+    ))
+    return state
+
+
+def store_referral_node(state: ChatbotState) -> ChatbotState:
+    print("store_referral_node called")
+
+    messages = state["messages"]
+    last_message = messages[-1] if messages else None
+
+    if isinstance(last_message, HumanMessage):
+        state["referral_source"] = last_message.content.strip()
+        state["messages"].append(AIMessage(content="Got it, thank you! 👍"))
+
+    return state    
 
 # ==================== MILITARY SERVICE ====================
 
@@ -1709,6 +1733,8 @@ def build_graph(checkpointer):
 
     workflow.add_node("ask_certifications",    ask_certifications_node)
     workflow.add_node("store_certifications",  store_certifications_node)
+    workflow.add_node("ask_referral",   ask_referral_node)
+    workflow.add_node("store_referral", store_referral_node)
     workflow.add_node("ask_military",          ask_military_node)
     workflow.add_node("store_military",        store_military_node)
     workflow.add_node("ask_background_check",  ask_background_check_node)
@@ -1794,7 +1820,9 @@ def build_graph(checkpointer):
     
     # Certifications and military service flow
     workflow.add_edge("ask_certifications",       "store_certifications")
-    workflow.add_edge("store_certifications",     "ask_military")
+    workflow.add_edge("store_certifications",     "ask_referral")
+    workflow.add_edge("ask_referral",             "store_referral")
+    workflow.add_edge("store_referral",           "ask_military")
     workflow.add_edge("ask_military",             "store_military")
     workflow.add_conditional_edges("store_military", military_router)
     
@@ -1813,7 +1841,7 @@ def build_graph(checkpointer):
     
     app = workflow.compile(
         checkpointer=checkpointer,
-        interrupt_after=["delay_messages", "ask_knockout_question",  "ask_address", "ask_gps_verification", "ask_work_experience", "store_work_experience_response", "ask_education", "ask_certifications", "ask_military", "ask_background_check", "ask_name", "ask_email", "ask_email_otp", "ask_phone", "ask_phone_otp", "ask_id_verification", "ask_question"]
+        interrupt_after=["delay_messages", "ask_knockout_question",  "ask_address", "ask_gps_verification", "ask_work_experience", "store_work_experience_response", "ask_education", "ask_certifications", "ask_referral", "ask_military", "ask_background_check", "ask_name", "ask_email", "ask_email_otp", "ask_phone", "ask_phone_otp", "ask_id_verification", "ask_question"]
     )
     
     return app
