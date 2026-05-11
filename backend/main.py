@@ -493,8 +493,10 @@ async def id_verification_webhook(request: Request):
                         continue
 
                     if node_data and "messages" in node_data and ws:
-                        if node_name in ("process_id_result", "delay_messages"):
+                        if node_name in ("process_id_result"):
                             msgs_to_send = node_data["messages"][-2:]
+                        elif node_name == "delay_messages":
+                            msgs_to_send = node_data["messages"][-3:]   
                         else:
                             msgs_to_send = node_data["messages"][-1:]
 

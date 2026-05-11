@@ -763,7 +763,7 @@ Return ONLY the JSON array, nothing else. Example: [{{"name": "ServSafe", "date"
 def ask_referral_node(state: ChatbotState) -> ChatbotState:
     print("ask_referral_node called")
     state["messages"].append(AIMessage(
-        content="How did you hear about this position? Were you referred by a current employee or resident? If so, please let us know who! 😊"
+        content="How did you hear about this position? Were you referred by a current employee or resident? If so, please let us know who!"
     ))
     return state
 
