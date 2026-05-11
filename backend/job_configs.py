@@ -29,7 +29,7 @@ JOB_CONFIGS = {
             "Are you experienced with table service dining standards — things like setting tables for service, attention to detail, and handling multiple courses?",
             "Are you willing to provide friendly, attentive, and personalized service?",
             "Are you comfortable assisting diners with menu selections by demonstrating a thorough knowledge of food, beverages, and ingredients?",
-            "This role involves serving senior residents, building genuine connections, and maintaining patience and warmth at all times. Are you comfortable working in that kind of environment?",
+            "This role involves working with senior residents.  Building genuine connections, patience and warmth are a must. Are you comfortable working in that kind of environment?",
 
         ],
         "scoring_model": {
