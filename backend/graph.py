@@ -218,10 +218,10 @@ def delay_messages_node(state: ChatbotState) -> ChatbotState:
         delay_messages = {
             "greeting": [
                 "Our employees are the heart of Sinai Residences — a five-star senior living community in Boca Raton.",
-                "I just need to ask a few quick screening questions, it should only take a few 2 minutes. Are you ready to jump in? (You can type 'Stop' anytime.)"
+                "I just need to ask a few quick screening questions, it should only take a few 2 minutes. Ready? (You can type 'Stop' anytime.)"
             ],
             "end": [
-                "Our hiring team will take it from here. Your application will be carefully reviewed. If you are selected to move forward, we will contact you via email or phone to schedule an interview or conduct a brief background check prior to scheduling the interview.",
+                "Our hiring team is now reviewing your profile. If your experience is a match, we'll reach out via email or phone to discuss the next steps.",
                 "You can expect to hear from us within 1 business day. Thank you again for your time and interest in working with Sinai Residences!",
                 "Good Bye! 👋"
             ],
@@ -272,9 +272,9 @@ def start_node(state: ChatbotState) -> ChatbotState:
     print("start_node called")
 
     if state.get("job_type") == "server":
-        state["messages"].append(AIMessage(content="Hello! I'm Cleo, the hiring assistant for Sinai Residences. Thank you for your interest in working at Sinai Residences."))
+        state["messages"].append(AIMessage(content="Hello! I'm Cleo, the hiring assistant for Sinai Residences. Thank you for your interest."))
     else:
-        state["messages"].append(AIMessage(content=f"Hello! I'm Cleo, the hiring assistant for {state['brand_name']}.Thank you for your interest in working at {state['brand_name']}."))
+        state["messages"].append(AIMessage(content=f"Hello! I'm Cleo, the hiring assistant for {state['brand_name']}.Thank you for your interest."))
 
 
     state["delay_node_type"] = "greeting"
@@ -629,8 +629,8 @@ def ask_work_experience_node(state: ChatbotState) -> ChatbotState:
 
     question = "Do you have any prior work experience in this field?"
     
-    if state.get("gps_verified"):
-        question = "Have you worked before? (Beyond what we've already discussed.)"
+    if state.get("job_type") == "server":
+        question = "Have you held other roles before (beyond what we've already discussed)?"
     
     state["messages"].append(AIMessage(content=question))
     
@@ -733,7 +733,7 @@ def store_education_node(state: ChatbotState) -> ChatbotState:
 def ask_certifications_node(state: ChatbotState) -> ChatbotState:
     print("ask_certifications_node called")
     state["messages"].append(AIMessage(
-        content="Do you have any certifications to share? For example: food safety (ServSafe), TIPS alcohol service, or CPR. If yes, please share the certification name and date. If none, just say 'No'."
+        content="Do you have any relevant certifications? (Examples: ServSafe, TIPS, or CPR.)."
     ))
     return state
 
@@ -772,7 +772,7 @@ Return ONLY the JSON array, nothing else. Example: [{{"name": "ServSafe", "date"
 def ask_referral_node(state: ChatbotState) -> ChatbotState:
     print("ask_referral_node called")
     state["messages"].append(AIMessage(
-        content="How did you hear about this position? Were you referred by a current employee or resident? If so, please let us know who!"
+        content="How did you hear about us? If you were referred by a current employee or resident, please let us know their name."
     ))
     return state
 
@@ -801,7 +801,7 @@ def ask_military_node(state: ChatbotState) -> ChatbotState:
         ))
     else:
         state["messages"].append(AIMessage(
-            content="One optional question 💙 — Have you ever served in the U.S. military? (Yes / No — this will not affect your application.)"
+            content="One optional question 💙 — Have you ever served in the U.S. military?"
         ))
 
     return state
@@ -1057,15 +1057,6 @@ def ask_phone_node(state: ChatbotState) -> ChatbotState:
             
             state["messages"].append(AIMessage(content=response.content))
     else:
-        
-        # if state.get("phone_otp_sent_failed") == True:
-        #     print("Re-asking for phone due to previous OTP send failure.")
-        #     state["messages"].append(AIMessage(content="Kindly enter your phone number again with country code (example: +1-234-567-8900)"))
-
-        #     state["phone_otp_sent_failed"] = False
-
-        #     return state
-        
         # Use normal ask prompt
         ask_phone = cleo_engagement.ask_phone
         state["messages"].append(AIMessage(content=ask_phone))
@@ -1433,7 +1424,7 @@ async def ask_id_verification_node(state: ChatbotState) -> ChatbotState:
         content="You're doing great! We're almost at the finish line. 🏁"
     ))
     state["messages"].append(AIMessage(
-        content="To keep our hiring process secure and get you onboarded quickly, we just need to verify your ID. It's a simple 30-second check where you'll snap a photo of your ID and a quick selfie to confirm it's really you."
+        content="To protect your data and verify your profile for the hiring manager, we just need a quick ID check. It takes less than 60 seconds."
     ))
     state["messages"].append(AIMessage(
         content="Please make sure you're in a well-lit room and have your government-issued ID ready. Tap the button below to start! I'll be right here when you're back."
@@ -1744,7 +1735,7 @@ def end_node(state: ChatbotState) -> ChatbotState:
     
     # name = state["personal_details"].get("name")
     
-    state["messages"].append(AIMessage(content=cleo_engagement.end_message))
+    state["messages"].append(AIMessage(content=f"Great job! You've successfully completed the application. Your information has been securely saved and submitted to Sinai Residences."))
 
     state["delay_node_type"] = "end"
 

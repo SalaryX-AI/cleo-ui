@@ -20,16 +20,17 @@ JOB_CONFIGS = {
     },
     "server": {
         "knockout_questions": [
-            "Are you legally eligible to work in the United States?",
+            "Are you legally allowed to work in the United States?",
             "Are you 18 or older?",
             "We are currently hiring specifically for evening and weekend shifts.  Are you available to work that schedule?",
             "Do you have reliable transportation to and from our location at {address}?"
         ],
         "questions": [
+            "We are looking for people with at least one year of server experience. Does that sound like you?"
             "Are you experienced with table service dining standards — things like setting tables for service, attention to detail, and handling multiple courses?",
             "Are you willing to provide friendly, attentive, and personalized service?",
-            "Are you comfortable assisting diners with menu selections by demonstrating a thorough knowledge of food, beverages, and ingredients?",
-            "This role involves working with senior residents.  Building genuine connections, patience and warmth are a must. Are you comfortable working in that kind of environment?",
+            "Are you comfortable guiding guests through the menu and answering questions about ingredients or pairings?",
+            "Our residents are at the heart of everything we do. Are you comfortable and patient when working closely with seniors?",
 
         ],
         "scoring_model": {
@@ -81,14 +82,14 @@ JOB_CONFIGS = {
             },
 
             # ── Skills — Menu Knowledge (3) ───────────────────────────────────────
-            "Are you comfortable assisting diners with menu selections by demonstrating a thorough knowledge of food, beverages, and ingredients?": {
+            "Are you comfortable guiding guests through the menu and answering questions about ingredients or pairings?": {
                 "rule": "Yes -> 3, Willing to learn -> 2, No -> 0",
                 "weight": 3,
                 "category": "Skills"
             },
 
             # ── Culture — Senior Residents (3) ────────────────────────────────────
-            "This role involves serving senior residents, building genuine connections, and maintaining patience and warmth at all times. Are you comfortable working in that kind of environment?": {
+            "Our residents are at the heart of everything we do. Are you comfortable and patient when working closely with seniors?": {
                 "rule": "Yes -> 3, Somewhat -> 2, No -> 0",
                 "weight": 3,
                 "category": "Culture"

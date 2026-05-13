@@ -1,5 +1,5 @@
 ack_messages = {
-        "questions": "Verified! We now have your contact info. Let's cover your background.",
+        "questions": "Verified! Now, let's quickly review your work history.",
         "default": "Let's continue!"
     }
 
@@ -31,4 +31,4 @@ otp_expired_message = "That code has expired. Let me send you a fresh one."
 email_otp_failure_message = "Hmm, that code didn't work after 3 tries. Let's start over with your email address."
 phone_otp_failure_message = "Hmm, that code didn't work after 3 tries. Let's start over with your phone number."
 
-end_message = "Great Job! You've successfully completed the initial application. Your information has been securely saved and submitted."
+end_message = "Great Job! You've successfully completed the application. Your information has been securely saved and submitted."
