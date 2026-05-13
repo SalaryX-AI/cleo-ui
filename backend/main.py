@@ -655,6 +655,7 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                 background_check_consented=False,
 
                 referral_source="",
+                education_year="",
             )
             
             # Start workflow with streaming (ONLY for new sessions)

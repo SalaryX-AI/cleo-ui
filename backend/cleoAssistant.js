@@ -1393,7 +1393,7 @@ document.head.appendChild(link);
     // ─────────────────────────────────────────────────────────────────────────
 
     const EducationUI = {
-        
+
         educationOptions: [
             'Less than high school',
             'High school or GED',
@@ -1402,14 +1402,19 @@ document.head.appendChild(link);
             'Trade or certificate',
             'Prefer not to say'
         ],
-        
+
         selectedOption: null,
-        
+        selectedYear: null,
+
         render() {
+            const currentYear = new Date().getFullYear();
+            const years = [];
+            for (let y = currentYear; y >= 1960; y--) years.push(y);
+
             const container = document.createElement('div');
             container.id = 'education-ui';
             container.className = 'education-container';
-            
+
             container.innerHTML = `
                 <style>
                     .education-container {
@@ -1419,12 +1424,10 @@ document.head.appendChild(link);
                         margin: 16px 0;
                         animation: slideDown 0.3s ease-out;
                     }
-                    
                     @keyframes slideDown {
                         from { opacity: 0; transform: translateY(-20px); }
-                        to { opacity: 1; transform: translateY(0); }
+                        to   { opacity: 1; transform: translateY(0); }
                     }
-                    
                     .edu-option {
                         background: white;
                         border-radius: 12px;
@@ -1438,17 +1441,14 @@ document.head.appendChild(link);
                         border: 2px solid transparent;
                         user-select: none;
                     }
-                    
                     .edu-option:hover {
                         background: #f8f8fc;
                         transform: translateX(4px);
                     }
-                    
                     .edu-option.selected {
                         background: #e8eaff;
                         border-color: #667eea;
                     }
-                    
                     .edu-checkbox {
                         width: 20px;
                         height: 20px;
@@ -1460,29 +1460,59 @@ document.head.appendChild(link);
                         flex-shrink: 0;
                         transition: all 0.2s ease;
                     }
-                    
                     .edu-option.selected .edu-checkbox {
                         background: #667eea;
                         border-color: #667eea;
                     }
-                    
                     .edu-checkbox-icon {
                         color: white;
                         font-size: 14px;
                         font-weight: bold;
                         display: none;
                     }
-                    
                     .edu-option.selected .edu-checkbox-icon {
                         display: block;
                     }
-                    
                     .edu-label {
                         flex: 1;
                         font-size: 15px;
                         color: #333;
                     }
-                    
+                    .edu-year-section {
+                        background: white;
+                        border-radius: 12px;
+                        padding: 14px 16px;
+                        margin-top: 4px;
+                        margin-bottom: 4px;
+                        display: none;
+                        animation: slideDown 0.2s ease-out;
+                    }
+                    .edu-year-section.visible {
+                        display: block;
+                    }
+                    .edu-year-label {
+                        font-size: 13px;
+                        font-weight: 600;
+                        color: #555;
+                        margin-bottom: 10px;
+                    }
+                    .edu-year-select {
+                        width: 100%;
+                        padding: 10px 14px;
+                        border: 2px solid #e0e0e0;
+                        border-radius: 10px;
+                        font-size: 14px;
+                        color: #333;
+                        background: #fafafa;
+                        appearance: none;
+                        cursor: pointer;
+                        transition: border-color 0.2s ease;
+                        outline: none;
+                    }
+                    .edu-year-select:focus {
+                        border-color: #667eea;
+                        background: white;
+                    }
                     .edu-confirm-btn {
                         width: 40px;
                         height: 40px;
@@ -1498,21 +1528,19 @@ document.head.appendChild(link);
                         font-size: 20px;
                         transition: all 0.2s ease;
                     }
-                    
                     .edu-confirm-btn:hover:not(:disabled) {
                         background: #5568d3;
                         transform: scale(1.1);
                     }
-                    
                     .edu-confirm-btn:disabled {
                         background: #ccc;
                         cursor: not-allowed;
                         transform: scale(1);
                     }
                 </style>
-                
+
                 <div class="edu-options-list" id="edu-options-list">
-                    ${this.educationOptions.map((option, index) => `
+                    ${this.educationOptions.map(option => `
                         <div class="edu-option" data-value="${option}">
                             <div class="edu-checkbox">
                                 <span class="edu-checkbox-icon">✓</span>
@@ -1521,139 +1549,129 @@ document.head.appendChild(link);
                         </div>
                     `).join('')}
                 </div>
-                
+
+                <!-- Year picker — shown after selecting an option -->
+                <div class="edu-year-section" id="edu-year-section">
+                    <div class="edu-year-label">📅 Approximately when did you complete this?</div>
+                    <select class="edu-year-select" id="edu-year-select">
+                        <option value="">— Select year —</option>
+                        ${years.map(y => `<option value="${y}">${y}</option>`).join('')}
+                        <option value="Prefer not to say">Prefer not to say</option>
+                    </select>
+                </div>
+
                 <button class="edu-confirm-btn" id="edu-confirm-btn" disabled>✓</button>
             `;
-            
+
             return container;
         },
-        
+
         attachEventListeners() {
-            // Store reference to self to avoid 'this' context issues
             const self = this;
-            
+
             const optionsList = document.getElementById('edu-options-list');
-            const confirmBtn = document.getElementById('edu-confirm-btn');
-            
+            const confirmBtn  = document.getElementById('edu-confirm-btn');
+            const yearSection = document.getElementById('edu-year-section');
+            const yearSelect  = document.getElementById('edu-year-select');
+
             if (!optionsList || !confirmBtn) {
                 console.error('[EducationUI] Elements not found!');
                 return;
             }
-            
-            // Use event delegation
+
+            // Select education level
             optionsList.addEventListener('click', function(e) {
                 const option = e.target.closest('.edu-option');
                 if (!option) return;
-                
-                // Get value from data attribute
+
                 const value = option.getAttribute('data-value');
-                
-                console.log('[EducationUI] Option clicked:', value);
-                
-                // Unselect all
-                const allOptions = optionsList.querySelectorAll('.edu-option');
-                allOptions.forEach(opt => opt.classList.remove('selected'));
-                
-                // Select clicked option
+
+                // Unselect all, select clicked
+                optionsList.querySelectorAll('.edu-option').forEach(o => o.classList.remove('selected'));
                 option.classList.add('selected');
-                
-                // Store in self to maintain reference
+
                 self.selectedOption = value;
-                
-                console.log('[EducationUI] Selected option stored:', self.selectedOption);
-                
-                // Enable confirm button
-                confirmBtn.disabled = false;
+                self.selectedYear   = null;
+
+                // Show year picker (hide for "Prefer not to say")
+                if (value === 'Prefer not to say') {
+                    yearSection.classList.remove('visible');
+                    self.selectedYear = 'Not specified';
+                    confirmBtn.disabled = false;
+                } else {
+                    yearSection.classList.add('visible');
+                    yearSelect.value    = '';
+                    confirmBtn.disabled = true;  // wait for year
+                }
+
+                console.log('[EducationUI] Selected:', value);
             });
-            
+
+            // Year selection enables confirm
+            yearSelect.addEventListener('change', function() {
+                self.selectedYear   = this.value;
+                confirmBtn.disabled = !this.value;
+                console.log('[EducationUI] Year selected:', self.selectedYear);
+            });
+
             confirmBtn.addEventListener('click', function() {
-                console.log('[EducationUI] Confirm button clicked');
-                console.log('[EducationUI] Current selectedOption:', self.selectedOption);
                 self.submitEducation();
             });
         },
-        
+
         submitEducation() {
-            console.log('[EducationUI] submitEducation called');
-            console.log('[EducationUI] this.selectedOption:', this.selectedOption);
-            
             if (!this.selectedOption) {
                 console.error('[EducationUI] No education selected!');
                 return;
             }
-            
-            const selectedValue = this.selectedOption;
-            console.log('[EducationUI] Submitting:', selectedValue);
-            
-            // Hide UI first
+
+            // Build combined message: "College degree, 2018"
+            const submittedValue = this.selectedYear && this.selectedYear !== 'Not specified'
+                ? `${this.selectedOption}, ${this.selectedYear}`
+                : this.selectedOption;
+
+            console.log('[EducationUI] Submitting:', submittedValue);
+
             this.hide();
-            
-            // Send to backend
+
             if (window.CleoChatbot && window.CleoChatbot.ws && window.CleoChatbot.ws.readyState === WebSocket.OPEN) {
-                // Show user's selection
-                window.CleoChatbot.addMessage(selectedValue, false, 'body');
-                
-                // Create message object and log it
-                const message = {
+                window.CleoChatbot.addMessage(submittedValue, false, 'body');
+
+                window.CleoChatbot.ws.send(JSON.stringify({
                     type: 'user_message',
-                    content: selectedValue
-                };
-                
-                console.log('[EducationUI] Sending message:', JSON.stringify(message));
-                
-                // Send via WebSocket
-                window.CleoChatbot.ws.send(JSON.stringify(message));
-                
-                console.log('[EducationUI] Message sent to backend');
+                    content: submittedValue
+                }));
             } else {
                 console.error('[EducationUI] WebSocket not ready!');
-                console.error('[EducationUI] WebSocket state:', window.CleoChatbot?.ws?.readyState);
                 window.CleoChatbot.enableInput();
             }
         },
-        
+
         show() {
-            console.log('[EducationUI] Showing UI');
-            
             const messagesDiv = document.getElementById('chatbot-messages');
-            if (!messagesDiv) {
-                console.error('[EducationUI] Messages div not found!');
-                return;
-            }
-            
+            if (!messagesDiv) return;
+
             const ui = this.render();
             messagesDiv.appendChild(ui);
-            
-            // Reset selected option before showing
+
             this.selectedOption = null;
-            
+            this.selectedYear   = null;
+
             this.attachEventListeners();
-            
-            // Scroll to show Education UI
-            messagesDiv.scrollTo({
-                top: messagesDiv.scrollHeight,
-                behavior: 'smooth'
-            });
-            
-            // Disable normal input
-            if (window.CleoChatbot) {
-                window.CleoChatbot.disableInput();
-            }
+
+            messagesDiv.scrollTo({ top: messagesDiv.scrollHeight, behavior: 'smooth' });
+
+            if (window.CleoChatbot) window.CleoChatbot.disableInput();
         },
-        
+
         hide() {
-            console.log('[EducationUI] Hiding UI');
-            
             const ui = document.getElementById('education-ui');
             if (ui) {
                 ui.style.display = 'none';
-                setTimeout(() => {
-                    ui.remove();
-                }, 100);
+                setTimeout(() => ui.remove(), 100);
             }
-            
-            // Reset selection
             this.selectedOption = null;
+            this.selectedYear   = null;
         }
     };
 

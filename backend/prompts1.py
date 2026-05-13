@@ -183,7 +183,7 @@ ASK_QUESTION_PROMPT = PromptTemplate(
 
     Instructions:
     - If previous_answer is "None": Just ask for {question} directly in a Professional way
-    - If previous_answer is NOT "None": Briefly acknowledge their answer ({previous_answer}) based on question ({previous_question}), then ask for {question} directly.
+    - If previous_answer is NOT "None": Briefly acknowledge their answer ({previous_answer}) based on question ({previous_question}), then ask for {question} directly Don't change the question's text and sequence.
     - Avoid words like "Hey", "Oops", "Thanks".
 
     Style: Natural, conversational, brief. Don't greet - conversation already started.
@@ -197,77 +197,62 @@ ASK_QUESTION_PROMPT = PromptTemplate(
 SCORING_PROMPT = PromptTemplate(
     input_variables=["answers", "scoring_model"],
     template="""
-    Calculate the score for each question based on the candidate's answers and the scoring rules provided.
+You are a hiring evaluator. Score each candidate answer against the provided scoring rules.
 
-    Candidate Answers:
-    {answers}
+Candidate Answers:
+{answers}
 
-    Scoring Rules:
-    {scoring_model}
+Scoring Rules:
+{scoring_model}
 
-    INSTRUCTIONS:
+SCORING INSTRUCTIONS:
 
-      1. Extract numbers from text answers:
-         - "6 years" -> 6
-         - "twenty years" -> 20
-         - "yes" or "no" -> boolean
+1. YES / NO RULES
+   Match semantically — do not require exact words.
+   - "Yes -> 5, No -> 0": "Absolutely", "Of course", "Yep" → 5 | "No", "I can't", "Not really" → 0
 
-      2. Apply formulas EXACTLY:
-         - "Score = years * 5" with "6 years" -> 6 * 5 = 30
-         - "Score = min(years, 5) * 5" with "6 years" -> min(6,5) * 5 = 25
-         - "Score = months / 2" with "12 months" -> 12 / 2 = 6
+2. TIERED RULES
+   Use semantic judgment to pick the closest tier.
+   - "Yes -> 4, Partial -> 2, No -> 0":
+       "Fully available" → 4 | "Available most weekends" → 2 | "Not available" → 0
+   - "Yes -> 3, Somewhat -> 2, No -> 0":
+       "Very experienced" → 3 | "Some experience" → 2 | "None" → 0
+   - "Yes -> 3, Willing to learn -> 2, No -> 0":
+       "I know this well" → 3 | "Happy to learn" → 2 | "Not interested" → 0
 
-      3. For Yes/No rules:
-         - "Yes -> 5, No -> 0" with "yes" -> 5
-         - "Yes -> 5, No -> 0" with "no" -> 0
+3. EXPERIENCE / YEARS RULES
+   - "2+ years -> 5, 1-2 years -> 4, 6 months to 1 year -> 2, Less than 6 months -> 1, 0 years -> 0":
+       "2.5 years" → 5 | "1.3 years" → 4 | "8 months" → 2 | "3 months" → 1 | "0 years" → 0
 
-      4. For tiered text rules — use semantic understanding to pick the best tier:
-         - "Yes -> 4, Partial -> 2, No -> 0":
-             "I can do some weekends" -> 2 (Partial)
-             "Absolutely, fully flexible" -> 4 (Yes)
-             "No I can't" -> 0 (No)
-         - "Yes -> 3, Somewhat -> 2, No -> 0":
-             "I have some experience but not extensive" -> 2 (Somewhat)
-             "Very comfortable, worked fine dining for 3 years" -> 3 (Yes)
-         - "Yes -> 3, Willing to learn -> 2, No -> 0":
-             "I don't know much about menus but I'm happy to learn" -> 2 (Willing to learn)
-             "I know how to build menu knowledge" -> 3 (Yes)
-         - "Right away -> 3, This week -> 2, Next week -> 1, Later -> 0":
-             "I can start immediately" -> 3
-             "I need about a week" -> 2
-             "Two weeks from now" -> 1
-             "Next month" -> 0
+4. CERTIFICATION RULES
+   - "ServSafe/TIPS/Food Safety cert present -> 2, Other cert -> 1, None -> 0":
+       "I have ServSafe" → 2 | "I have CPR" → 1 | "No certifications" → 0
 
-      5. For experience/location-based rules:
-         - "Senior living or fine dining -> 2, Other hospitality -> 1, No relevant exp -> 0":
-             "I worked at a senior care facility" -> 2
-             "I worked at a casual restaurant" -> 1
-             "No prior serving experience" -> 0
+5. COMPLIANCE / CONSENT RULES
+   - "Yes -> 5, No -> 0": Treat any clear agreement as Yes → 5, any refusal as No → 0
 
-      6. For certification rules:
-         - "ServSafe/TIPS/Food Safety cert present -> 2, Other cert -> 1, None -> 0":
-             "I have ServSafe certification" -> 2
-             "I have a CPR certification" -> 1
-             "No certifications" -> 0
+6. MISSING OR UNANSWERED
+   If a question key exists in scoring rules but has no matching answer, assign 0.
 
-      7. If a question was not answered or is missing from the answers, assign 0.
+7. WEIGHT FIELD
+   The "weight" field is for reference only — do NOT multiply by it.
+   The rule already expresses the final point value directly.
 
-      8. The "weight" field in each rule is for reference only — do NOT multiply by it.
-         Scores are already expressed as the final weighted value in the rule itself.
+8. BACKGROUND CHECK
+   The key "background_check_consent" maps to the candidate's response to the Level II background check question.
 
-    Return ONLY a JSON object in this exact format:
-    {{
-        "scores": {{"question1": score1, "question2": score2, ...}},
-        "score": total_sum,
-        "total_score": 46
-    }}
+Return ONLY a valid JSON object — no markdown, no explanation, no extra text:
+{{
+    "scores": {{"<scoring_rule_key>": <score>, ...}},
+    "score": <sum of all scores>,
+    "total_score": 41
+}}
 
-    CRITICAL:
-    - Apply min(), max(), and other functions correctly.
-    - Use semantic reasoning for tiered answers — do not require exact keyword matches.
-    - "score" must be the sum of ALL individual scores.
-    - "total_score" is always 51 for this role.
-    - Return ONLY the JSON — no explanation, no markdown, no extra text."""
+CRITICAL RULES:
+- Every key in scoring_model MUST have a corresponding entry in "scores", even if score is 0.
+- "score" MUST equal the exact arithmetic sum of all values in "scores".
+- "total_score" is always 41.
+- Return ONLY the JSON object."""
 )
 
 # Summary prompt

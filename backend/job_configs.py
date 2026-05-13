@@ -22,8 +22,8 @@ JOB_CONFIGS = {
         "knockout_questions": [
             "Are you legally eligible to work in the United States?",
             "Are you 18 or older?",
-            "We are currently hiring specifically for evening and weekend shifts. Is your general availability a fit for that schedule?",
-            "Do you have reliable transportation to and from our store located at {address}?"
+            "We are currently hiring specifically for evening and weekend shifts.  Are you available to work that schedule?",
+            "Do you have reliable transportation to and from our location at {address}?"
         ],
         "questions": [
             "Are you experienced with table service dining standards — things like setting tables for service, attention to detail, and handling multiple courses?",
@@ -33,67 +33,82 @@ JOB_CONFIGS = {
 
         ],
         "scoring_model": {
-            # Basic Requirements (weight: 5 each)
-            "To work here, you must be legally eligible to work in the U.S. Can you confirm that you are?": {
+            # ── Basic Requirements (5 each) ──────────────────────────────────────
+            "Are you legally eligible to work in the United States?": {
                 "rule": "Yes -> 5, No -> 0",
                 "weight": 5,
                 "category": "Basic Requirements"
             },
-            "You must be at least 18 years old for this role. Are you 18 or older?": {
+            "Are you 18 or older?": {
                 "rule": "Yes -> 5, No -> 0",
                 "weight": 5,
                 "category": "Basic Requirements"
             },
 
-            # Commitment (weight: 4)
-            "Is your general availability a fit for that schedule?": {
+            # ── Compliance (5) ───────────────────────────────────────────────────
+            "background_check_consent": {
+                "rule": "Yes -> 5, No -> 0",
+                "weight": 5,
+                "category": "Compliance"
+            },
+
+            # ── Commitment — Schedule (4) ─────────────────────────────────────────
+            "We are currently hiring specifically for evening and weekend shifts. Is your general availability a fit for that schedule?": {
                 "rule": "Yes -> 4, Partial -> 2, No -> 0",
                 "weight": 4,
                 "category": "Commitment"
             },
 
-            # Logistics (weight: 4)
-            "Do you have reliable transportation to and from work?": {
+            # ── Logistics — Transportation (4) ────────────────────────────────────
+            "Do you have reliable transportation to and from our store located at {address}?": {
                 "rule": "Yes -> 4, No -> 0",
                 "weight": 4,
                 "category": "Logistics"
             },
 
-            # Experience (weight: 5)
-            "This position requires 1 to 2 years of server experience. Do you have at least 1 year of experience working as a server?": {
-                "rule": "Yes -> 5, Partial/Some -> 3, No -> 0",
-                "weight": 5,
-                "category": "Experience"
-            },
-
-            # Skills (weight: 3)
-            "Are you comfortable with fine dining service standards — things like formal table settings, order precision, and serving multiple courses?": {
-                "rule": "Yes -> 3, Somewhat -> 2, No -> 0",
+            # ── Skills — Fine Dining (3) ──────────────────────────────────────────
+            "Are you experienced with table service dining standards — things like setting tables for service, attention to detail, and handling multiple courses?": {
+                "rule": "Yes, experienced -> 3, Some experience -> 2, No -> 0",
                 "weight": 3,
                 "category": "Skills"
             },
 
-            # Culture (weight: 3)
+            # ── Culture — Service Attitude (2) ────────────────────────────────────
+            "Are you willing to provide friendly, attentive, and personalized service?": {
+                "rule": "Yes -> 2, Somewhat -> 1, No -> 0",
+                "weight": 2,
+                "category": "Culture"
+            },
+
+            # ── Skills — Menu Knowledge (3) ───────────────────────────────────────
+            "Are you comfortable assisting diners with menu selections by demonstrating a thorough knowledge of food, beverages, and ingredients?": {
+                "rule": "Yes -> 3, Willing to learn -> 2, No -> 0",
+                "weight": 3,
+                "category": "Skills"
+            },
+
+            # ── Culture — Senior Residents (3) ────────────────────────────────────
             "This role involves serving senior residents, building genuine connections, and maintaining patience and warmth at all times. Are you comfortable working in that kind of environment?": {
                 "rule": "Yes -> 3, Somewhat -> 2, No -> 0",
                 "weight": 3,
                 "category": "Culture"
             },
 
-            # Skills (weight: 3)
-            "Our servers regularly assist residents with menu questions — including ingredient details, dietary needs, and food preparation. Are you comfortable building that kind of menu knowledge?": {
-                "rule": "Yes -> 3, Willing to learn -> 2, No -> 0",
-                "weight": 3,
-                "category": "Skills"
-            },
-
-            # Certifications (weight: 2) — answered in ask_certifications node
-            "Do you have any certifications to share? For example: food safety (ServSafe), TIPS alcohol service, or CPR.": {
+            # ── Certifications (2) — from ask_certifications node ─────────────────
+            "certifications": {
                 "rule": "ServSafe/TIPS/Food Safety cert present -> 2, Other cert -> 1, None -> 0",
                 "weight": 2,
                 "category": "Certifications"
             },
-        }
+
+            # ── Experience — Server (5) ───────────────────────────────────────────
+            "server_experience_years": {
+                "rule": "2+ years -> 5, 1-2 years -> 4, 6 months to 1 year -> 2, Less than 6 months -> 1, 0 years -> 0",
+                "weight": 5,
+                "category": "Experience"
+            },
+    },
+    
     },
     "assistant_manager": {
         "knockout_questions": [

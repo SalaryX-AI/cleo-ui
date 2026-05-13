@@ -1,5 +1,5 @@
 ack_messages = {
-        "questions": "Thanks! For sharing your contact details with us. Now we are moving on next stage.",
+        "questions": "Verified! We now have your contact info. Let's cover your background.",
         "default": "Let's continue!"
     }
 

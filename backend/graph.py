@@ -172,6 +172,7 @@ class ChatbotState(MessagesState):
     background_check_consented: bool = False
 
     referral_source: str = ""
+    education_year: str = ""
 
 
 # ==================== Acknowledgement ====================
@@ -217,7 +218,7 @@ def delay_messages_node(state: ChatbotState) -> ChatbotState:
         delay_messages = {
             "greeting": [
                 "Our employees are the heart of Sinai Residences — a five-star senior living community in Boca Raton.",
-                "I just need to ask a few quick screening questions — less than 2 minutes. Ready to jump in? (You can type 'Stop' anytime.)"
+                "I just need to ask a few quick screening questions, it should only take a few 2 minutes. Are you ready to jump in? (You can type 'Stop' anytime.)"
             ],
             "end": [
                 "Our hiring team will take it from here. Your application will be carefully reviewed. If you are selected to move forward, we will contact you via email or phone to schedule an interview or conduct a brief background check prior to scheduling the interview.",
@@ -230,7 +231,7 @@ def delay_messages_node(state: ChatbotState) -> ChatbotState:
         delay_messages = {
             "greeting": [
                 "Thanks for your interest — we're a friendly, locally-owned team. My job is to make your application process super fast and easy.",
-                "I just need to ask a few quick screening questions - it'll take less than 3 minutes total. Ready to jump in?"
+                "I just need to ask a few quick screening questions, it should only take a few 2 minutes. Are you ready to jump in? (You can type 'Stop' anytime.)"
             ],
             "end": [
                 "Our hiring team will take it from here. Your application will be carefully reviewed. If you are selected to move forward, we will contact you via email or phone to schedule an interview or conduct a brief background check prior to scheduling the interview.",
@@ -271,9 +272,9 @@ def start_node(state: ChatbotState) -> ChatbotState:
     print("start_node called")
 
     if state.get("job_type") == "server":
-        state["messages"].append(AIMessage(content="Hello! I'm Cleo, the hiring assistant for Sinai Residences. Thank you for your interest in the Part-Time Server position."))
+        state["messages"].append(AIMessage(content="Hello! I'm Cleo, the hiring assistant for Sinai Residences. Thank you for your interest in working at Sinai Residences."))
     else:
-        state["messages"].append(AIMessage(content=f"Hello! I'm Cleo, the hiring assistant for {state['brand_name']}."))
+        state["messages"].append(AIMessage(content=f"Hello! I'm Cleo, the hiring assistant for {state['brand_name']}.Thank you for your interest in working at {state['brand_name']}."))
 
 
     state["delay_node_type"] = "greeting"
@@ -334,7 +335,7 @@ def ask_knockout_question_node(state: ChatbotState) -> ChatbotState:
         knockout_question = knockout_questions[idx]
 
         if idx == 2:
-             state["messages"].append(AIMessage(content=f"We are currently hiring specifically for {state['job_shift']}. Is your general availability a fit for that schedule?"))
+             state["messages"].append(AIMessage(content=f"We are currently hiring specifically for {state['job_shift']}.  Are you available to work that schedule?"))
         else:
             state["messages"].append(AIMessage(content=knockout_question))
     
@@ -629,7 +630,7 @@ def ask_work_experience_node(state: ChatbotState) -> ChatbotState:
     question = "Do you have any prior work experience in this field?"
     
     if state.get("gps_verified"):
-        question = "Now, do you have any prior work experience in this field?"
+        question = "Have you worked before? (Beyond what we've already discussed.)"
     
     state["messages"].append(AIMessage(content=question))
     
@@ -697,7 +698,7 @@ def ask_education_node(state: ChatbotState) -> ChatbotState:
     
     print("ask_education_node called")
     
-    question = "What is your highest level of education completed?"
+    question = "What is the highest level of education you completed, and approximately when?"
     state["messages"].append(AIMessage(content=question))
     state["show_education_ui"] = True  # Signal to show checkbox UI
     
@@ -705,17 +706,25 @@ def ask_education_node(state: ChatbotState) -> ChatbotState:
 
 
 def store_education_node(state: ChatbotState) -> ChatbotState:
-    """Store education level from user selection"""
-    
     print("store_education_node called")
-    
+
     messages = state["messages"]
     last_message = messages[-1] if messages else None
-    
+
     if isinstance(last_message, HumanMessage):
-        state["education_level"] = last_message.content
-    
-    print(f"Stored education level: {state['education_level']}")
+        content = last_message.content.strip()
+
+        # Parse "College degree, 2018" → level + year
+        if ',' in content:
+            parts = content.split(',', 1)
+            state["education_level"] = parts[0].strip()
+            state["education_year"]  = parts[1].strip()
+        else:
+            state["education_level"] = content
+            state["education_year"]  = "Not specified"
+
+        print(f"Education level: {state['education_level']}, year: {state['education_year']}")
+
     return state
 
 
@@ -841,11 +850,7 @@ def ask_background_check_node(state: ChatbotState) -> ChatbotState:
     print("ask_background_check_node called")
     state["messages"].append(AIMessage(
         content=(
-            "📋 Background Check Disclosure — Level II (Florida)\n\n"
-            "Sinai Residences is required by Florida law to conduct a Level II background check "
-            "through the FL Clearinghouse for all employees. This is a fingerprint-based FBI/FDLE check. "
-            "Employment is contingent on successful clearance.\n\n"
-            "Are you aware of and comfortable with this requirement? (Yes / No)"
+            "📋 Sinai Residences is required by Florida law to conduct a Level II background check through the Florida Clearinghouse for all employees. Employment is contingent on successful clearance. Are you comfortable with this requirement?"
         )
     ))
     return state
@@ -882,7 +887,7 @@ Does this response indicate consent/agreement? Answer with ONLY "yes" or "no".""
     return state
 
 
-def background_check_router(state: ChatbotState) -> Literal["ask_id_verification", "__end__"]:
+def background_check_router(state: ChatbotState) -> Literal["ask_id_verification", "__end__", "score"]:
     """Continue if consented, hard stop if refused"""
     if state.get("background_check_consented"):
         return "ask_id_verification"
@@ -1532,49 +1537,92 @@ def question_router(state: ChatbotState) -> Literal["ask_question", "ask_address
 # ==================== SCORING & SUMMARY ====================
 
 def score_node(state: ChatbotState) -> ChatbotState:
-    """Calculate scores"""
-    
     print("score_node called")
-    
-    answers = state["answers"]
+
+    # Merge all answer sources into one dict for scoring
+    answers = {}
+
+    # Screening question answers
+    answers.update(state.get("answers", {}))
+
+    # Knockout question answers (candidates reached here = passed all)
+    knockout_questions = state.get("knockout_questions", [])
+    knockout_answers   = state.get("knockout_answers", {})
+    for i, q in enumerate(knockout_questions):
+        answers[q] = knockout_answers.get(str(i), knockout_answers.get(i, "Yes"))
+
+    # Background check consent
+    answers["background_check_consent"] = "Yes" if state.get("background_check_consented") else "No"
+
+    # Certifications
+    certs = state.get("certifications", [])
+    if certs:
+        cert_names = ", ".join([c.get("name", "") for c in certs])
+        answers["certifications"] = cert_names
+    else:
+        answers["certifications"] = "None"
+
+    # Work experience — calculate total years of server experience
+    work_experience = state.get("work_experience", [])
+    if work_experience:
+        from datetime import datetime
+        total_months = 0
+        server_keywords = ["server", "waiter", "waitress", "bartender", "food service", "dining", "hospitality"]
+
+        for exp in work_experience:
+            role = exp.get("role", "").lower()
+            # Only count relevant serving roles
+            if any(kw in role for kw in server_keywords):
+                try:
+                    start = datetime.strptime(exp.get("startDate", ""), "%Y-%m")
+                    end_str = exp.get("endDate", "")
+                    end = datetime.now() if end_str.lower() in ("present", "current", "") else datetime.strptime(end_str, "%Y-%m")
+                    total_months += (end.year - start.year) * 12 + (end.month - start.month)
+                except Exception:
+                    pass
+
+        total_years = round(total_months / 12, 1)
+        answers["server_experience_years"] = f"{total_years} years"
+    else:
+        answers["server_experience_years"] = "0 years"    
+
     scoring_model = state["scoring_model"]
 
-    print("Answers:", answers)
+    print("Merged Answers:", answers)
     print("Scoring Model:", scoring_model)
-    
+
     answers_str = json.dumps(answers, indent=2)
     scoring_str = json.dumps(scoring_model, indent=2)
-    
+
     prompt = SCORING_PROMPT.format(
         answers=answers_str,
         scoring_model=scoring_str
     )
     response = llm.invoke(prompt)
     print("Scoring node response:", response.content)
-    
-    try:
 
-        # Clean response (remove markdown if present)
+    try:
         score_text = response.content.strip()
         if score_text.startswith("```json"):
             score_text = score_text.replace("```json", "").replace("```", "").strip()
         elif score_text.startswith("```"):
             score_text = score_text.replace("```", "").strip()
-        
+
         result = json.loads(score_text)
-        
-        state["scores"] = result["scores"]
-        state["score"] = result["score"]
+
+        state["scores"]      = result["scores"]
         state["total_score"] = result.get("total_score")
-        
+
+        state["score"] = sum(result["scores"].values())
+
         print("Calculated score:", result["score"])
         print("Calculated total_score:", result.get("total_score"))
-    
+
     except json.JSONDecodeError:
-        state["scores"] = {}
-        state["score"] = 0
-        state["total_score"] = 100
-    
+        state["scores"]      = {}
+        state["score"]       = 0
+        state["total_score"] = 41
+
     return state
 
 
