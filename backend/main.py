@@ -524,59 +524,151 @@ async def id_verification_webhook(request: Request):
 
 
 
+# Nodes that do NOT add new messages — skip to avoid sending stale messages[-1]
+NODES_WITHOUT_MESSAGES = {
+    "score", "summary",
+    "store_answer", "store_background_check", "store_certifications",
+    "store_military", "store_referral", "evaluate_single_knockout",
+    "process_gps", "store_address", "store_name", "store_email",
+    "store_phone", "store_education", "store_work_experience_response",
+    "phone_router", "email_router", "question_router",
+    "phone_otp_router", "email_otp_router", "background_check_router",
+    "military_router", "single_knockout_router", "post_acknowledgement_router",
+    "id_verification_router",
+}
+ 
+ 
 @app.websocket("/ws/{session_id}")
 async def websocket_endpoint(websocket: WebSocket, session_id: str):
     """WebSocket connection for chat"""
     await websocket.accept()
-    
+ 
     if session_id not in sessions:
-        await websocket.send_json({
-            "type": "error",
-            "message": "Invalid session ID"
-        })
+        await websocket.send_json({"type": "error", "message": "Invalid session ID"})
         await websocket.close()
         return
-    
+ 
     # Start heartbeat task
     heartbeat_task = asyncio.create_task(websocket_heartbeat(websocket))
-    
-    session = sessions[session_id]
-    sessions[session_id]["websocket"] = websocket  # Store websocket in session for later use (e.g. from webhook)
-    thread_id = session["thread_id"]
-    job_type = session["job_type"]
-    location = session["location"]
-    job_id = session["job_id"]
+ 
+    session    = sessions[session_id]
+    sessions[session_id]["websocket"] = websocket
+    thread_id  = session["thread_id"]
+    job_type   = session["job_type"]
+    location   = session["location"]
+    job_id     = session["job_id"]
     company_id = session["company_id"]
-    is_live = session["is_live"]
-    job_shift = session["job_shift"]
-
-    # if sys.platform == 'win32':
-    #     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
-
-    # job_config = await read_job_config_from_db(job_id)
-
+    is_live    = session["is_live"]
+    job_shift  = session["job_shift"]
+ 
     job_config = JOB_CONFIGS[job_type]
-
-    job = set_job_address(job_config, location)
-
+    job        = set_job_address(job_config, location)
+ 
     global brand_name
-    
+ 
     config = {"configurable": {"thread_id": thread_id}}
-    
+ 
+    # ── Helper: send a single AIMessage with typing indicator ─────────────────
+    async def send_message(msg, node_name, message_type="body", extra=None):
+        if not isinstance(msg, AIMessage):
+            return
+        await websocket.send_json({"type": "typing"})
+        await asyncio.sleep(0.5)
+        payload = {
+            "type":        "ai_message",
+            "content":     msg.content,
+            "messageType": message_type,
+        }
+        if extra:
+            payload.update(extra)
+        await websocket.send_json(payload)
+        await log_event(session_id, thread_id, node_name, "ai_message",
+                        {"content": msg.content, "messageType": message_type})
+ 
+    # ── Helper: process a single node's output and send messages ──────────────
+    async def process_node(node_name, node_data, context="normal"):
+        if not node_data or "messages" not in node_data:
+            return
+ 
+        # Skip nodes that don't add new messages
+        if node_name in NODES_WITHOUT_MESSAGES:
+            return
+ 
+        messages = node_data["messages"]
+ 
+        # ── delay_messages: send last 2 with extra delay ──────────────────────
+        if node_name == "delay_messages":
+            for msg in messages[-2:]:
+                if isinstance(msg, AIMessage):
+                    await websocket.send_json({"type": "typing"})
+                    await asyncio.sleep(0.5)
+                    await asyncio.sleep(1)
+                    await websocket.send_json({
+                        "type":        "ai_message",
+                        "content":     msg.content,
+                        "messageType": "body"
+                    })
+                    await log_event(session_id, thread_id, node_name, "ai_message",
+                                    {"content": msg.content, "messageType": "body"})
+            return
+ 
+        # ── ask_id_verification: send last 3 messages, UI on last ─────────────
+        if node_name == "ask_id_verification":
+            for msg in messages[-3:]:
+                if isinstance(msg, AIMessage):
+                    is_last       = (msg == messages[-1])
+                    id_verify_ui  = is_last
+                    id_verify_lnk = node_data.get("id_verify_link", "") if is_last else ""
+                    await websocket.send_json({"type": "typing"})
+                    await asyncio.sleep(0.5)
+                    await websocket.send_json({
+                        "type":             "ai_message",
+                        "content":          msg.content,
+                        "messageType":      "body",
+                        "show_id_verify_ui": id_verify_ui,
+                        "id_verify_link":   id_verify_lnk,
+                    })
+                    await log_event(session_id, thread_id, node_name, "ai_message",
+                                    {"content": msg.content, "messageType": "body"})
+            return
+ 
+        # ── All other nodes: send last message only ───────────────────────────
+        msg = messages[-1]
+        if not isinstance(msg, AIMessage):
+            return
+ 
+        # Determine messageType
+        question_nodes = {
+            "ask_knockout_question", "ask_name", "ask_email", "ask_phone",
+            "ask_question", "ask_work_experience", "ask_education",
+            "ask_certifications", "ask_military", "ask_background_check",
+            "ask_referral", "ask_id_verification"
+        }
+        message_type = "questions" if node_name in question_nodes else "body"
+ 
+        # UI flags
+        extra = {
+            "show_work_experience_ui": node_name == "store_work_experience_response" and node_data.get("show_work_experience_ui", False),
+            "show_education_ui":       node_name == "ask_education"          and node_data.get("show_education_ui", False),
+            "show_address_ui":         node_name == "ask_address"            and node_data.get("show_address_ui", False),
+            "show_gps_ui":             node_name == "ask_gps_verification"   and node_data.get("show_gps_ui", False),
+            "show_id_verify_ui":       False,
+            "id_verify_link":          "",
+        }
+ 
+        await send_message(msg, node_name, message_type, extra)
+ 
     try:
-        # CHECK IF STATE ALREADY EXISTS (reconnection)
+        # ── CHECK IF STATE ALREADY EXISTS (reconnection) ──────────────────────
         existing_state = await graph_app.aget_state(config)
-        
+ 
         if existing_state.values and existing_state.values.get("messages"):
-            # STATE EXISTS - This is a reconnection
             print(f"[RECONNECT] Existing state found for {session_id}, skipping initial workflow")
             print(f"[RECONNECT] Message count: {len(existing_state.values.get('messages', []))}")
-            
-            # Don't start new workflow, just wait for user input in while loop
         else:
-            # NEW SESSION - Start fresh workflow
+            # ── NEW SESSION — start fresh workflow ────────────────────────────
             print(f"[NEW SESSION] No existing state, starting new workflow for {session_id}")
-            
+ 
             initial_state = ChatbotState(
                 messages=[],
                 questions=job["questions"],
@@ -596,20 +688,16 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                 invalid_email_attempt="",
                 invalid_phone_attempt="",
                 acknowledgement_type="",
-                
                 delay_node_type="",
-                
                 knockout_passed=False,
                 current_knockout_failed=False,
                 brand_name=brand_name,
-
                 email_otp_code="",
                 email_otp_sent=False,
                 email_otp_sent_failed=False,
                 email_otp_timestamp=0,
                 email_verified=False,
                 email_otp_attempts=0,
-                
                 phone_otp_code="",
                 phone_otp_sent=False,
                 phone_otp_sent_failed=False,
@@ -617,25 +705,20 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                 phone_verified=False,
                 phone_otp_attempts=0,
                 phone_verify_session_uuid="",
-
-                # ID Verification
                 id_verify_link="",
                 id_verify_session_id="",
                 id_verified=False,
                 id_verify_failed=False,
                 show_id_verify_ui=False,
-
                 session_id=session_id,
                 job_id=job_id,
                 company_id=company_id,
                 is_live=is_live,
                 applicant_age="",
-                
                 work_experience=[],
                 show_work_experience_ui=False,
                 education_level="",
                 show_education_ui=False,
-
                 address={},
                 show_address_ui=False,
                 gps_lat=0.0,
@@ -645,517 +728,239 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                 gps_flag_reason="",
                 gps_distance_miles=0.0,
                 show_gps_ui=False,
-
                 job_type=job_type,
-
                 certifications=[],
                 military_served=False,
                 military_details={},
                 military_follow_up_done=False,
                 background_check_consented=False,
-
                 referral_source="",
                 education_year="",
-
                 question_acknowledgements=job.get("question_acknowledgements", {}),
             )
-            
-            # Start workflow with streaming (ONLY for new sessions)
+ 
             async for event in graph_app.astream(initial_state, config=config, stream_mode="updates"):
                 for node_name, node_data in event.items():
-                    # Log every node entered
                     await log_event(session_id, thread_id, node_name, "node_enter",
                                     {"state_keys": list(node_data.keys()) if node_data else []})
-
+ 
                     if node_data and "messages" in node_data:
                         messages = node_data["messages"]
-                        
-                        # Check if this is delay_messages_node
+ 
                         if node_name == "delay_messages":
-                            print("Processing delay_messages stage start...")
-                            
-                            for msg in messages[-2:]:   # only last two messages
-                                # Show typing for 1 second
-                                await websocket.send_json({"type": "typing"})
-                                await asyncio.sleep(0.5)
-                                
-                                print(msg.content)
-                                await asyncio.sleep(1)  # 1 second delay
-                                
+                            for msg in messages[-2:]:
                                 if isinstance(msg, AIMessage):
+                                    await websocket.send_json({"type": "typing"})
+                                    await asyncio.sleep(0.5)
+                                    await asyncio.sleep(1)
                                     await websocket.send_json({
-                                        "type": "ai_message",
-                                        "content": msg.content,
+                                        "type":        "ai_message",
+                                        "content":     msg.content,
                                         "messageType": "body"
                                     })
                                     await log_event(session_id, thread_id, node_name, "ai_message",
                                                     {"content": msg.content, "messageType": "body"})
                         else:
-                            # Normal processing - send last message only
                             msg = messages[-1]
-                            print(msg.content)
-                            
-                            # Show typing for 1 second
-                            await websocket.send_json({"type": "typing"})
-                            await asyncio.sleep(0.5)
-                            
                             if isinstance(msg, AIMessage):
+                                await websocket.send_json({"type": "typing"})
+                                await asyncio.sleep(0.5)
                                 await websocket.send_json({
-                                    "type": "ai_message",
-                                    "content": msg.content,
+                                    "type":        "ai_message",
+                                    "content":     msg.content,
                                     "messageType": "intro",
                                 })
                                 await log_event(session_id, thread_id, node_name, "ai_message",
                                                 {"content": msg.content, "messageType": "intro"})
-        
+ 
+        # ── MAIN WHILE LOOP ───────────────────────────────────────────────────
         while True:
-    
+ 
             # Check if workflow completed
             snapshot = await graph_app.aget_state(config)
             if not snapshot.next:
-                await websocket.send_json({
-                    "type": "workflow_complete",
-                })
+                await websocket.send_json({"type": "workflow_complete"})
                 await update_run_status(session_id, "completed", scoring_done=True)
                 break
-            
-            # print(f"[DEBUG] Waiting for message. Next nodes: {snapshot.next}")  # ADD DEBUG
-            
-            data = await websocket.receive_text()
+ 
+            data         = await websocket.receive_text()
             message_data = json.loads(data)
-
-            # Update activity timestamp
+ 
             if session_id in sessions:
                 sessions[session_id]["last_activity"] = time.time()
-            
-            print(f"[DEBUG] Received message: {message_data}")  # ADD DEBUG
-
-            # Handle state sync request (after reconnection)
+ 
+            print(f"[DEBUG] Received message: {message_data}")
+ 
+            # ── sync_state ────────────────────────────────────────────────────
             if message_data.get("type") == "sync_state":
                 print("[SYNC] Client requested state sync after reconnection")
-                
-                # Get current workflow state
                 current_state = await graph_app.aget_state(config)
-
-                # Get current position in workflow
-                snapshot = await graph_app.aget_state(config)
-                next_nodes = snapshot.next if snapshot else []
-
+                snapshot      = await graph_app.aget_state(config)
+                next_nodes    = snapshot.next if snapshot else []
                 print(f"[SYNC] Current next nodes: {next_nodes}")
-                print(f"[SYNC] Message count: {len(current_state.values.get('messages', []))}")
-                
-                # Send confirmation
                 await websocket.send_json({
-                    "type": "state_synced",
-                    "message": "Connection restored. You can continue where you left off.",
-                    "next_nodes": next_nodes
+                    "type":        "state_synced",
+                    "message":     "Connection restored. You can continue where you left off.",
+                    "next_nodes":  next_nodes
                 })
-                
                 continue
-            
-            # Handle pong response from client
+ 
+            # ── pong ──────────────────────────────────────────────────────────
             if message_data.get("type") == "pong":
                 print("[HEARTBEAT] Received pong from client")
-                continue  # Don't process as normal message
-            
-            # Handle ping from client (respond with pong)
+                continue
+ 
+            # ── ping ──────────────────────────────────────────────────────────
             if message_data.get("type") == "ping":
                 print("[HEARTBEAT] Received ping from client, sending pong")
                 await websocket.send_json({"type": "pong"})
                 continue
-            
-            # Handle address data from frontend autocomplete UI
+ 
+            # ── address_data ──────────────────────────────────────────────────
             if message_data.get("type") == "address_data":
                 address_payload = message_data.get("data", {})
-
                 print(f"Received address data: {address_payload}")
-
-                current_state = await graph_app.aget_state(config)
+ 
+                current_state    = await graph_app.aget_state(config)
                 current_messages = current_state.values.get("messages", [])
-
-                # Store address as JSON string in human message
                 import json as _json
-                address_message = _json.dumps(address_payload)
-
-                # Show friendly confirmation to user
-                display_address = address_payload.get("full", address_payload.get("street", "Address received"))
-
-                await graph_app.aupdate_state(
-                    config,
-                    {
-                        "address": address_payload,
-                        "messages": current_messages + [HumanMessage(content=address_message)]
-                    }
-                )
-
+                address_message  = _json.dumps(address_payload)
+                display_address  = address_payload.get("full", address_payload.get("street", "Address received"))
+ 
+                await graph_app.aupdate_state(config, {
+                    "address":  address_payload,
+                    "messages": current_messages + [HumanMessage(content=address_message)]
+                })
                 await log_event(session_id, thread_id, "store_address", "user_message",
                                 {"content": f"Address: {display_address}"})
-
-                # Resume workflow
+ 
                 async for event in graph_app.astream(None, config=config, stream_mode="updates"):
                     for node_name, node_data in event.items():
                         print(f"[DEBUG] Processing node: {node_name}")
                         await log_event(session_id, thread_id, node_name, "node_enter",
                                         {"state_keys": list(node_data.keys()) if node_data else []})
-
-                        if node_data and "messages" in node_data:
-                            messages = node_data["messages"]
-                            msg = messages[-1]
-
-                            messageType = "questions" if node_name in [
-                                "ask_gps_verification"
-                            ] else "body"
-
-                            show_gps_ui = (
-                                node_name == "ask_gps_verification" and
-                                node_data.get("show_gps_ui", False)
-                            )
-
-                            await websocket.send_json({"type": "typing"})
-                            await asyncio.sleep(0.5)
-
-                            if isinstance(msg, AIMessage):
-                                await websocket.send_json({
-                                    "type": "ai_message",
-                                    "content": msg.content,
-                                    "messageType": messageType,
-                                    "show_gps_ui": show_gps_ui
-                                })
-                                await log_event(session_id, thread_id, node_name, "ai_message",
-                                                {"content": msg.content, "messageType": messageType})
-
-                continue   # skip normal message processing
-
-
-            # Handle GPS coordinates from frontend location button
+                        await process_node(node_name, node_data)
+                continue
+ 
+            # ── gps_data ──────────────────────────────────────────────────────
             if message_data.get("type") == "gps_data":
                 gps_payload = message_data.get("data", {})
-
                 print(f"Received GPS data: lat={gps_payload.get('lat')}, lng={gps_payload.get('lng')}")
-
-                current_state = await graph_app.aget_state(config)
+ 
+                current_state    = await graph_app.aget_state(config)
                 current_messages = current_state.values.get("messages", [])
-
                 import json as _json
                 gps_message = _json.dumps(gps_payload)
-                
-                # Handle None explicitly (user skipped = lat/lng sent as null)
-                raw_lat = gps_payload.get("lat")
-                raw_lng = gps_payload.get("lng")
-                gps_lat = float(raw_lat) if raw_lat is not None else 0.0
-                gps_lng = float(raw_lng) if raw_lng is not None else 0.0
-                
-                await graph_app.aupdate_state(
-                    config,
-                    {
-                        "gps_lat": gps_lat,
-                        "gps_lng": gps_lng,
-                        "messages": current_messages + [HumanMessage(content=gps_message)]
-                    }
-                )
-
+                raw_lat     = gps_payload.get("lat")
+                raw_lng     = gps_payload.get("lng")
+                gps_lat     = float(raw_lat) if raw_lat is not None else 0.0
+                gps_lng     = float(raw_lng) if raw_lng is not None else 0.0
+ 
+                await graph_app.aupdate_state(config, {
+                    "gps_lat":  gps_lat,
+                    "gps_lng":  gps_lng,
+                    "messages": current_messages + [HumanMessage(content=gps_message)]
+                })
                 await log_event(session_id, thread_id, "process_gps", "user_message",
                                 {"content": f"GPS: lat={gps_lat}, lng={gps_lng}"})
-
-                # Resume workflow
+ 
                 async for event in graph_app.astream(None, config=config, stream_mode="updates"):
                     for node_name, node_data in event.items():
                         print(f"[DEBUG] Processing node: {node_name}")
                         await log_event(session_id, thread_id, node_name, "node_enter",
                                         {"state_keys": list(node_data.keys()) if node_data else []})
-
-                        if node_data and "messages" in node_data:
-                            messages = node_data["messages"]
-                            msg = messages[-1]
-
-                            messageType = "questions" if node_name in [
-                                "ask_question"
-                            ] else "body"
-
-                            await websocket.send_json({"type": "typing"})
-                            await asyncio.sleep(0.5)
-
-                            if isinstance(msg, AIMessage):
-                                await websocket.send_json({
-                                    "type": "ai_message",
-                                    "content": msg.content,
-                                    "messageType": messageType
-                                })
-                                await log_event(session_id, thread_id, node_name, "ai_message",
-                                                {"content": msg.content, "messageType": messageType})
-
-                continue   # skip normal message processing
-            
-            
-            # Handle work experience data submission
+                        await process_node(node_name, node_data)
+                continue
+ 
+            # ── work_experience_data ──────────────────────────────────────────
             if message_data.get("type") == "work_experience_data":
                 work_exp_data = message_data.get("data", [])
-                
                 print(f"Received work experiences: {work_exp_data}")
-                
-                # Get current state
-                current_state = await graph_app.aget_state(config)
+ 
+                current_state    = await graph_app.aget_state(config)
                 current_messages = current_state.values.get("messages", [])
-                
-                #Store all experiences (data is already an array)
-                # Format work experience message
+ 
                 if isinstance(work_exp_data, list):
                     experiences_text = ", ".join([
-                        f"{exp['role']} at {exp['company']} ({exp['startDate']} to {exp['endDate']})" 
+                        f"{exp['role']} at {exp['company']} ({exp['startDate']} to {exp['endDate']})"
                         for exp in work_exp_data
                     ])
                     work_exp_message = f"Work experience: {experiences_text}"
                 else:
-                    # Fallback for single experience (backward compatibility)
                     work_exp_message = f"Added: {work_exp_data['role']} at {work_exp_data['company']}"
-                
-                # Update state
-                await graph_app.aupdate_state(
-                    config,
-                    {
-                        "work_experience": work_exp_data if isinstance(work_exp_data, list) else [work_exp_data],
-                        "messages": current_messages + [HumanMessage(content=work_exp_message)]
-                    }
-                )
-
+ 
+                await graph_app.aupdate_state(config, {
+                    "work_experience": work_exp_data if isinstance(work_exp_data, list) else [work_exp_data],
+                    "messages":        current_messages + [HumanMessage(content=work_exp_message)]
+                })
                 await log_event(session_id, thread_id, "store_work_experience_response", "user_message",
                                 {"content": work_exp_message})
-    
-                # Continue workflow
+ 
                 async for event in graph_app.astream(None, config=config, stream_mode="updates"):
                     for node_name, node_data in event.items():
-                        print(f"[DEBUG] Processing node: {node_name}")  # ADD DEBUG
+                        print(f"[DEBUG] Processing node: {node_name}")
                         await log_event(session_id, thread_id, node_name, "node_enter",
                                         {"state_keys": list(node_data.keys()) if node_data else []})
-                        
-                        if node_data and "messages" in node_data:
-                            messages = node_data["messages"]
-                            
-                            if node_name == "delay_messages":
-                                print("Processing delay_messages after work exp...")
-                                
-                                for msg in messages[-2:]:
-                                    await websocket.send_json({"type": "typing"})
-                                    await asyncio.sleep(0.5)
-                                    print(msg.content)
-                                    await asyncio.sleep(1)
-                                    
-                                    if isinstance(msg, AIMessage):
-                                        await websocket.send_json({
-                                            "type": "ai_message",
-                                            "content": msg.content,
-                                            "messageType": "body"
-                                        })
-                                        await log_event(session_id, thread_id, node_name, "ai_message",
-                                                        {"content": msg.content, "messageType": "body"})
-                            else:
-                                messageType = "body"
-                                if node_name in ["ask_knockout_question", "ask_name", "ask_email", "ask_phone", "ask_question", "ask_work_experience", "ask_education", "ask_id_verification"]:
-                                    messageType = "questions"
-
-
-                                
-                                await websocket.send_json({"type": "typing"})
-                                await asyncio.sleep(0.5)
-                                
-                                msg = messages[-1]
-                                print(msg.content)
-                                if isinstance(msg, AIMessage):
-                                    
-                                    # Check if we should show work experience UI and education UI
-                                    show_ui = (node_name == "store_work_experience_response" and node_data.get("show_work_experience_ui", False))
-                                    show_edu_ui = (node_name == "ask_education" and node_data.get("show_education_ui", False))
-                                    show_address_ui = (node_name == "ask_address" and node_data.get("show_address_ui", False))  
-                                    show_gps_ui = (node_name == "ask_gps_verification" and node_data.get("show_gps_ui", False))
-
-                                    if node_name == "ask_id_verification":
-                                        for msg in messages[-3:]:
-                                            if isinstance(msg, AIMessage):
-                                                await websocket.send_json({"type": "typing"})
-                                                await asyncio.sleep(0.5)
-                                                # await asyncio.sleep(1.2)
-                                                is_last = (msg == messages[-1])
-                                                await websocket.send_json({
-                                                    "type": "ai_message",
-                                                    "content": msg.content,
-                                                    "messageType": "body",
-                                                    "show_id_verify_ui": is_last,
-                                                    "id_verify_link": node_data.get("id_verify_link", "") if is_last else "",
-                                                })
-                                                await log_event(session_id, thread_id, node_name, "ai_message",
-                                                                {"content": msg.content, "messageType": "body"})
-                                        continue
-                                    
-                                    show_id_verify_ui  = (node_name == "ask_id_verification"  and node_data.get("show_id_verify_ui", False))
-                                    id_verify_link     = node_data.get("id_verify_link", "") if show_id_verify_ui else ""
-                                    
-                                    await websocket.send_json({
-                                        "type": "ai_message",
-                                        "content": msg.content,
-                                        "messageType": messageType,
-                                        "show_work_experience_ui": show_ui,
-                                        "show_education_ui": show_edu_ui,
-                                        "show_address_ui": show_address_ui,  
-                                        "show_gps_ui": show_gps_ui,
-                                        "show_id_verify_ui": show_id_verify_ui,
-                                        "id_verify_link": id_verify_link,
-                                    })
-                                    await log_event(session_id, thread_id, node_name, "ai_message",
-                                                    {"content": msg.content, "messageType": messageType})
-                
-                continue  # Skip normal message processing
-            
+                        await process_node(node_name, node_data)
+                continue
+ 
+            # ── skip non-user messages ────────────────────────────────────────
             if message_data.get("type") != "user_message":
-                print(f"[DEBUG] Skipping non-user message type: {message_data.get('type')}")  # ADD DEBUG
+                print(f"[DEBUG] Skipping non-user message type: {message_data.get('type')}")
                 continue
-            
-            # Convert to string first
+ 
+            # ── user_message ──────────────────────────────────────────────────
             user_input = str(message_data.get("content") or "").strip()
-            
-            # print(f"[DEBUG] Processing user input: '{user_input}'")  # ADD DEBUG
-            
             if not user_input:
-                print(f"[DEBUG] Empty user input, skipping")  # ADD DEBUG
+                print("[DEBUG] Empty user input, skipping")
                 continue
-
-            # Log user message
+ 
             await log_event(session_id, thread_id, None, "user_message", {"content": user_input})
-            
-            current_state = await graph_app.aget_state(config)
+ 
+            current_state    = await graph_app.aget_state(config)
             current_messages = current_state.values.get("messages", [])
-            
-            # print(f"[DEBUG] Current messages count: {len(current_messages)}")  # ADD DEBUG
-                        
-            # Normal message processing
-            await graph_app.aupdate_state(
-                config,
-                {"messages": current_messages + [HumanMessage(content=user_input)]}
-            )
-            
-            print(f"[DEBUG] Resuming workflow after user message")  # ADD DEBUG
-            
-            # Resume workflow with streaming
+ 
+            await graph_app.aupdate_state(config, {
+                "messages": current_messages + [HumanMessage(content=user_input)]
+            })
+ 
+            print("[DEBUG] Resuming workflow after user message")
+ 
             async for event in graph_app.astream(None, config=config, stream_mode="updates"):
                 for node_name, node_data in event.items():
-                    print(f"[DEBUG] Processing node: {node_name}")  # ADD DEBUG
-
-                    # Log every node entered
+                    print(f"[DEBUG] Processing node: {node_name}")
                     await log_event(session_id, thread_id, node_name, "node_enter",
                                     {"state_keys": list(node_data.keys()) if node_data else []})
-
-                    # Mark scoring done when summary node runs
+ 
+                    # Status tracking
                     if node_name == "summary":
                         await update_run_status(session_id, "completed", scoring_done=True)
-
-                    # Mark knockout failed when evaluate_single_knockout fails
                     if node_name == "evaluate_single_knockout" and node_data:
                         if node_data.get("current_knockout_failed", False):
                             await update_run_status(session_id, "completed", knockout_failed=True)
-                    
-                    if node_data and "messages" in node_data:
-                        messages = node_data["messages"]
-                        
-                        # Check if this is delay_messages_node
-                        if node_name == "delay_messages":
-                            print("Processing delay_messages stage end...")
-
-                            for msg in messages[-2:]:   # only last two messages
-                                
-                                # Show typing for 1 second
-                                await websocket.send_json({"type": "typing"})
-                                await asyncio.sleep(0.5)
-                                
-                                print(msg.content)
-                                await asyncio.sleep(1)  # 1 second delay
-                                
-                                if isinstance(msg, AIMessage):
-                                    await websocket.send_json({
-                                        "type": "ai_message",
-                                        "content": msg.content,
-                                        "messageType": "body"
-                                    })
-                                    await log_event(session_id, thread_id, node_name, "ai_message",
-                                                    {"content": msg.content, "messageType": "body"})
-                        else:
-                            messageType = "body"
-                            
-                            if node_name in ["ask_knockout_question", "ask_name", "ask_email", "ask_phone", "ask_question", "ask_work_experience", "ask_education", "ask_id_verification"]:
-                                messageType = "questions"
-                            
-                            if node_name == "ask_id_verification":
-                                for msg in messages[-3:]:
-                                    if isinstance(msg, AIMessage):
-                                        await websocket.send_json({"type": "typing"})
-                                        
-                                        await asyncio.sleep(0.5)
-                                        
-                                        # await asyncio.sleep(1.2)
-                                        is_last = (msg == messages[-1])
-                                        await websocket.send_json({
-                                            "type": "ai_message",
-                                            "content": msg.content,
-                                            "messageType": "body",
-                                            "show_id_verify_ui": is_last,
-                                            "id_verify_link": node_data.get("id_verify_link", "") if is_last else "",
-                                        })
-                                        await log_event(session_id, thread_id, node_name, "ai_message",
-                                                        {"content": msg.content, "messageType": "body"})
-                                continue
-                            # Show typing for 1 second
-                            await websocket.send_json({"type": "typing"})
-                            await asyncio.sleep(0.5)
-                            
-                            msg = messages[-1]
-                            print(msg.content)
-                            if isinstance(msg, AIMessage):
-                                
-                                # Check if we should show work experience UI and education UI
-                                show_ui = (node_name == "store_work_experience_response" and node_data.get("show_work_experience_ui", False))
-                                show_edu_ui = (node_name == "ask_education" and node_data.get("show_education_ui", False))
-                                show_address_ui = (node_name == "ask_address" and node_data.get("show_address_ui", False))  
-                                show_gps_ui = (node_name == "ask_gps_verification" and node_data.get("show_gps_ui", False))
-
-                                show_id_verify_ui  = (node_name == "ask_id_verification"  and node_data.get("show_id_verify_ui", False))
-                                id_verify_link     = node_data.get("id_verify_link", "") if show_id_verify_ui else ""
-                                
-                                await websocket.send_json({
-                                    "type": "ai_message",
-                                    "content": msg.content,
-                                    "messageType": messageType,
-                                    "show_work_experience_ui": show_ui,
-                                    "show_education_ui": show_edu_ui,
-                                    "show_address_ui": show_address_ui,
-                                    "show_gps_ui": show_gps_ui,
-                                    "show_id_verify_ui": show_id_verify_ui,
-                                    "id_verify_link": id_verify_link, 
-                                })
-                                await log_event(session_id, thread_id, node_name, "ai_message",
-                                                {"content": msg.content, "messageType": messageType})
-    
+ 
+                    await process_node(node_name, node_data)
+ 
     except WebSocketDisconnect:
         print(f"Client disconnected: {session_id}")
         sessions[session_id]["active"] = False
-        heartbeat_task.cancel()  # Cancel heartbeat on disconnect
+        heartbeat_task.cancel()
         await update_run_status(session_id, "completed")
-    
+ 
     except Exception as e:
-        error_details = _tb.format_exc()  # Get full error trace
+        error_details = _tb.format_exc()
         print(f"Error in WebSocket: {e}")
         print(f"Full traceback:\n{error_details}")
-        heartbeat_task.cancel()  # Cancel heartbeat on error
+        heartbeat_task.cancel()
         await log_error(session_id, thread_id, None, e)
         await update_run_status(session_id, "errored", error_detail=error_details[:2000])
-        await websocket.send_json({
-            "type": "error",
-            "message": str(e)
-        })
+        await websocket.send_json({"type": "error", "message": str(e)})
         await websocket.close()
-
+ 
     finally:
-        # Ensure heartbeat is cancelled
         if not heartbeat_task.done():
             heartbeat_task.cancel()
-
+ 
 
 # ══════════════════════════════════════════════════════════════════════════════
 # ADMIN ROUTER
