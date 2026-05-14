@@ -26,12 +26,11 @@ JOB_CONFIGS = {
             "Do you have reliable transportation to and from our location at {address}?"
         ],
         "questions": [
-            "We are looking for people with at least one year of server experience. Does that sound like you?"
+            "We are looking for people with at least one year of server experience. Does that sound like you?",
             "Are you experienced with table service dining standards — things like setting tables for service, attention to detail, and handling multiple courses?",
             "Are you willing to provide friendly, attentive, and personalized service?",
             "Are you comfortable guiding guests through the menu and answering questions about ingredients or pairings?",
             "Our residents are at the heart of everything we do. Are you comfortable and patient when working closely with seniors?",
-
         ],
         "scoring_model": {
             # ── Basic Requirements (5 each) ──────────────────────────────────────

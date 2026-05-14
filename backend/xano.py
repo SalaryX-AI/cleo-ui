@@ -62,10 +62,12 @@ def send_applicant_to_xano(
     
     try:
         # Determine status
-        status = "HR Manager Review" if score >= 50 else "Rejected"
+        status = "HR Manager Review" if score >= 50 else "Rejected by Cleo"
 
         # Format conversation as JSON string
         conversation_json = json.dumps(conversation_history)
+
+        print(f"Conversation History: {conversation_json}")
 
         # Generate PDF (using summary from JSON report)
         summary = json_report.get("fit_score", {}).get("explanation", "No summary available")

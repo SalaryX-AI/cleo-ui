@@ -218,7 +218,7 @@ def delay_messages_node(state: ChatbotState) -> ChatbotState:
         delay_messages = {
             "greeting": [
                 "Our employees are the heart of Sinai Residences — a five-star senior living community in Boca Raton.",
-                "I just need to ask a few quick screening questions, it should only take a few 2 minutes. Ready? (You can type 'Stop' anytime.)"
+                "I just need to ask a few quick screening questions, it should only take 2-3 minutes. Ready? (You can type 'Stop' anytime.)"
             ],
             "end": [
                 "Our hiring team is now reviewing your profile. If your experience is a match, we'll reach out via email or phone to discuss the next steps.",
@@ -231,7 +231,7 @@ def delay_messages_node(state: ChatbotState) -> ChatbotState:
         delay_messages = {
             "greeting": [
                 "Thanks for your interest — we're a friendly, locally-owned team. My job is to make your application process super fast and easy.",
-                "I just need to ask a few quick screening questions, it should only take a few 2 minutes. Are you ready to jump in? (You can type 'Stop' anytime.)"
+                "I just need to ask a few quick screening questions, it should only take 2-3 minutes. Are you ready to jump in? (You can type 'Stop' anytime.)"
             ],
             "end": [
                 "Our hiring team will take it from here. Your application will be carefully reviewed. If you are selected to move forward, we will contact you via email or phone to schedule an interview or conduct a brief background check prior to scheduling the interview.",
@@ -1143,7 +1143,7 @@ def send_email_otp_node(state: ChatbotState) -> ChatbotState:
     
     # Generate OTP
     otp_code = generate_otp()
-    # otp_code = "123456"  # For testing
+    # otp_code = "444444"  # For testing
     
     # Store in state
     state["email_otp_code"] = otp_code
@@ -1268,7 +1268,7 @@ def send_phone_otp_node(state: ChatbotState) -> ChatbotState:
     
     phone = state["personal_details"].get("phone", "")
 
-    otp_code = "123456"  # For testing
+    otp_code = "444444"  # For testing
     state["phone_otp_code"] = otp_code
 
     # Create Plivo Verify session (Plivo generates + sends OTP internally)
@@ -1317,7 +1317,7 @@ def verify_phone_otp_node(state: ChatbotState) -> ChatbotState:
 
         otp_input = user_input.strip()
 
-        # ── TESTING MODE: static OTP "123456" ────────────────────────────────
+        # ── TESTING MODE: static OTP ────────────────────────────────
         stored_otp = state.get("phone_otp_code", "")
         is_valid = (otp_input == stored_otp)
         error = "none" if is_valid else "incorrect"

@@ -51,6 +51,7 @@ def send_email_otp(email: str, code: str, brand_name: str, user_name: str = "the
     """
     
     print("send_email_otp function called...")
+    print("Data received - Email:", email, "Code:", code, "Brand Name:", brand_name, "User Name:", user_name)
 
     try:
         if not BREVO_API_KEY:
