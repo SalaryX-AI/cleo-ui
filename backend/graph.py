@@ -1,6 +1,4 @@
 """Main graph implementation for Cleo screening chatbot with human-in-the-loop"""
-
-
 import asyncio
 from datetime import datetime
 import json
@@ -174,6 +172,8 @@ class ChatbotState(MessagesState):
     referral_source: str = ""
     education_year: str = ""
 
+    question_acknowledgements: Dict[str, str] = {}
+
 
 # ==================== Acknowledgement ====================
 def acknowledge_node(state: ChatbotState) -> ChatbotState:
@@ -218,7 +218,7 @@ def delay_messages_node(state: ChatbotState) -> ChatbotState:
         delay_messages = {
             "greeting": [
                 "Our employees are the heart of Sinai Residences — a five-star senior living community in Boca Raton.",
-                "I just need to ask a few quick screening questions, it should only take 2-3 minutes. Ready? (You can type 'Stop' anytime.)"
+                "I just need to ask a few quick screening questions, it should only take a couple of minutes. Ready to start? (You can type 'Stop' anytime.)"
             ],
             "end": [
                 "Our hiring team is now reviewing your profile. If your experience is a match, we'll reach out via email or phone to discuss the next steps.",
@@ -231,7 +231,7 @@ def delay_messages_node(state: ChatbotState) -> ChatbotState:
         delay_messages = {
             "greeting": [
                 "Thanks for your interest — we're a friendly, locally-owned team. My job is to make your application process super fast and easy.",
-                "I just need to ask a few quick screening questions, it should only take 2-3 minutes. Are you ready to jump in? (You can type 'Stop' anytime.)"
+                "I just need to ask a few quick screening questions, it should only take a couple of minutes. Ready to start? (You can type 'Stop' anytime.)"
             ],
             "end": [
                 "Our hiring team will take it from here. Your application will be carefully reviewed. If you are selected to move forward, we will contact you via email or phone to schedule an interview or conduct a brief background check prior to scheduling the interview.",
@@ -321,8 +321,9 @@ def ready_router(state: ChatbotState) -> Literal["ask_knockout_question", "__end
         return "ask_knockout_question"
     return "__end__" # go directly to END
 
-# ==================== knockout questions ============================
 
+
+# ==================== knockout questions ============================
 def ask_knockout_question_node(state: ChatbotState) -> ChatbotState:
     """Ask knockout questions"""
     
@@ -487,6 +488,67 @@ def single_knockout_router(state: ChatbotState) -> Literal["ask_knockout_questio
     # All questions passed
     return "ask_question"  # Continue to work experience
 
+
+# ==================== QUESTIONS LOOP ====================
+def ask_question_node(state: ChatbotState) -> ChatbotState:
+    """Ask screening question"""
+    
+    print("ask_question_node called")
+    
+    idx = state["current_question_index"]
+    questions = state["questions"] 
+    
+    if idx < len(questions):
+        question = questions[idx]        
+        
+        # prompt = ASK_QUESTION_PROMPT.format(
+        #     question=question,
+        #     previous_question = questions[idx-1] if idx > 0 else "None",
+        #     previous_answer = state["answers"][questions[idx-1]] if idx > 0 else "None",
+        #     )
+        
+        # response = llm.invoke(prompt)
+        # state["messages"].append(AIMessage(content=response.content))
+        
+        state["messages"].append(AIMessage(content=question))
+    
+    return state
+
+
+def store_answer_node(state: ChatbotState) -> ChatbotState:
+    print("store_answer_node called")
+
+    messages = state["messages"]
+    last_message = messages[-1] if messages else None
+
+    if isinstance(last_message, HumanMessage):
+        idx = state["current_question_index"]
+        if idx < len(state["questions"]):
+            question = state["questions"][idx]
+            state["answers"][question] = last_message.content
+            state["current_question_index"] += 1
+
+            # Send acknowledgement if configured for this question
+            ack = state.get("question_acknowledgements", {}).get(question, "")
+            if ack:
+                state["messages"].append(AIMessage(content=ack))
+
+    return state
+
+
+def question_router(state: ChatbotState) -> Literal["ask_question", "ask_address"]:
+    """Route to next question or scoring"""
+    
+    print("question_router called")
+    
+    if state["current_question_index"] < len(state["questions"]):
+        return "ask_question"
+    
+    # if state.get("job_type") == "server":
+    #     return "ask_name"
+
+    return "ask_address"
+
 # ================================= ADDRESS =========================================
 
 def ask_address_node(state: ChatbotState) -> ChatbotState:
@@ -619,6 +681,502 @@ def gps_router(state: ChatbotState) -> Literal["ask_name"]:
     # Always continue to questions regardless of flag
     # Flag is stored in state for XANO/hiring manager review
     return "ask_name"
+
+
+# ==================== PERSONAL DETAILS COLLECTION ====================
+
+def ask_name_node(state: ChatbotState) -> ChatbotState:
+    """Ask for name"""
+    
+    print("ask_name_node called")
+
+    ask_name = cleo_engagement.ask_name
+
+    state["messages"].append(AIMessage(content=ask_name))
+    
+    return state
+
+
+def store_name_node(state: ChatbotState) -> ChatbotState:
+    """Store name from user input"""
+    
+    print("store_name_node called")
+    
+    messages = state["messages"]
+    last_message = messages[-1] if messages else None
+    
+    if isinstance(last_message, HumanMessage):
+        state["personal_details"]["name"] = last_message.content
+    
+    return state
+
+
+# ==================== EMAIL COLLECTION ====================
+def ask_email_node(state: ChatbotState) -> ChatbotState:
+    """Ask for email (or re-ask if validation failed)"""
+    
+    print("ask_email_node called")
+    
+     # Check if validation failed
+    if state.get("email_validation_failed"):
+        
+        # Check attempt count
+        if state.get("email_attempt_count", 0) >= 3:
+            
+            # After 3 attempts, show example
+            prompt = PERSONAL_DETAIL_REASK_WITH_EXAMPLE_PROMPT.format(
+                detail_type="email",
+                invalid_attempt=state.get("invalid_email_attempt"),
+                example="john.doe@example.com"
+            )
+        else:
+            
+            # Normal re-ask (no example)
+            prompt = PERSONAL_DETAIL_REASK_PROMPT.format(
+                detail_type="email",
+                invalid_attempt=state.get("invalid_email_attempt")
+            )
+    else:
+        if state.get("email_otp_sent_failed") == True:
+            state["messages"].append(AIMessage(content="Kindly enter your email address again (example: john.doe@example.com)"))
+
+            state["email_otp_sent_failed"] = False
+            return state
+        
+        # Use normal ask prompt
+        prompt = PERSONAL_DETAIL_ASK_PROMPT.format(
+            detail_type="email",
+            previous_question="What is your full name?",
+            previous_answer=state["personal_details"].get("name", "None")
+        )
+    
+    # Use the chat template
+    messages = chat_template.format_messages(user_input=prompt)
+    response = llm.invoke(messages)    
+    
+    state["messages"].append(AIMessage(content=response.content))
+    
+    return state
+
+
+def store_email_node(state: ChatbotState) -> ChatbotState:
+    """Store email from user input with validation"""
+    
+    print("store_email_node called")
+
+    messages = state["messages"]
+    last_message = messages[-1] if messages else None
+    
+    if isinstance(last_message, HumanMessage):
+        user_text = last_message.content.strip()
+
+        # Extract email using LLM
+        email = extract_email_from_text(user_text)
+        
+        print(f"Original input: {user_text}")  # Debug
+        print(f"Extracted email: {email}")  # Debug
+        
+        # Validate email
+        if validate_email(email):
+            # Valid - store it
+            state["personal_details"]["email"] = email
+            state["email_validation_failed"] = False
+            state["invalid_email_attempt"] = ""
+
+            state["email_attempt_count"] = 0  # Reset counter
+            
+            print("Valid email stored:", email)
+        else:
+            # Invalid - set flag to re-ask
+            state["email_validation_failed"] = True
+            state["invalid_email_attempt"] = email
+
+            state["email_attempt_count"] += 1  # Increment counter
+            
+            print("Invalid email detected:", email)
+    
+    return state
+
+
+def email_router(state: ChatbotState) -> Literal["ask_email", "send_email_otp"]:
+    """Check if email is valid, re-ask or continue"""
+    
+    print("email_router called")
+    
+    if state.get("email_validation_failed"):
+        return "ask_email"  # Re-ask for email
+    return "send_email_otp"  # Continue to email OTP verification
+
+
+# ==================== PHONE COLLECTION ====================
+
+def ask_phone_node(state: ChatbotState) -> ChatbotState:
+    """Ask for phone (or re-ask if validation failed)"""
+    
+    print("ask_phone_node called")
+
+    # Check if validation failed
+    if state.get("phone_validation_failed"):
+         
+        # Check attempt count
+        if state.get("phone_attempt_count") >= 3:
+            # After 3 attempts, show example
+            prompt = PERSONAL_DETAIL_REASK_WITH_EXAMPLE_PROMPT.format(
+                detail_type="phone number",
+                invalid_attempt=state.get("invalid_phone_attempt"),
+                example="+1-234-567-8900"
+            )
+
+            # Use the chat template
+            messages = chat_template.format_messages(user_input=prompt)
+            response = llm.invoke(messages)
+            
+            state["messages"].append(AIMessage(content=response.content))
+        else:
+            # Normal re-ask (no example)
+            prompt = PERSONAL_DETAIL_REASK_PROMPT.format(
+                detail_type="phone number",
+                invalid_attempt=state.get("invalid_phone_attempt")
+            )
+
+            # Use the chat template
+            messages = chat_template.format_messages(user_input=prompt)
+            response = llm.invoke(messages)
+            
+            state["messages"].append(AIMessage(content=response.content))
+    else:
+        # Use normal ask prompt
+        ask_phone = cleo_engagement.ask_phone
+        state["messages"].append(AIMessage(content=ask_phone))
+    
+    return state
+
+
+def store_phone_node(state: ChatbotState) -> ChatbotState:
+    """Store phone from user input with validation"""
+    
+    print("store_phone_node called")
+    
+    messages = state["messages"]
+    last_message = messages[-1] if messages else None
+    
+    if isinstance(last_message, HumanMessage):
+        user_text = last_message.content.strip()
+
+        # Extract phone using LLM
+        phone = extract_phone_from_text(user_text)
+        
+        print(f"Original input: {user_text}")  # Debug
+        print(f"Extracted phone: {phone}")  # Debug
+
+        # Normalize phone to E.164 format
+        if phone:
+            if phone.startswith('+'):
+                # Case 1: Already has + prefix (+1 or +92) — do nothing
+                pass
+            elif phone.startswith('0'):
+                # Case 2: local format with leading 0 — remove 0, add +92
+                phone = '+92' + phone[1:]
+            elif phone.startswith('92') or phone.startswith('1'):
+                # Case 3: has country code digits but no + — just add +
+                phone = '+' + phone
+            else:
+                # Case 4: any other number — assume US, add +1
+                phone = '+1' + phone
+
+        # Validate phone
+        if validate_phone(phone):
+            print("Phone Number is Valid:", phone)
+            
+            # Valid - store it
+            state["personal_details"]["phone"] = phone
+            state["phone_validation_failed"] = False
+            state["invalid_phone_attempt"] = ""
+
+            state["phone_attempt_count"] = 0  # Reset counter
+
+            state["acknowledgement_type"] = "questions"
+
+        else:
+            print("Phone Number is Invalid:", phone)
+            # Invalid - set flag to re-ask
+            state["phone_validation_failed"] = True
+            state["invalid_phone_attempt"] = phone
+
+            state["phone_attempt_count"] += 1  # Increment counter
+    
+    return state
+
+
+def phone_router(state: ChatbotState) -> Literal["ask_phone", "send_phone_otp"]:
+    """Check if phone is valid, re-ask or continue"""
+    
+    print("phone_router called")
+    
+    if state.get("phone_validation_failed", False):
+        return "ask_phone"  # Re-ask for phone
+    
+    return "send_phone_otp"  # Continue to phone OTP verification
+
+
+# ==================== EMAIL OTP VERIFICATION NODES ====================
+
+def send_email_otp_node(state: ChatbotState) -> ChatbotState:
+    """Generate and send OTP to email"""
+    
+    print("send_email_otp_node called")
+    
+    email = state["personal_details"].get("email", "")
+    user_name = state["personal_details"].get("name")
+    
+    # Generate OTP
+    # otp_code = generate_otp()
+    otp_code = "444444"  # For testing
+    
+    # Store in state
+    state["email_otp_code"] = otp_code
+    state["email_otp_timestamp"] = time.time()
+    brand_name = state.get("brand_name")
+    
+    # Send email
+    # success = send_email_otp(email, otp_code, brand_name, user_name)
+    success = True  # For testing
+    
+    if success:
+        message = f"Okay, I've just sent a 6-digit verification code to {email}. Please check your inbox (and spam folder)"
+        state["email_otp_sent"] = True
+    else:
+        message = cleo_engagement.otp_failure_message
+        state["email_otp_sent_failed"] = True
+    
+    state["messages"].append(AIMessage(content=message))
+    
+    return state
+
+
+def ask_email_otp_node(state: ChatbotState) -> ChatbotState:
+    """Ask user to enter email OTP code"""
+    
+    print("ask_email_otp_node called")
+
+    state["messages"].append(AIMessage(content=cleo_engagement.ask_email_otp))
+    
+    return state
+
+
+def verify_email_otp_node(state: ChatbotState) -> ChatbotState:
+    """Verify the email OTP code entered by user"""
+    
+    print("verify_email_otp_node called")
+    
+    messages = state["messages"]
+    last_message = messages[-1] if messages else None
+    
+    if isinstance(last_message, HumanMessage):
+        user_input = last_message.content.strip()
+        
+        # Check for resend request
+        if user_input.lower() in ["resend", "send again", "resend code"]:
+            state["email_otp_attempts"] = 0  # Reset attempts for resend
+            # Will trigger resend in router
+            return state
+        
+        # Verify OTP
+        stored_code = state.get("email_otp_code", "")
+        timestamp = state.get("email_otp_timestamp", 0)
+        
+        is_valid, error = verify_otp(user_input, stored_code, timestamp, "email")
+        
+        if is_valid:
+            state["email_verified"] = True
+            state["messages"].append(AIMessage(content=cleo_engagement.email_success_message))
+        else:
+            state["email_otp_attempts"] += 1
+            attempts = state["email_otp_attempts"]
+            
+            if error == "expired":
+                state["messages"].append(AIMessage(content=cleo_engagement.otp_expired_message))
+                
+                state["email_otp_attempts"] = 0  # Reset for resend
+            elif error == "invalid_format":
+                state["messages"].append(AIMessage(content="Please enter a 6-digit code (numbers only)."))
+            elif error == "incorrect":
+                if attempts >= 3:
+                    state["messages"].append(AIMessage(content=cleo_engagement.email_otp_failure_message))
+                else:
+                    state["messages"].append(AIMessage(
+                        content=f"Hmm, that code didn't work. Please enter a correct 6-digit code (numbers only). (Attempt {attempts}/3)"
+                    ))
+    
+    return state
+
+
+def email_otp_router(state: ChatbotState) -> Literal["ask_phone", "send_email_otp", "ask_email", "ask_email_otp"]:
+    """Route based on email OTP verification status"""
+    
+    print("email_otp_router called")
+
+    if state.get("email_otp_sent_failed") == True:
+        return "ask_email"
+    
+    # Check if verified
+    if state.get("email_verified"):
+        return "ask_phone"
+    
+    # Check if need to resend (expired or user requested)
+    messages = state["messages"]
+    last_message = messages[-1] if messages else None
+    
+    if isinstance(last_message, HumanMessage):
+        user_input = last_message.content.strip().lower()
+        if "resend" in user_input or "send again" in user_input:
+            return "send_email_otp"
+    
+    # Check if expired
+    if is_otp_expired(state.get("email_otp_timestamp", 0), "email"):
+        return "send_email_otp"
+    
+    # Check if too many attempts
+    if state.get("email_otp_attempts") >= 3:
+        # Reset and ask for email again
+        state["email_otp_attempts"] = 0
+        state["email_validation_failed"] = True
+        return "ask_email"
+    
+    # Continue asking for OTP
+    return "ask_email_otp"
+
+
+# ==================== PHONE OTP VERIFICATION NODES ====================
+
+def send_phone_otp_node(state: ChatbotState) -> ChatbotState:
+    """Generate and send OTP to phone via SMS"""
+    
+    print("send_phone_otp_node called")
+    
+    phone = state["personal_details"].get("phone", "")
+
+    otp_code = "444444"  # For testing
+    state["phone_otp_code"] = otp_code
+
+    # Create Plivo Verify session (Plivo generates + sends OTP internally)
+    # session_uuid = create_phone_verify_session(phone)
+
+    # if session_uuid:
+    #     state["phone_verify_session_uuid"] = session_uuid
+    #     state["phone_otp_sent"] = True
+    #     message = f"I'm sending a verification text with a 6-digit code to {phone} now. Please check your messages."
+    # else:
+    #     state["phone_otp_sent_failed"] = True
+    #     message = cleo_engagement.otp_failure_message
+    
+    # state["messages"].append(AIMessage(content=message))
+    state["messages"].append(AIMessage(content=f"I'm sending a verification text with a 6-digit code to {phone} now. Please check your messages."))  # for testing without Plivo
+    
+    return state
+
+
+def ask_phone_otp_node(state: ChatbotState) -> ChatbotState:
+    """Ask user to enter phone OTP code"""
+    
+    print("ask_phone_otp_node called")
+
+    if state.get("phone_otp_attempts") >= 1:
+        state["messages"].append(AIMessage(content="I can also resend the text. Just type 'resend' if you want me to send it again."))
+    else:
+        state["messages"].append(AIMessage(content=cleo_engagement.ask_phone_otp))
+    
+    return state
+
+
+def verify_phone_otp_node(state: ChatbotState) -> ChatbotState:
+    print("verify_phone_otp_node called")
+
+    messages = state["messages"]
+    last_message = messages[-1] if messages else None
+
+    if isinstance(last_message, HumanMessage):
+        user_input = last_message.content.strip()
+
+        # Check for resend request
+        if user_input.lower() in ["resend", "send again", "resend code"]:
+            state["phone_otp_attempts"] = 0
+            return state
+
+        otp_input = user_input.strip()
+
+        # ── TESTING MODE: static OTP ────────────────────────────────
+        stored_otp = state.get("phone_otp_code", "")
+        is_valid = (otp_input == stored_otp)
+        error = "none" if is_valid else "incorrect"
+
+        # ── PRODUCTION MODE: uncomment below ──────────────────────────────────────
+        # if not otp_input.isdigit() or len(otp_input) != 6:
+        #     state["messages"].append(AIMessage(content="Please enter a 6-digit code (numbers only)."))
+        #     return state
+        # session_uuid = state.get("phone_verify_session_uuid", "")
+        # is_valid, error = validate_phone_otp(session_uuid, otp_input)
+        # ─────────────────────────────────────────────────────────────────────
+
+        if is_valid:
+            state["phone_verified"] = True
+            state["acknowledgement_type"] = "questions"
+        else:
+            state["phone_otp_attempts"] += 1
+            attempts = state["phone_otp_attempts"]
+
+            if error == "expired":
+                state["messages"].append(AIMessage(content=cleo_engagement.otp_expired_message))
+                state["phone_otp_attempts"] = 0
+            elif error == "incorrect":
+                if attempts >= 3:
+                    state["messages"].append(AIMessage(content=cleo_engagement.phone_otp_failure_message))
+                else:
+                    state["messages"].append(AIMessage(
+                        content=f"The code was incorrect. Kindly enter the correct code. (Attempt {attempts}/3)"
+                    ))
+            else:
+                state["messages"].append(AIMessage(content=cleo_engagement.otp_failure_message))
+
+    return state
+
+
+def phone_otp_router(state: ChatbotState) -> Literal["acknowledgement","send_phone_otp", "ask_phone", "ask_phone_otp", "__end__"]:
+    """Route based on phone OTP verification status"""
+    
+    print("phone_otp_router called")
+
+    if state.get("phone_otp_sent_failed") == True:
+        print("Phone OTP not sent yet, asking for phone again.")
+        return "acknowledgement"
+
+    # Check if verified
+    if state.get("phone_verified", False):
+        return "acknowledgement"
+    
+    # Check if need to resend (expired or user requested)
+    messages = state["messages"]
+    last_message = messages[-1] if messages else None
+    
+    if isinstance(last_message, HumanMessage):
+        user_input = last_message.content.strip().lower()
+        if "resend" in user_input or "send again" in user_input:
+            return "send_phone_otp"
+    
+    # # Check if expired
+    # if is_otp_expired(state.get("phone_otp_timestamp", 0), "phone"):
+    #     return "send_phone_otp"
+    
+    # Check if too many attempts
+    if state.get("phone_otp_attempts", 0) >= 3:
+        # Reset and ask for phone again
+        state["phone_otp_attempts"] = 0
+        state["phone_validation_failed"] = True
+        return "ask_phone"
+    
+    # Continue asking for OTP
+    return "ask_phone_otp"
+
 
 # ==================== WORK EXPERIENCE COLLECTION ====================
 
@@ -895,502 +1453,6 @@ def background_check_router(state: ChatbotState) -> Literal["ask_id_verification
 
 
 
-# ==================== PERSONAL DETAILS COLLECTION ====================
-
-def ask_name_node(state: ChatbotState) -> ChatbotState:
-    """Ask for name"""
-    
-    print("ask_name_node called")
-
-    ask_name = cleo_engagement.ask_name
-
-    state["messages"].append(AIMessage(content=ask_name))
-    
-    return state
-
-
-def store_name_node(state: ChatbotState) -> ChatbotState:
-    """Store name from user input"""
-    
-    print("store_name_node called")
-    
-    messages = state["messages"]
-    last_message = messages[-1] if messages else None
-    
-    if isinstance(last_message, HumanMessage):
-        state["personal_details"]["name"] = last_message.content
-    
-    return state
-
-
-# ==================== EMAIL COLLECTION ====================
-def ask_email_node(state: ChatbotState) -> ChatbotState:
-    """Ask for email (or re-ask if validation failed)"""
-    
-    print("ask_email_node called")
-    
-     # Check if validation failed
-    if state.get("email_validation_failed"):
-        
-        # Check attempt count
-        if state.get("email_attempt_count", 0) >= 3:
-            
-            # After 3 attempts, show example
-            prompt = PERSONAL_DETAIL_REASK_WITH_EXAMPLE_PROMPT.format(
-                detail_type="email",
-                invalid_attempt=state.get("invalid_email_attempt"),
-                example="john.doe@example.com"
-            )
-        else:
-            
-            # Normal re-ask (no example)
-            prompt = PERSONAL_DETAIL_REASK_PROMPT.format(
-                detail_type="email",
-                invalid_attempt=state.get("invalid_email_attempt")
-            )
-    else:
-        if state.get("email_otp_sent_failed") == True:
-            state["messages"].append(AIMessage(content="Kindly enter your email address again (example: john.doe@example.com)"))
-
-            state["email_otp_sent_failed"] = False
-            return state
-        
-        # Use normal ask prompt
-        prompt = PERSONAL_DETAIL_ASK_PROMPT.format(
-            detail_type="email",
-            previous_question="What is your full name?",
-            previous_answer=state["personal_details"].get("name", "None")
-        )
-    
-    # Use the chat template
-    messages = chat_template.format_messages(user_input=prompt)
-    response = llm.invoke(messages)    
-    
-    state["messages"].append(AIMessage(content=response.content))
-    
-    return state
-
-
-def store_email_node(state: ChatbotState) -> ChatbotState:
-    """Store email from user input with validation"""
-    
-    print("store_email_node called")
-
-    messages = state["messages"]
-    last_message = messages[-1] if messages else None
-    
-    if isinstance(last_message, HumanMessage):
-        user_text = last_message.content.strip()
-
-        # Extract email using LLM
-        email = extract_email_from_text(user_text)
-        
-        print(f"Original input: {user_text}")  # Debug
-        print(f"Extracted email: {email}")  # Debug
-        
-        # Validate email
-        if validate_email(email):
-            # Valid - store it
-            state["personal_details"]["email"] = email
-            state["email_validation_failed"] = False
-            state["invalid_email_attempt"] = ""
-
-            state["email_attempt_count"] = 0  # Reset counter
-            
-            print("Valid email stored:", email)
-        else:
-            # Invalid - set flag to re-ask
-            state["email_validation_failed"] = True
-            state["invalid_email_attempt"] = email
-
-            state["email_attempt_count"] += 1  # Increment counter
-            
-            print("Invalid email detected:", email)
-    
-    return state
-
-
-def email_router(state: ChatbotState) -> Literal["ask_email", "send_email_otp"]:
-    """Check if email is valid, re-ask or continue"""
-    
-    print("email_router called")
-    
-    if state.get("email_validation_failed"):
-        return "ask_email"  # Re-ask for email
-    return "send_email_otp"  # Continue to email OTP verification
-
-
-# ==================== PHONE COLLECTION ====================
-
-def ask_phone_node(state: ChatbotState) -> ChatbotState:
-    """Ask for phone (or re-ask if validation failed)"""
-    
-    print("ask_phone_node called")
-
-    # Check if validation failed
-    if state.get("phone_validation_failed"):
-         
-        # Check attempt count
-        if state.get("phone_attempt_count") >= 3:
-            # After 3 attempts, show example
-            prompt = PERSONAL_DETAIL_REASK_WITH_EXAMPLE_PROMPT.format(
-                detail_type="phone number",
-                invalid_attempt=state.get("invalid_phone_attempt"),
-                example="+1-234-567-8900"
-            )
-
-            # Use the chat template
-            messages = chat_template.format_messages(user_input=prompt)
-            response = llm.invoke(messages)
-            
-            state["messages"].append(AIMessage(content=response.content))
-        else:
-            # Normal re-ask (no example)
-            prompt = PERSONAL_DETAIL_REASK_PROMPT.format(
-                detail_type="phone number",
-                invalid_attempt=state.get("invalid_phone_attempt")
-            )
-
-            # Use the chat template
-            messages = chat_template.format_messages(user_input=prompt)
-            response = llm.invoke(messages)
-            
-            state["messages"].append(AIMessage(content=response.content))
-    else:
-        # Use normal ask prompt
-        ask_phone = cleo_engagement.ask_phone
-        state["messages"].append(AIMessage(content=ask_phone))
-    
-    return state
-
-
-def store_phone_node(state: ChatbotState) -> ChatbotState:
-    """Store phone from user input with validation"""
-    
-    print("store_phone_node called")
-    
-    messages = state["messages"]
-    last_message = messages[-1] if messages else None
-    
-    if isinstance(last_message, HumanMessage):
-        user_text = last_message.content.strip()
-
-        # Extract phone using LLM
-        phone = extract_phone_from_text(user_text)
-        
-        print(f"Original input: {user_text}")  # Debug
-        print(f"Extracted phone: {phone}")  # Debug
-
-        # Normalize phone to E.164 format
-        if phone:
-            if phone.startswith('+'):
-                # Case 1: Already has + prefix (+1 or +92) — do nothing
-                pass
-            elif phone.startswith('0'):
-                # Case 2: local format with leading 0 — remove 0, add +92
-                phone = '+92' + phone[1:]
-            elif phone.startswith('92') or phone.startswith('1'):
-                # Case 3: has country code digits but no + — just add +
-                phone = '+' + phone
-            else:
-                # Case 4: any other number — assume US, add +1
-                phone = '+1' + phone
-
-        # Validate phone
-        if validate_phone(phone):
-            print("Phone Number is Valid:", phone)
-            
-            # Valid - store it
-            state["personal_details"]["phone"] = phone
-            state["phone_validation_failed"] = False
-            state["invalid_phone_attempt"] = ""
-
-            state["phone_attempt_count"] = 0  # Reset counter
-
-            state["acknowledgement_type"] = "questions"
-
-        else:
-            print("Phone Number is Invalid:", phone)
-            # Invalid - set flag to re-ask
-            state["phone_validation_failed"] = True
-            state["invalid_phone_attempt"] = phone
-
-            state["phone_attempt_count"] += 1  # Increment counter
-    
-    return state
-
-
-def phone_router(state: ChatbotState) -> Literal["ask_phone", "send_phone_otp"]:
-    """Check if phone is valid, re-ask or continue"""
-    
-    print("phone_router called")
-    
-    if state.get("phone_validation_failed", False):
-        return "ask_phone"  # Re-ask for phone
-    
-    return "send_phone_otp"  # Continue to phone OTP verification
-
-
-# ==================== EMAIL OTP VERIFICATION NODES ====================
-
-def send_email_otp_node(state: ChatbotState) -> ChatbotState:
-    """Generate and send OTP to email"""
-    
-    print("send_email_otp_node called")
-    
-    email = state["personal_details"].get("email", "")
-    user_name = state["personal_details"].get("name")
-    
-    # Generate OTP
-    otp_code = generate_otp()
-    # otp_code = "444444"  # For testing
-    
-    # Store in state
-    state["email_otp_code"] = otp_code
-    state["email_otp_timestamp"] = time.time()
-    brand_name = state.get("brand_name")
-    
-    # Send email
-    success = send_email_otp(email, otp_code, brand_name, user_name)
-    # success = True  # For testing
-    
-    if success:
-        message = f"Okay, I've just sent a 6-digit verification code to {email}. Please check your inbox (and spam folder)"
-        state["email_otp_sent"] = True
-    else:
-        message = cleo_engagement.otp_failure_message
-        state["email_otp_sent_failed"] = True
-    
-    state["messages"].append(AIMessage(content=message))
-    
-    return state
-
-
-def ask_email_otp_node(state: ChatbotState) -> ChatbotState:
-    """Ask user to enter email OTP code"""
-    
-    print("ask_email_otp_node called")
-
-    state["messages"].append(AIMessage(content=cleo_engagement.ask_email_otp))
-    
-    return state
-
-
-def verify_email_otp_node(state: ChatbotState) -> ChatbotState:
-    """Verify the email OTP code entered by user"""
-    
-    print("verify_email_otp_node called")
-    
-    messages = state["messages"]
-    last_message = messages[-1] if messages else None
-    
-    if isinstance(last_message, HumanMessage):
-        user_input = last_message.content.strip()
-        
-        # Check for resend request
-        if user_input.lower() in ["resend", "send again", "resend code"]:
-            state["email_otp_attempts"] = 0  # Reset attempts for resend
-            # Will trigger resend in router
-            return state
-        
-        # Verify OTP
-        stored_code = state.get("email_otp_code", "")
-        timestamp = state.get("email_otp_timestamp", 0)
-        
-        is_valid, error = verify_otp(user_input, stored_code, timestamp, "email")
-        
-        if is_valid:
-            state["email_verified"] = True
-            state["messages"].append(AIMessage(content=cleo_engagement.email_success_message))
-        else:
-            state["email_otp_attempts"] += 1
-            attempts = state["email_otp_attempts"]
-            
-            if error == "expired":
-                state["messages"].append(AIMessage(content=cleo_engagement.otp_expired_message))
-                
-                state["email_otp_attempts"] = 0  # Reset for resend
-            elif error == "invalid_format":
-                state["messages"].append(AIMessage(content="Please enter a 6-digit code (numbers only)."))
-            elif error == "incorrect":
-                if attempts >= 3:
-                    state["messages"].append(AIMessage(content=cleo_engagement.email_otp_failure_message))
-                else:
-                    state["messages"].append(AIMessage(
-                        content=f"Hmm, that code didn't work. Please enter a correct 6-digit code (numbers only). (Attempt {attempts}/3)"
-                    ))
-    
-    return state
-
-
-def email_otp_router(state: ChatbotState) -> Literal["ask_phone", "send_email_otp", "ask_email", "ask_email_otp"]:
-    """Route based on email OTP verification status"""
-    
-    print("email_otp_router called")
-
-    if state.get("email_otp_sent_failed") == True:
-        return "ask_email"
-    
-    # Check if verified
-    if state.get("email_verified"):
-        return "ask_phone"
-    
-    # Check if need to resend (expired or user requested)
-    messages = state["messages"]
-    last_message = messages[-1] if messages else None
-    
-    if isinstance(last_message, HumanMessage):
-        user_input = last_message.content.strip().lower()
-        if "resend" in user_input or "send again" in user_input:
-            return "send_email_otp"
-    
-    # Check if expired
-    if is_otp_expired(state.get("email_otp_timestamp", 0), "email"):
-        return "send_email_otp"
-    
-    # Check if too many attempts
-    if state.get("email_otp_attempts") >= 3:
-        # Reset and ask for email again
-        state["email_otp_attempts"] = 0
-        state["email_validation_failed"] = True
-        return "ask_email"
-    
-    # Continue asking for OTP
-    return "ask_email_otp"
-
-
-# ==================== PHONE OTP VERIFICATION NODES ====================
-
-def send_phone_otp_node(state: ChatbotState) -> ChatbotState:
-    """Generate and send OTP to phone via SMS"""
-    
-    print("send_phone_otp_node called")
-    
-    phone = state["personal_details"].get("phone", "")
-
-    otp_code = "444444"  # For testing
-    state["phone_otp_code"] = otp_code
-
-    # Create Plivo Verify session (Plivo generates + sends OTP internally)
-    # session_uuid = create_phone_verify_session(phone)
-
-    # if session_uuid:
-    #     state["phone_verify_session_uuid"] = session_uuid
-    #     state["phone_otp_sent"] = True
-    #     message = f"I'm sending a verification text with a 6-digit code to {phone} now. Please check your messages."
-    # else:
-    #     state["phone_otp_sent_failed"] = True
-    #     message = cleo_engagement.otp_failure_message
-    
-    # state["messages"].append(AIMessage(content=message))
-    state["messages"].append(AIMessage(content=f"I'm sending a verification text with a 6-digit code to {phone} now. Please check your messages."))  # for testing without Plivo
-    
-    return state
-
-
-def ask_phone_otp_node(state: ChatbotState) -> ChatbotState:
-    """Ask user to enter phone OTP code"""
-    
-    print("ask_phone_otp_node called")
-
-    if state.get("phone_otp_attempts") >= 1:
-        state["messages"].append(AIMessage(content="I can also resend the text. Just type 'resend' if you want me to send it again."))
-    else:
-        state["messages"].append(AIMessage(content=cleo_engagement.ask_phone_otp))
-    
-    return state
-
-
-def verify_phone_otp_node(state: ChatbotState) -> ChatbotState:
-    print("verify_phone_otp_node called")
-
-    messages = state["messages"]
-    last_message = messages[-1] if messages else None
-
-    if isinstance(last_message, HumanMessage):
-        user_input = last_message.content.strip()
-
-        # Check for resend request
-        if user_input.lower() in ["resend", "send again", "resend code"]:
-            state["phone_otp_attempts"] = 0
-            return state
-
-        otp_input = user_input.strip()
-
-        # ── TESTING MODE: static OTP ────────────────────────────────
-        stored_otp = state.get("phone_otp_code", "")
-        is_valid = (otp_input == stored_otp)
-        error = "none" if is_valid else "incorrect"
-
-        # ── PRODUCTION MODE: uncomment below ──────────────────────────────────────
-        # if not otp_input.isdigit() or len(otp_input) != 6:
-        #     state["messages"].append(AIMessage(content="Please enter a 6-digit code (numbers only)."))
-        #     return state
-        # session_uuid = state.get("phone_verify_session_uuid", "")
-        # is_valid, error = validate_phone_otp(session_uuid, otp_input)
-        # ─────────────────────────────────────────────────────────────────────
-
-        if is_valid:
-            state["phone_verified"] = True
-            state["acknowledgement_type"] = "questions"
-        else:
-            state["phone_otp_attempts"] += 1
-            attempts = state["phone_otp_attempts"]
-
-            if error == "expired":
-                state["messages"].append(AIMessage(content=cleo_engagement.otp_expired_message))
-                state["phone_otp_attempts"] = 0
-            elif error == "incorrect":
-                if attempts >= 3:
-                    state["messages"].append(AIMessage(content=cleo_engagement.phone_otp_failure_message))
-                else:
-                    state["messages"].append(AIMessage(
-                        content=f"The code was incorrect. Kindly enter the correct code. (Attempt {attempts}/3)"
-                    ))
-            else:
-                state["messages"].append(AIMessage(content=cleo_engagement.otp_failure_message))
-
-    return state
-
-
-def phone_otp_router(state: ChatbotState) -> Literal["acknowledgement","send_phone_otp", "ask_phone", "ask_phone_otp", "__end__"]:
-    """Route based on phone OTP verification status"""
-    
-    print("phone_otp_router called")
-
-    if state.get("phone_otp_sent_failed") == True:
-        print("Phone OTP not sent yet, asking for phone again.")
-        return "acknowledgement"
-
-    # Check if verified
-    if state.get("phone_verified", False):
-        return "acknowledgement"
-    
-    # Check if need to resend (expired or user requested)
-    messages = state["messages"]
-    last_message = messages[-1] if messages else None
-    
-    if isinstance(last_message, HumanMessage):
-        user_input = last_message.content.strip().lower()
-        if "resend" in user_input or "send again" in user_input:
-            return "send_phone_otp"
-    
-    # # Check if expired
-    # if is_otp_expired(state.get("phone_otp_timestamp", 0), "phone"):
-    #     return "send_phone_otp"
-    
-    # Check if too many attempts
-    if state.get("phone_otp_attempts", 0) >= 3:
-        # Reset and ask for phone again
-        state["phone_otp_attempts"] = 0
-        state["phone_validation_failed"] = True
-        return "ask_phone"
-    
-    # Continue asking for OTP
-    return "ask_phone_otp"
-
-
-
 # ==================== ID VERIFICATION NODES ====================
 async def ask_id_verification_node(state: ChatbotState) -> ChatbotState:
     """Send ID verification messages and create Simplici session"""
@@ -1469,60 +1531,6 @@ def id_verification_router(state: ChatbotState) -> Literal["score"]:
 
     return "score"
 
-# ==================== QUESTIONS LOOP ====================
-def ask_question_node(state: ChatbotState) -> ChatbotState:
-    """Ask screening question"""
-    
-    print("ask_question_node called")
-    
-    idx = state["current_question_index"]
-    questions = state["questions"] 
-    
-    if idx < len(questions):
-        question = questions[idx]        
-        
-        prompt = ASK_QUESTION_PROMPT.format(
-            question=question,
-            previous_question = questions[idx-1] if idx > 0 else "None",
-            previous_answer = state["answers"][questions[idx-1]] if idx > 0 else "None",
-            )
-        
-        response = llm.invoke(prompt)
-        state["messages"].append(AIMessage(content=response.content))
-    
-    return state
-
-
-def store_answer_node(state: ChatbotState) -> ChatbotState:
-    """Store answer and increment index"""
-    
-    print("store_answer_node called")
-    
-    messages = state["messages"]
-    last_message = messages[-1] if messages else None
-    
-    if isinstance(last_message, HumanMessage):
-        idx = state["current_question_index"]
-        if idx < len(state["questions"]):
-            question = state["questions"][idx]
-            state["answers"][question] = last_message.content
-            state["current_question_index"] += 1
-    
-    return state
-
-
-def question_router(state: ChatbotState) -> Literal["ask_question", "ask_address"]:
-    """Route to next question or scoring"""
-    
-    print("question_router called")
-    
-    if state["current_question_index"] < len(state["questions"]):
-        return "ask_question"
-    
-    # if state.get("job_type") == "server":
-    #     return "ask_name"
-
-    return "ask_address"
 
 
 # ==================== SCORING & SUMMARY ====================

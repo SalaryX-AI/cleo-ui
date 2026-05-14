@@ -656,6 +656,8 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
 
                 referral_source="",
                 education_year="",
+
+                question_acknowledgements=job.get("question_acknowledgements", {}),
             )
             
             # Start workflow with streaming (ONLY for new sessions)

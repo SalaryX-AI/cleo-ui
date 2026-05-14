@@ -107,7 +107,15 @@ JOB_CONFIGS = {
                 "weight": 5,
                 "category": "Experience"
             },
-    },
+
+        },
+        "question_acknowledgements": {
+            "We are looking for people with at least one year of server experience. Does that sound like you?": "Great — that's a key requirement for this position.",
+            "Are you experienced with table service dining standards — things like setting tables for service, attention to detail, and handling multiple courses?": "Perfect — that's exactly what we're looking for.",
+            "Are you willing to provide friendly, attentive, and personalized service?": "Noted.",
+            "Are you comfortable guiding guests through the menu and answering questions about ingredients or pairings?": "Got it.",
+            "Our residents are at the heart of everything we do. Are you comfortable and patient when working closely with seniors?": "Great — that's the heart of what we do.",
+        },
     
     },
     "assistant_manager": {
