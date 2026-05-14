@@ -204,19 +204,103 @@ JOB_CONFIGS = {
     },
     "cook": {
         "knockout_questions": [
-            "To work here, you must be legally eligible to work in the U.S. Can you confirm that you are?",
-            "Next, You must be at least 18 years old for this role. Are you 18 or older?",
+            "Are you legally allowed to work in the United States?",
+            "Are you 18 or older?",
             "We are currently hiring specifically for evening and weekend shifts. Is your general availability a fit for that schedule?",
             "Do you have reliable transportation to and from our store located at {address}?"
         ],
         "questions": [
-            "Are you comfortable operating grills and fryers?",
-            "Have you worked in a professional kitchen before?"
+            "We're looking for someone with at least 3 years of experience as a cook in a professional kitchen. Does that match your background?",
+            "Are you comfortable preparing soups, stocks, and sauces, and using methods like braising and roasting with minimal supervision?",
+            "Are you comfortable with kitchen math, like scaling recipes and doing simple unit conversions?",
+            "Do you have experience maintaining a sanitary workstation and following food safety standards (like ServSafe)?",
+            "Are you familiar with preparing therapeutic diets or meals specifically modified for senior residents?",
         ],
         "scoring_model": {
-            "Are you comfortable operating grills and fryers?": {"rule": "Yes -> 10, No -> 0"},
-            "Have you worked in a professional kitchen before?": {"rule": "Yes -> 10, No -> 0"}
-        }
+
+            # ── Basic Requirements (5 each) ───────────────────────────────────
+            "Are you legally allowed to work in the United States?": {
+                "rule": "Yes -> 5, No -> 0",
+                "weight": 5,
+                "category": "Basic Requirements"
+            },
+            "Are you 18 or older?": {
+                "rule": "Yes -> 5, No -> 0",
+                "weight": 5,
+                "category": "Basic Requirements"
+            },
+
+            # ── Compliance — Background Check (5) ─────────────────────────────
+            "background_check_consent": {
+                "rule": "Yes -> 5, No -> 0",
+                "weight": 5,
+                "category": "Compliance"
+            },
+
+            # ── Experience — Professional Cook 3+ yrs (5) ─────────────────────
+            "cook_experience_years": {
+                "rule": "3+ years -> 5, 2-3 years -> 3, 1-2 years -> 2, Less than 1 year -> 1, 0 years -> 0",
+                "weight": 5,
+                "category": "Experience"
+            },
+
+            # ── Commitment — Schedule Flexibility (4) ─────────────────────────
+            "We are currently hiring specifically for evening and weekend shifts. Is your general availability a fit for that schedule?": {
+                "rule": "Yes -> 4, Partial -> 2, No -> 0",
+                "weight": 4,
+                "category": "Commitment"
+            },
+
+            # ── Logistics — Transportation (4) ────────────────────────────────
+            "Do you have reliable transportation to and from our store located at {address}?": {
+                "rule": "Yes -> 4, No -> 0",
+                "weight": 4,
+                "category": "Logistics"
+            },
+
+            # ── Compliance — Food & Safety (5) ────────────────────────────────
+            "Do you have experience maintaining a sanitary workstation and following food safety standards (like ServSafe)?": {
+                "rule": "Yes, certified (ServSafe or equivalent) -> 5, Yes, experienced but not certified -> 3, No -> 0",
+                "weight": 5,
+                "category": "Compliance"
+            },
+
+            # ── Skills — Culinary Technique (5) ───────────────────────────────
+            "Are you comfortable preparing soups, stocks, and sauces, and using methods like braising and roasting with minimal supervision?": {
+                "rule": "Yes, very comfortable -> 5, Somewhat comfortable -> 3, No -> 0",
+                "weight": 5,
+                "category": "Skills"
+            },
+
+            # ── Skills — Senior Living Dietary Reqs (3) ───────────────────────
+            "Are you familiar with preparing therapeutic diets or meals specifically modified for senior residents?": {
+                "rule": "Yes, experienced -> 3, Somewhat familiar -> 2, No -> 0",
+                "weight": 3,
+                "category": "Skills"
+            },
+
+            # ── Skills — Kitchen Math (3) ──────────────────────────────────────
+            "Are you comfortable with kitchen math, like scaling recipes and doing simple unit conversions?": {
+                "rule": "Yes -> 3, Somewhat -> 2, No -> 0",
+                "weight": 3,
+                "category": "Skills"
+            },
+
+            # ── Culture — Senior Fit (2) ───────────────────────────────────────
+            "Our residents are seniors with unique needs. Are you patient, attentive, and comfortable working in a senior living environment?": {
+                "rule": "Yes -> 2, Somewhat -> 1, No -> 0",
+                "weight": 2,
+                "category": "Culture"
+            },
+        },
+        "question_acknowledgements": {
+            "We're looking for someone with at least 3 years of experience as a cook in a professional kitchen. Does that match your background?": "Great! That 3-year foundation is exactly what we need for our kitchen.",
+            "Are you comfortable preparing soups, stocks, and sauces, and using methods like braising and roasting with minimal supervision?": "Perfect. Being able to handle stocks and braising independently is key here.",
+            "Are you comfortable with kitchen math, like scaling recipes and doing simple unit conversions?": "Noted.",
+            "Do you have experience maintaining a sanitary workstation and following food safety standards (like ServSafe)?": "Got it.",
+            "Are you familiar with preparing therapeutic diets or meals specifically modified for senior residents?": "Great! Caring for our residents' unique needs is the heart of our work.",
+            "Our residents are seniors with unique needs. Are you patient, attentive, and comfortable working in a senior living environment?": "Wonderful — that kind of care makes all the difference here."
+        },
     },
     "crew_member": {
         "knockout_questions": [

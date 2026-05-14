@@ -195,7 +195,7 @@ ASK_QUESTION_PROMPT = PromptTemplate(
 
 # ==========================================================================================================
 SCORING_PROMPT = PromptTemplate(
-    input_variables=["answers", "scoring_model"],
+    input_variables=["answers", "scoring_model", "total_score"],
     template="""
 You are a hiring evaluator. Score each candidate answer against the provided scoring rules.
 
@@ -245,13 +245,13 @@ Return ONLY a valid JSON object — no markdown, no explanation, no extra text:
 {{
     "scores": {{"<scoring_rule_key>": <score>, ...}},
     "score": <sum of all scores>,
-    "total_score": 41
+    "total_score": {total_score}
 }}
 
 CRITICAL RULES:
 - Every key in scoring_model MUST have a corresponding entry in "scores", even if score is 0.
 - "score" MUST equal the exact arithmetic sum of all values in "scores".
-- "total_score" is always 41.
+- "total_score" is always {total_score}.
 - Return ONLY the JSON object."""
 )
 

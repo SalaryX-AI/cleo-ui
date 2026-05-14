@@ -214,7 +214,7 @@ def delay_messages_node(state: ChatbotState) -> ChatbotState:
     
     print(f"delay_messages_node called (type: {state['delay_node_type']})")
 
-    if state.get("job_type") == "server":
+    if state.get("job_type") in ["server", "cook"]:
         delay_messages = {
             "greeting": [
                 "Our employees are the heart of Sinai Residences — a five-star senior living community in Boca Raton.",
@@ -271,7 +271,7 @@ def start_node(state: ChatbotState) -> ChatbotState:
 
     print("start_node called")
 
-    if state.get("job_type") == "server":
+    if state.get("job_type") in ["server", "cook"]:
         state["messages"].append(AIMessage(content="Hello! I'm Cleo, the hiring assistant for Sinai Residences. Thank you for your interest."))
     else:
         state["messages"].append(AIMessage(content=f"Hello! I'm Cleo, the hiring assistant for {state['brand_name']}.Thank you for your interest."))
@@ -1187,7 +1187,7 @@ def ask_work_experience_node(state: ChatbotState) -> ChatbotState:
 
     question = "Do you have any prior work experience in this field?"
     
-    if state.get("job_type") == "server":
+    if state.get("job_type") in ["server", "cook"]:
         question = "Have you held other roles before (beyond what we've already discussed)?"
     
     state["messages"].append(AIMessage(content=question))
@@ -1448,7 +1448,7 @@ Does this response indicate consent/agreement? Answer with ONLY "yes" or "no".""
 def background_check_router(state: ChatbotState) -> Literal["ask_id_verification", "__end__", "score"]:
     """Continue if consented, hard stop if refused"""
     if state.get("background_check_consented"):
-        return "ask_id_verification"
+        return "score"
     return "__end__"
 
 
@@ -1561,29 +1561,25 @@ def score_node(state: ChatbotState) -> ChatbotState:
     else:
         answers["certifications"] = "None"
 
-    # Work experience — calculate total years of server experience
     work_experience = state.get("work_experience", [])
+    # Total years of work experience
     if work_experience:
         from datetime import datetime
         total_months = 0
-        server_keywords = ["server", "waiter", "waitress", "bartender", "food service", "dining", "hospitality"]
-
         for exp in work_experience:
-            role = exp.get("role", "").lower()
-            # Only count relevant serving roles
-            if any(kw in role for kw in server_keywords):
-                try:
-                    start = datetime.strptime(exp.get("startDate", ""), "%Y-%m")
-                    end_str = exp.get("endDate", "")
-                    end = datetime.now() if end_str.lower() in ("present", "current", "") else datetime.strptime(end_str, "%Y-%m")
-                    total_months += (end.year - start.year) * 12 + (end.month - start.month)
-                except Exception:
-                    pass
-
+            try:
+                start = datetime.strptime(exp.get("startDate", ""), "%Y-%m")
+                end_str = exp.get("endDate", "").strip().lower()
+                end = datetime.now() if end_str in ("present", "current", "") else datetime.strptime(end_str, "%Y-%m")
+                total_months += (end.year - start.year) * 12 + (end.month - start.month)
+            except Exception:
+                pass
         total_years = round(total_months / 12, 1)
-        answers["server_experience_years"] = f"{total_years} years"
     else:
-        answers["server_experience_years"] = "0 years"    
+        total_years = 0.0
+
+    answers["server_experience_years"] = f"{total_years} years"
+    answers["cook_experience_years"]   = f"{total_years} years"    
 
     scoring_model = state["scoring_model"]
 
@@ -1593,9 +1589,17 @@ def score_node(state: ChatbotState) -> ChatbotState:
     answers_str = json.dumps(answers, indent=2)
     scoring_str = json.dumps(scoring_model, indent=2)
 
+    # Dynamically calculate total_score from scoring model weights
+    total_possible = sum(
+        rule.get("weight", 0) 
+        for rule in scoring_model.values() 
+        if isinstance(rule, dict)
+    )
+
     prompt = SCORING_PROMPT.format(
         answers=answers_str,
-        scoring_model=scoring_str
+        scoring_model=scoring_str,
+        total_score=total_possible     
     )
     response = llm.invoke(prompt)
     print("Scoring node response:", response.content)
@@ -1610,17 +1614,17 @@ def score_node(state: ChatbotState) -> ChatbotState:
         result = json.loads(score_text)
 
         state["scores"]      = result["scores"]
-        state["total_score"] = result.get("total_score")
+        state["total_score"] = total_possible
 
         state["score"] = sum(result["scores"].values())
 
         print("Calculated score:", result["score"])
-        print("Calculated total_score:", result.get("total_score"))
+        print("Calculated total_score:", total_possible)
 
     except json.JSONDecodeError:
         state["scores"]      = {}
         state["score"]       = 0
-        state["total_score"] = 41
+        state["total_score"] = total_possible
 
     return state
 
