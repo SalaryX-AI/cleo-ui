@@ -1207,18 +1207,18 @@ def store_work_experience_response_node(state: ChatbotState) -> ChatbotState:
         user_input = last_message.content.strip()
         
         # Store the answer in knockout_answers
-        state["knockout_answers"]["Do you have prior work experience?"] = last_message.content
+        state["knockout_answers"]["Do you have any prior work experience in this field?"] = last_message.content
         
         # Use LLM to evaluate the response
         prompt = f"""
         Evaluate if this answer indicates YES (has work experience) or NO (no work experience).
         
-        Question: "Do you have prior work experience?"
+        Question: "Do you have any prior work experience in this field?"
         Answer: "{user_input}"
         
         Rules:
         - Positive responses (indicating YES): "yes", "yeah", "yep", "sure", "I have", "I do", "I worked", "definitely", "of course", mentions of specific jobs or companies
-        - Negative responses (indicating NO): "no", "nope", "not", "don't", "never", "haven't", "no experience", "fresh graduate"
+        - Negative responses (indicating NO): "no", "nope", "not", "don't", "never", "haven't", "no experience", "fresh graduate", "n"
         - Unclear/Incomplete: treat as NO (user can provide details if needed)
         
         Examples:
