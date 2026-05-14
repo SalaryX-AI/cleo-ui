@@ -530,7 +530,7 @@ NODES_WITHOUT_MESSAGES = {
     "store_answer", "store_background_check", "store_certifications",
     "store_military", "store_referral", "evaluate_single_knockout",
     "process_gps", "store_address", "store_name", "store_email",
-    "store_phone", "store_education", "store_work_experience_response",
+    "store_phone", "store_education",
     "phone_router", "email_router", "question_router",
     "phone_otp_router", "email_otp_router", "background_check_router",
     "military_router", "single_knockout_router", "post_acknowledgement_router",
