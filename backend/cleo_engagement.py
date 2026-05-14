@@ -9,11 +9,11 @@ failure_message = "Thank you for your interest! Unfortunately, based on your res
 
 ask_name = "Awesome! Let's get your application file started. To begin, what is your first and last name?"
 
-ask_phone = """Great! To verify your identity and send interview reminders, I'll need your phone number.
+ask_phone = """Great! I'll need your phone number to verify your identity and send interview reminders.
 
 By providing your number, you agree to receive text messages from Cleo HR (a SalaryX Inc product). Message frequency may vary. Msg & data rates may apply. Reply STOP to opt-out or HELP for help. View our Privacy Policy at <a href="https://cleohr.com/privacy" target="_blank" rel="noopener noreferrer" style="color:#667eea;">cleohr.com/privacy</a>.
 
-What is your phone number in case we need to call you for an interview?"""
+What is your phone number?"""
 
 
 
