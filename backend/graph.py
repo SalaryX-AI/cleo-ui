@@ -1448,7 +1448,7 @@ Does this response indicate consent/agreement? Answer with ONLY "yes" or "no".""
 def background_check_router(state: ChatbotState) -> Literal["ask_id_verification", "__end__", "score"]:
     """Continue if consented, hard stop if refused"""
     if state.get("background_check_consented"):
-        return "score"
+        return "ask_id_verification"
     return "__end__"
 
 
