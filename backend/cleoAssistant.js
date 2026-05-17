@@ -39,6 +39,7 @@ document.head.appendChild(link);
                 jobLocation: options.jobLocation,
                 jobID: options.jobID,
                 jobShift: options.jobShift,
+                brandName: options.brandName,
                 companyID: options.companyID,
                 isLive: options.isLive,
                 apiKey: options.apiKey,
@@ -511,19 +512,29 @@ document.head.appendChild(link);
             try {
                 this.updateStatus('Connecting...', 'connecting');
 
-                // Use stored job location from config
-                const apiKey = this.config.apiKey;
-                const jobType = this.config.jobType;
-                const location = this.config.jobLocation;
-                const jobID = this.config.jobID;
+                const apiKey    = this.config.apiKey;
+                const jobType   = this.config.jobType;
+                const location  = this.config.jobLocation;
+                const jobID     = this.config.jobID;
                 const companyID = this.config.companyID;
-                const isLive = this.config.isLive;
-                const jobShift = this.config.jobShift;
+                const isLive    = this.config.isLive;
+                const jobShift  = this.config.jobShift;
+                const brandName = this.config.brandName;
 
-                const response = await fetch(
-                    `${this.config.apiUrl}/start-session?job_type=${jobType}&api_key=${apiKey}&location=${location}&job_id=${jobID}&company_id=${companyID}&is_live=${isLive}&job_shift=${jobShift}`,
-                    { method: 'POST' }
-                );
+                const response = await fetch(`${this.config.apiUrl}/start-session`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        api_key:    apiKey,
+                        job_type:   jobType,
+                        location:   location,
+                        job_id:     jobID,
+                        company_id: companyID,
+                        is_live:    isLive,
+                        job_shift:  jobShift,
+                        brand_name: brandName,
+                    })
+                });
                 
                 if (!response.ok) {
                     throw new Error('Failed to start session');
@@ -2688,7 +2699,8 @@ document.head.appendChild(link);
         const jobID = container.getAttribute('data-job-id') || '123';
         const companyID = container.getAttribute('data-company-id') || '987';
         const isLive = container.getAttribute('data-isLive') === 'true';
-        const jobShift = container.getAttribute('data-job-shift') || 'unknown';
+        const brandName = container.getAttribute('data-brand-name') || "";
+        const jobShift  = container.getAttribute('data-job-shift')  || "";
 
         console.log('CleoChatbot: jobType from data attribute:', container.getAttribute('data-job-type'));
         console.log('CleoChatbot: jobLocation from data attribute:', container.getAttribute('data-job-location'));
@@ -2696,6 +2708,7 @@ document.head.appendChild(link);
         console.log('CleoChatbot: companyID from data attribute:', container.getAttribute('data-company-id'));
         console.log('CleoChatbot: isLive from data attribute:', isLive);
         console.log('CleoChatbot: jobShift from data attribute:', jobShift);
+        console.log('CleoChatbot: brandName from data attribute:', brandName);
 
         // Get job_id from URL parameters
         // const urlParams = new URLSearchParams(window.location.search);
@@ -2740,6 +2753,7 @@ document.head.appendChild(link);
                 companyID: companyID,
                 isLive: isLive,
                 jobShift: jobShift,
+                brandName: brandName,
                 apiKey: config.apiKey,
                 apiUrl: CHATBOT_CONFIG.apiBaseUrl,
                 wsUrl: CHATBOT_CONFIG.wsBaseUrl

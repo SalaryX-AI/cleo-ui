@@ -11,6 +11,21 @@
             box-sizing: border-box;
         }
 
+        .job-body::-webkit-scrollbar {
+            width: 5px;
+        }
+        .job-body::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+        .job-body::-webkit-scrollbar-thumb {
+            background: #c0c0c0;
+            border-radius: 10px;
+        }
+        .job-body::-webkit-scrollbar-thumb:hover {
+            background: #a0a0a0;
+        }
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
             background: linear-gradient(135deg, #1e2a47 0%, #0f1823 100%);
@@ -224,6 +239,10 @@
                 ? job.description.split('\n').filter(line => line.trim())
                 : ['No description available'];
 
+            const requirementsPoints = job.job_requirements 
+                ? job.job_requirements.split('\n').filter(line => line.trim())
+                : ['No requirements available'];
+
             jobCard.innerHTML = `
                 <div class="job-header">
                     <h1 class="job-title">${job.job_title || 'Job Title'}</h1>
@@ -241,13 +260,24 @@
                             </svg>
                             <span>${job.job_type || 'Full-Time'}</span>
                         </div>
+                        <div class="meta-item">
+                            <svg fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M6 6V5a3 3 0 013-3h2a3 3 0 013 3v1h2a2 2 0 012 2v3.57A22.952 22.952 0 0110 13a22.95 22.95 0 01-8-1.43V8a2 2 0 012-2h2zm2-1a1 1 0 011-1h2a1 1 0 011 1v1H8V5zm1 5a1 1 0 011-1h.01a1 1 0 110 2H10a1 1 0 01-1-1z" clip-rule="evenodd"/>
+                                <path d="M2 13.692V16a2 2 0 002 2h12a2 2 0 002-2v-2.308A24.974 24.974 0 0110 15c-2.796 0-5.487-.46-8-1.308z"/>
+                            </svg>
+                            <span>${job.job_role || 'Cook'}</span>
+                        </div>
                     </div>
                 </div>
 
-                <div class="job-body">
+                <div class="job-body" style="max-height: 420px; overflow-y: auto; padding-right: 6px;">
                     <div class="job-section">
-                        <div class="section-title">Shift</div>
-                        <div class="section-content">${job.Shift || 'Morning'}</div>
+                        <div class="section-title">Shifts</div>
+                        <div class="section-content">
+                            ${(job.shifts && job.shifts.length > 0)
+                                ? job.shifts.join('<br>')
+                                : (job.Shift || 'Morning')}
+                        </div>
                     </div>
 
                     <div class="job-section">
@@ -261,11 +291,21 @@
                             ${descriptionPoints.map(point => `<li>${point}</li>`).join('')}
                         </ul>
                     </div>
-                </div>
+
+                    <div class="job-section job-description">
+                        <div class="section-title">Job Requirements</div>
+                        <ul>
+                            ${requirementsPoints.map(point => `<li>${point}</li>`).join('')}
+                        </ul>
+                    </div>
 
                 <div class="apply-button-container">
                     <button class="apply-button" onclick="openChatbot()">Apply for this Position</button>
+                </div>    
+                
                 </div>
+
+
             `;
         }
 
@@ -310,7 +350,18 @@
                 console.log('Location:', job.job_location);
                 console.log('Job ID:', job.id);
                 console.log('Company ID:', job.related_company);
-                console.log('Job Shift:', job.Shift);
+                console.log('Job Shift:', job.shifts);
+                console.log('Company Name:', job._related_company?.company_name);
+
+
+                // Extract company name and shifts from Xano response
+                const companyName = job._related_company?.company_name || "our company";
+
+                // Format shifts array into readable string
+                const shiftsArray = job.shifts || [];
+                const jobShift = shiftsArray.length > 1
+                    ? shiftsArray.slice(0, -1).join(", ") + " and " + shiftsArray.slice(-1)
+                    : shiftsArray[0] || job.shifts || "various shifts";
                
                 // Set job_type, job_location, job_id, and company_id in the chatbot container
                 document.getElementById('cleo-chatbot').setAttribute('data-job-type', job.job_template);
@@ -318,7 +369,9 @@
                 document.getElementById('cleo-chatbot').setAttribute('data-job-id', job.id);
                 document.getElementById('cleo-chatbot').setAttribute('data-company-id', job.related_company);
                 document.getElementById('cleo-chatbot').setAttribute('data-isLive', "true");
-                document.getElementById('cleo-chatbot').setAttribute('data-job-shift', job.Shift);
+
+                document.getElementById('cleo-chatbot').setAttribute('data-brand-name', companyName);
+                document.getElementById('cleo-chatbot').setAttribute('data-job-shift', jobShift);
                 
                 // Load Cleo Assistant script
                 const script = document.createElement("script"); 

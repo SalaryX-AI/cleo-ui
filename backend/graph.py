@@ -214,35 +214,21 @@ def delay_messages_node(state: ChatbotState) -> ChatbotState:
     
     print(f"delay_messages_node called (type: {state['delay_node_type']})")
 
-    if state.get("job_type") in ["server", "cook"]:
-        delay_messages = {
-            "greeting": [
-                "Our employees are the heart of Sinai Residences — a five-star senior living community in Boca Raton.",
-                "I just need to ask a few quick screening questions, it should only take a couple of minutes. Ready to start? (You can type 'Stop' anytime.)"
-            ],
-            "end": [
-                "Our hiring team is now reviewing your profile. If your experience is a match, we'll reach out via email or phone to discuss the next steps.",
-                "You can expect to hear from us within 1 business day. Thank you again for your time and interest in working with Sinai Residences!",
-                "Good Bye! 👋"
-            ],
+    message_map = {
+        "greeting": [
+            f"Our employees are the heart of {state.get('brand_name')} — a five-star senior living community in Boca Raton.",
+            "I just need to ask a few quick screening questions, it should only take a couple of minutes. Ready to start? (You can type 'Stop' anytime.)"
+        ],
+        "end": [
+            "Our hiring team is now reviewing your profile. If your experience is a match, we'll reach out via email or phone to discuss the next steps.",
+            f"You can expect to hear from us within 1 business day. Thank you again for your time and interest in working with {state.get('brand_name')}!",
+            "Good Bye! 👋"
+        ],
             "default": "Let's continue!"
-        }
-    else:
-        delay_messages = {
-            "greeting": [
-                "Thanks for your interest — we're a friendly, locally-owned team. My job is to make your application process super fast and easy.",
-                "I just need to ask a few quick screening questions, it should only take a couple of minutes. Ready to start? (You can type 'Stop' anytime.)"
-            ],
-            "end": [
-                "Our hiring team will take it from here. Your application will be carefully reviewed. If you are selected to move forward, we will contact you via email or phone to schedule an interview or conduct a brief background check prior to scheduling the interview.",
-                f"You can expect to hear from us regarding your status within 1-2 business days. Thank you again for your time and interest in working with {state.get("brand_name")}.",
-                "Good Bye! 👋"
-            ],
-            "default": "Let's continue!"
-        }
+    }
     
     delay_node_type = state.get("delay_node_type", "default")
-    messages = delay_messages.get(delay_node_type)
+    messages = message_map.get(delay_node_type)
     
     # Handle list or single message
     if isinstance(messages, list):
@@ -271,10 +257,7 @@ def start_node(state: ChatbotState) -> ChatbotState:
 
     print("start_node called")
 
-    if state.get("job_type") in ["server", "cook"]:
-        state["messages"].append(AIMessage(content="Hello! I'm Cleo, the hiring assistant for Sinai Residences. Thank you for your interest."))
-    else:
-        state["messages"].append(AIMessage(content=f"Hello! I'm Cleo, the hiring assistant for {state['brand_name']}.Thank you for your interest."))
+    state["messages"].append(AIMessage(content=f"Hello! I'm Cleo, the hiring assistant for {state['brand_name']}.Thank you for your interest."))
 
 
     state["delay_node_type"] = "greeting"
@@ -336,7 +319,10 @@ def ask_knockout_question_node(state: ChatbotState) -> ChatbotState:
         knockout_question = knockout_questions[idx]
 
         if idx == 2:
-             state["messages"].append(AIMessage(content=f"We are currently hiring specifically for {state['job_shift']}.  Are you available to work that schedule?"))
+            shifts_text = state['job_shift'].replace(", and ", ",\n").replace(", ", ",\n")
+            state["messages"].append(AIMessage(
+                content=f"We are currently hiring specifically for:\n{shifts_text}.\nAre you available to work that schedule?"
+            ))
         else:
             state["messages"].append(AIMessage(content=knockout_question))
     
@@ -1408,7 +1394,7 @@ def ask_background_check_node(state: ChatbotState) -> ChatbotState:
     print("ask_background_check_node called")
     state["messages"].append(AIMessage(
         content=(
-            "📋 Sinai Residences is required by Florida law to conduct a Level II background check through the Florida Clearinghouse for all employees. Employment is contingent on successful clearance. Are you comfortable with this requirement?"
+            f"📋 {state['brand_name']} is required by Florida law to conduct a Level II background check through the Florida Clearinghouse for all employees. Employment is contingent on successful clearance. Are you comfortable with this requirement?"
         )
     ))
     return state
@@ -1747,7 +1733,7 @@ def end_node(state: ChatbotState) -> ChatbotState:
     
     # name = state["personal_details"].get("name")
     
-    state["messages"].append(AIMessage(content=f"Great job! You've successfully completed the application. Your information has been securely saved and submitted to Sinai Residences."))
+    state["messages"].append(AIMessage(content=f"Great job! You've successfully completed the application. Your information has been securely saved and submitted to {state.get('brand_name')}."))
 
     state["delay_node_type"] = "end"
 

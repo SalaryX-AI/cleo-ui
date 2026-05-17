@@ -12,6 +12,8 @@ from fastapi.security.api_key import APIKeyHeader
 from langchain.schema import HumanMessage, AIMessage
 import json
 import uuid
+
+from requests import session
 from graph import build_graph, ChatbotState
 from job_configs import JOB_CONFIGS
 # from xano_jobs import read_job_config_from_db
@@ -248,8 +250,18 @@ async def validate_domain(
 
 
 @app.post("/start-session")
-async def start_session(job_type: str = Query(...), api_key: str = Query(...), location: str = Query(...), job_id: str = Query(...), company_id: str = Query(...), is_live: bool = Query(...), job_shift: str = Query(...)) -> dict:
+async def start_session(request: Request):
     """Create new screening session for a specific job type"""
+
+    data       = await request.json()
+    api_key    = data.get("api_key")
+    job_type   = data.get("job_type")
+    location   = data.get("location")
+    job_id     = data.get("job_id")
+    company_id = data.get("company_id")
+    is_live    = data.get("is_live", False)
+    job_shift  = data.get("job_shift", "various shifts")
+    brand_name = data.get("brand_name", "our company")
 
     print(f"Starting session for job_type: {job_type} at location: {location}")
 
@@ -280,7 +292,9 @@ async def start_session(job_type: str = Query(...), api_key: str = Query(...), l
         "job_shift": job_shift,
         "active": True,
         "created_at": time.time(),
-        "last_activity": time.time()  # Track last activity
+        "last_activity": time.time(),  # Track last activity
+        "brand_name": brand_name,
+        "job_shift":  job_shift,
     }
 
     # Log new run
@@ -563,9 +577,12 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
  
     job_config = JOB_CONFIGS[job_type]
     job        = set_job_address(job_config, location)
- 
-    global brand_name
- 
+
+    session["thread_id"]
+    
+    brand_name = session["brand_name"]
+    job_shift  = session["job_shift"]
+  
     config = {"configurable": {"thread_id": thread_id}}
  
     # ── Helper: send a single AIMessage with typing indicator ─────────────────
@@ -680,7 +697,6 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                 knockout_answers={},
                 current_knockout_question_index=0,
                 knockout_questions=job["knockout_questions"],
-                job_shift=job_shift,
                 email_attempt_count=0,
                 phone_attempt_count=0,
                 email_validation_failed=False,
@@ -691,7 +707,6 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                 delay_node_type="",
                 knockout_passed=False,
                 current_knockout_failed=False,
-                brand_name=brand_name,
                 email_otp_code="",
                 email_otp_sent=False,
                 email_otp_sent_failed=False,
@@ -737,6 +752,9 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                 referral_source="",
                 education_year="",
                 question_acknowledgements=job.get("question_acknowledgements", {}),
+
+                brand_name=brand_name,
+                job_shift=job_shift,
             )
  
             async for event in graph_app.astream(initial_state, config=config, stream_mode="updates"):
