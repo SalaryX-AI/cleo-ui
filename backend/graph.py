@@ -173,6 +173,7 @@ class ChatbotState(MessagesState):
     education_year: str = ""
 
     question_acknowledgements: Dict[str, str] = {}
+    verification_required: bool = False
 
 
 # ==================== Acknowledgement ====================
@@ -1329,7 +1330,7 @@ def store_referral_node(state: ChatbotState) -> ChatbotState:
 
     if isinstance(last_message, HumanMessage):
         state["referral_source"] = last_message.content.strip()
-        state["messages"].append(AIMessage(content="Got it, thank you! 👍"))
+        state["messages"].append(AIMessage(content="Thanks! Noted. 🙌"))
 
     return state    
 
@@ -1341,7 +1342,7 @@ def ask_military_node(state: ChatbotState) -> ChatbotState:
     if state.get("military_served") and not state.get("military_follow_up_done"):
         # Follow-up for branch/duty/rank
         state["messages"].append(AIMessage(
-            content="Thank you for your service 🇺🇸 Could you optionally share your Branch, Duty Status, and Rank? Or just say 'Skip' to continue."
+            content="Thank you for your service 🇺🇸 → Branch / Duty / Rank (optional) Or 'Skip' to continue."
         ))
     else:
         state["messages"].append(AIMessage(
@@ -1377,15 +1378,15 @@ def store_military_node(state: ChatbotState) -> ChatbotState:
     return state
 
 
-def military_router(state: ChatbotState) -> Literal["ask_military", "ask_background_check"]:
+def military_router(state: ChatbotState) -> Literal["ask_military", "ask_background_check", "score"]:
     """If served but follow-up not done, loop back for branch/duty/rank"""
     if state.get("military_served") and not state.get("military_follow_up_done"):
         return "ask_military"
+    
+    if state.get("verification_required") == True:
+        return "ask_background_check"
 
-    # if state.get("job_type") == "server":
-    #     return "ask_background_check"
-
-    return "ask_background_check"
+    return "score"
 
 
 # ==================== BACKGROUND CHECK CONSENT ====================
@@ -1433,9 +1434,11 @@ Does this response indicate consent/agreement? Answer with ONLY "yes" or "no".""
 
 def background_check_router(state: ChatbotState) -> Literal["ask_id_verification", "__end__", "score"]:
     """Continue if consented, hard stop if refused"""
+    
     if state.get("background_check_consented"):
-        return "score"
-    return "__end__"
+        return "ask_id_verification"
+    
+    return "score"
 
 
 

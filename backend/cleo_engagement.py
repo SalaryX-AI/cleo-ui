@@ -3,7 +3,7 @@ ack_messages = {
         "default": "Let's continue!"
     }
 
-decline_message = "No problem at all! Thanks for stopping by. Feel free to reach out anytime. Take care!"
+decline_message = "No problem! You can come back and apply when you have more time."
 
 failure_message = "Thank you for your interest! Unfortunately, based on your responses, you don't meet our basic requirements at this time. We appreciate you taking the time to chat with us. Best of luck in your job search!"
 

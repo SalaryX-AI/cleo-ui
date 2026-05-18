@@ -352,6 +352,7 @@
                 console.log('Company ID:', job.related_company);
                 console.log('Job Shift:', job.shifts);
                 console.log('Company Name:', job._related_company?.company_name);
+                console.log('Verification Required', job.verificationRequired);
 
 
                 // Extract company name and shifts from Xano response
@@ -372,6 +373,7 @@
 
                 document.getElementById('cleo-chatbot').setAttribute('data-brand-name', companyName);
                 document.getElementById('cleo-chatbot').setAttribute('data-job-shift', jobShift);
+                document.getElementById('cleo-chatbot').setAttribute('data-verification-required', job.verificationRequired);
                 
                 // Load Cleo Assistant script
                 const script = document.createElement("script"); 

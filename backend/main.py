@@ -262,6 +262,7 @@ async def start_session(request: Request):
     is_live    = data.get("is_live", False)
     job_shift  = data.get("job_shift", "various shifts")
     brand_name = data.get("brand_name", "our company")
+    verification_required = data.get("verification_required", False)
 
     print(f"Starting session for job_type: {job_type} at location: {location}")
 
@@ -295,6 +296,7 @@ async def start_session(request: Request):
         "last_activity": time.time(),  # Track last activity
         "brand_name": brand_name,
         "job_shift":  job_shift,
+        "verification_required": verification_required,
     }
 
     # Log new run
@@ -541,7 +543,7 @@ async def id_verification_webhook(request: Request):
 # Nodes that do NOT add new messages — skip to avoid sending stale messages[-1]
 NODES_WITHOUT_MESSAGES = {
     "score", "summary",
-    "store_answer", "store_background_check", "store_certifications",
+    "store_background_check", "store_certifications",
     "store_military", "store_referral", "evaluate_single_knockout",
     "process_gps", "store_address", "store_name", "store_email",
     "store_phone", "store_education",
@@ -582,6 +584,7 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
     
     brand_name = session["brand_name"]
     job_shift  = session["job_shift"]
+    verification_required = session["verification_required"]
   
     config = {"configurable": {"thread_id": thread_id}}
  
@@ -752,6 +755,7 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                 referral_source="",
                 education_year="",
                 question_acknowledgements=job.get("question_acknowledgements", {}),
+                verification_required=verification_required,
 
                 brand_name=brand_name,
                 job_shift=job_shift,

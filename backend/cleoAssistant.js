@@ -41,6 +41,7 @@ document.head.appendChild(link);
                 jobShift: options.jobShift,
                 brandName: options.brandName,
                 companyID: options.companyID,
+                verificationRequired: options.verificationRequired,
                 isLive: options.isLive,
                 apiKey: options.apiKey,
                 apiUrl: CHATBOT_CONFIG.apiBaseUrl,
@@ -517,6 +518,7 @@ document.head.appendChild(link);
                 const location  = this.config.jobLocation;
                 const jobID     = this.config.jobID;
                 const companyID = this.config.companyID;
+                const verificationRequired = this.config.verificationRequired;
                 const isLive    = this.config.isLive;
                 const jobShift  = this.config.jobShift;
                 const brandName = this.config.brandName;
@@ -530,6 +532,7 @@ document.head.appendChild(link);
                         location:   location,
                         job_id:     jobID,
                         company_id: companyID,
+                        verification_required: verificationRequired,
                         is_live:    isLive,
                         job_shift:  jobShift,
                         brand_name: brandName,
@@ -2701,6 +2704,7 @@ document.head.appendChild(link);
         const isLive = container.getAttribute('data-isLive') === 'true';
         const brandName = container.getAttribute('data-brand-name') || "";
         const jobShift  = container.getAttribute('data-job-shift')  || "";
+        const verificationRequired = container.getAttribute('data-verification-required') || 'false';
 
         console.log('CleoChatbot: jobType from data attribute:', container.getAttribute('data-job-type'));
         console.log('CleoChatbot: jobLocation from data attribute:', container.getAttribute('data-job-location'));
@@ -2709,24 +2713,12 @@ document.head.appendChild(link);
         console.log('CleoChatbot: isLive from data attribute:', isLive);
         console.log('CleoChatbot: jobShift from data attribute:', jobShift);
         console.log('CleoChatbot: brandName from data attribute:', brandName);
-
-        // Get job_id from URL parameters
-        // const urlParams = new URLSearchParams(window.location.search);
-        // const jobID = urlParams.get('job_id');
-
-        // Get job location from URL parameter
-        // const urlParams = new URLSearchParams(window.location.search);
-        // const jobLocation = urlParams.get('location')
+        console.log('CleoChatbot: verificationRequired from data attribute:', verificationRequired);
 
         if (!jobType) {
             console.error('CleoChatbot: job_type is required to initialize the chatbot');
             return;
         }
-
-        // if (!jobID) {
-        //     console.error('CleoChatbot: job_id is required to initialize the chatbot');
-        //     return;
-        // }
 
         try {
             // Get current domain for validation
@@ -2754,6 +2746,7 @@ document.head.appendChild(link);
                 isLive: isLive,
                 jobShift: jobShift,
                 brandName: brandName,
+                verificationRequired: verificationRequired,
                 apiKey: config.apiKey,
                 apiUrl: CHATBOT_CONFIG.apiBaseUrl,
                 wsUrl: CHATBOT_CONFIG.wsBaseUrl
