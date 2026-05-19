@@ -173,7 +173,7 @@ class ChatbotState(MessagesState):
     education_year: str = ""
 
     question_acknowledgements: Dict[str, str] = {}
-    verification_required: bool = False
+    verification_required: str = ""
 
     experience_qualified: bool = True
 
@@ -1424,7 +1424,7 @@ def military_router(state: ChatbotState) -> Literal["ask_military", "ask_backgro
     if state.get("military_served") and not state.get("military_follow_up_done"):
         return "ask_military"
     
-    if state.get("verification_required") == True:
+    if state.get("verification_required") == "true":
         return "ask_background_check"
 
     return "score"
