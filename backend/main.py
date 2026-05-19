@@ -41,6 +41,7 @@ from conversation_logger import (
     log_error,
     update_run_status,
 )
+from conversation_logger import log_id_verification_event
 
 # Prevent duplicate webhook processing for same Simplici session
 processed_webhook_sessions: set = set()
@@ -338,7 +339,7 @@ async def websocket_heartbeat(websocket: WebSocket):
             await asyncio.sleep(30)  # Ping every 30 seconds
             try:
                 await websocket.send_json({"type": "ping"})
-                print(f"[HEARTBEAT] Sent ping")
+                # print(f"[HEARTBEAT] Sent ping")
             except Exception as e:
                 print(f"[HEARTBEAT] Failed to send ping: {e}")
                 break  # Connection lost, exit heartbeat
@@ -491,6 +492,19 @@ async def id_verification_webhook(request: Request):
 
     async def stream_and_notify():
         try:
+            # Log pass/fail result
+            await log_id_verification_event(
+                session_id=cleo_session_id, thread_id=thread_id,
+                status="id_verify_passed" if verified else "id_verify_failed",
+                raw_data={
+                    "simplici_session_id": simplici_session_id,
+                    "top_status":    event_payload.get("status", ""),
+                    "report_status": event_payload.get("kyc", {}).get("basicInfo", {}).get("report", {}).get("status", ""),
+                    "liveliness":    event_payload.get("kyc", {}).get("basicInfo", {}).get("report", {}).get("liveliness", False),
+                    "rejections":    event_payload.get("kyc", {}).get("basicInfo", {}).get("report", {}).get("reject", []),
+                    "verified":      verified,
+                }
+            )
             # ── Close modal immediately ───────────────────────────────────────
             if ws:
                 await ws.send_json({"type": "id_verify_result", "verified": verified})
@@ -530,6 +544,13 @@ async def id_verification_webhook(request: Request):
                                                 {"content": msg.content, "messageType": "body"})
 
         except Exception as e:
+            # Log system error
+            await log_id_verification_event(
+                session_id=cleo_session_id, thread_id=thread_id,
+                status="id_verify_system_error",
+                raw_data={"simplici_session_id": simplici_session_id},
+                error=str(e)
+            )
             print(f"[WEBHOOK] Error in background stream: {e}")
 
 
@@ -544,7 +565,7 @@ async def id_verification_webhook(request: Request):
 NODES_WITHOUT_MESSAGES = {
     "score", "summary",
     "store_background_check", "store_certifications",
-    "store_military", "store_referral", "evaluate_single_knockout",
+    "store_military", "store_referral",
     "process_gps", "store_address", "store_name", "store_email",
     "store_phone", "store_education",
     "phone_router", "email_router", "question_router",
@@ -759,6 +780,7 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
 
                 brand_name=brand_name,
                 job_shift=job_shift,
+                experience_qualified=True,
             )
  
             async for event in graph_app.astream(initial_state, config=config, stream_mode="updates"):
@@ -829,12 +851,12 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
  
             # ── pong ──────────────────────────────────────────────────────────
             if message_data.get("type") == "pong":
-                print("[HEARTBEAT] Received pong from client")
+                # print("[HEARTBEAT] Received pong from client")
                 continue
  
             # ── ping ──────────────────────────────────────────────────────────
             if message_data.get("type") == "ping":
-                print("[HEARTBEAT] Received ping from client, sending pong")
+                # print("[HEARTBEAT] Received ping from client, sending pong")
                 await websocket.send_json({"type": "pong"})
                 continue
  

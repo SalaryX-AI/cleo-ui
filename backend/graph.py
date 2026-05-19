@@ -16,8 +16,8 @@ import time
 from xano import send_applicant_to_xano
 from location_services import verify_location
 import phonenumbers
-from id_verification import create_id_verify_session, save_session_mapping    
-
+from id_verification import create_id_verify_session, save_session_mapping
+from conversation_logger import log_id_verification_event
 
 from otp_verification import (
     generate_otp, 
@@ -174,6 +174,8 @@ class ChatbotState(MessagesState):
 
     question_acknowledgements: Dict[str, str] = {}
     verification_required: bool = False
+
+    experience_qualified: bool = True
 
 
 # ==================== Acknowledgement ====================
@@ -429,10 +431,10 @@ def evaluate_single_knockout_node(state: ChatbotState) -> ChatbotState:
         
         # Add specific failure message based on question index
         failure_messages = [
-            "I understand. Unfortunately, we can only proceed with applicants who are legally eligible to work in the U.S. Thank you for your time!",
-            "I understand. Unfortunately, the minimum age requirement is 18, so we can't move forward right now. Thank you for your time!",
-            "I see. While we appreciate your interest, we currently only have openings for those specific shifts. Thank you for your time today.",
-            "I see. Reliable transportation is crucial for those evening and weekend shifts, which can sometimes be difficult to reach. Unfortunately, this is a firm requirement for the role at this time. Thank you so much for taking the time to chat with me today!"
+            "We are only allowed to hire applicants who are legally eligible to work in the U.S. Thank you for your time!",
+            "The minimum age for this position is 18. Thank you for your time!",
+            "I see. We can continue the application process and the hiring manager will review to see if there may be another postion available that fits your availibility.",
+            "I see. Reliable transportation is crucial for this position. Unfortunately, this is a requirement for the role. Thank you so much for taking the time to chat with me today!"
         ]
         
         failure_message = failure_messages[current_index] if current_index < len(failure_messages) else failure_messages[-1]
@@ -504,6 +506,7 @@ def ask_question_node(state: ChatbotState) -> ChatbotState:
 
 def store_answer_node(state: ChatbotState) -> ChatbotState:
     print("store_answer_node called")
+    print(f"Current question index: {state['current_question_index']}")
 
     messages = state["messages"]
     last_message = messages[-1] if messages else None
@@ -515,12 +518,46 @@ def store_answer_node(state: ChatbotState) -> ChatbotState:
             state["answers"][question] = last_message.content
             state["current_question_index"] += 1
 
-            # Send acknowledgement if configured for this question
-            ack = state.get("question_acknowledgements", {}).get(question, "")
-            if ack:
-                state["messages"].append(AIMessage(content=ack))
+            # ── Experience check ──────────────────────────────────────────────
+            if idx == 0:
+                    prompt = f"""The candidate was asked: "{question}"
+    Their answer: "{last_message.content}"
+    Does this answer indicate they HAVE the required experience? Answer ONLY "yes" or "no"."""
+                    response = llm.invoke([HumanMessage(content=prompt)])
+                    
+                    qualified = response.content.strip().lower() == "yes"
+                    
+                    state["experience_qualified"] = qualified
+                    print("Experience qualified:", qualified)
+
+                    if qualified:
+                        ack = state.get("question_acknowledgements", {}).get(question, "")
+                        if ack:
+                            state["messages"].append(AIMessage(content=ack))
+                    else:
+                        if state.get("job_type") == "server":
+                            state["messages"].append(AIMessage(content="Thank you for your interest! This role does require at least 1 year of server experience. We'd encourage you to apply again once you've built that experience."))
+
+                        elif state.get("job_type") == "cook":
+                            state["messages"].append(AIMessage(content="I appreciate your honesty. For this specific role, we require a bit more professional experience. We encourage you to apply again in the future!")) 
+                            
+                    return state
+            else:
+                # ── Normal acknowledgement ────────────────────────────────────────
+                ack = state.get("question_acknowledgements", {}).get(question, "")
+                if ack:
+                    state["messages"].append(AIMessage(content=ack))
 
     return state
+
+
+def experience_router(state: ChatbotState) -> Literal["ask_question", "__end__"]:
+    print("experience_router called")
+    
+    if not state.get("experience_qualified", True):
+        return "__end__"
+    
+    return "ask_question"
 
 
 def question_router(state: ChatbotState) -> Literal["ask_question", "ask_address"]:
@@ -530,9 +567,6 @@ def question_router(state: ChatbotState) -> Literal["ask_question", "ask_address
     
     if state["current_question_index"] < len(state["questions"]):
         return "ask_question"
-    
-    # if state.get("job_type") == "server":
-    #     return "ask_name"
 
     return "ask_address"
 
@@ -1444,45 +1478,53 @@ def background_check_router(state: ChatbotState) -> Literal["ask_id_verification
 
 # ==================== ID VERIFICATION NODES ====================
 async def ask_id_verification_node(state: ChatbotState) -> ChatbotState:
-    """Send ID verification messages and create Simplici session"""
-
     print("ask_id_verification_node called")
 
     applicant_name  = state["personal_details"].get("name", "")
     phone           = state["personal_details"].get("phone", "")
     cleo_session_id = state.get("session_id", "")
+    thread_id       = state.get("session_id", "")  # use session_id as proxy
 
-    # Create session — dev returns fixed link, prod calls Simplici API
     verify_link, simplici_session_id = create_id_verify_session(
         cleo_session_id, applicant_name, phone
     )
 
     if not verify_link:
-        # API failure — flag for manual review and continue
         state["id_verify_failed"] = True
         state["messages"].append(AIMessage(
             content="We're experiencing a brief technical issue with our verification system. Our team will follow up with you directly."
         ))
+        asyncio.create_task(log_id_verification_event(
+            session_id=cleo_session_id, thread_id=thread_id,
+            status="id_verify_session_failed",
+            raw_data={"applicant_name": applicant_name, "phone": phone},
+            error="create_id_verify_session returned empty link"
+        ))
         return state
 
-    state["id_verify_link"] = verify_link
+    state["id_verify_link"]       = verify_link
     state["id_verify_session_id"] = simplici_session_id
 
-    await save_session_mapping(simplici_session_id, cleo_session_id)
-
-    # 3-message "sandwich" approach
-    state["messages"].append(AIMessage(
-        content="You're doing great! We're almost at the finish line. 🏁"
-    ))
-    state["messages"].append(AIMessage(
-        content="To protect your data and verify your profile for the hiring manager, we just need a quick ID check. It takes less than 60 seconds."
-    ))
-    state["messages"].append(AIMessage(
-        content="Please make sure you're in a well-lit room and have your government-issued ID ready. Tap the button below to start! I'll be right here when you're back."
+    # Log session created
+    asyncio.create_task(log_id_verification_event(
+        session_id=cleo_session_id, thread_id=thread_id,
+        status="id_verify_session_created",
+        raw_data={"simplici_session_id": simplici_session_id, "verify_link": verify_link}
     ))
 
+    state["messages"].append(AIMessage(content="You're doing great! We're almost at the finish line. 🏁"))
+    state["messages"].append(AIMessage(content="To keep our hiring process secure and get you onboarded quickly, we just need to verify your ID. It's a simple 30-second check where you'll snap a photo of your ID and a quick selfie to confirm it's really you."))
+    state["messages"].append(AIMessage(content="Please make sure you're in a well-lit room and have your government-issued ID ready. Tap the button below to start! I'll be right here when you're back."))
     state["show_id_verify_ui"] = True
 
+    # Log waiting for webhook
+    asyncio.create_task(log_id_verification_event(
+        session_id=cleo_session_id, thread_id=thread_id,
+        status="id_verify_waiting",
+        raw_data={"simplici_session_id": simplici_session_id}
+    ))
+
+    await save_session_mapping(simplici_session_id, cleo_session_id)
     return state
 
 
@@ -1823,7 +1865,7 @@ def build_graph(checkpointer):
 
     # Questions loop
     workflow.add_edge("ask_question", "store_answer")
-    workflow.add_conditional_edges("store_answer", question_router)
+    workflow.add_conditional_edges("store_answer", experience_router)
 
     # Address + GPS flow (between phone verification and questions)
     workflow.add_edge("ask_address", "store_address")

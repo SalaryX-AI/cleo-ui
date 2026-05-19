@@ -195,6 +195,79 @@ async def log_error(
     )
 
 
+async def log_id_verification_event(
+    session_id: str,
+    thread_id: str,
+    status: str,
+    raw_data: Optional[Dict[str, Any]] = None,
+    error: Optional[str] = None,
+):
+    """
+    Log a structured ID verification audit event with LLM-generated
+    technical + non-technical messages.
+
+    status values:
+      id_verify_session_created  — Simplici session created, link ready
+      id_verify_session_failed   — Could not create Simplici session
+      id_verify_waiting          — Applicant shown link, waiting for webhook
+      id_verify_passed           — Webhook received, KYC passed
+      id_verify_failed           — Webhook received, KYC failed
+      id_verify_system_error     — Unexpected Python/system exception
+    """
+    from langchain_openai import ChatOpenAI
+    from langchain_core.messages import HumanMessage as LCHumanMessage
+
+    if raw_data is None:
+        raw_data = {}
+
+    # ── LLM message generation ────────────────────────────────────────────────
+    technical_message    = ""
+    non_technical_message = ""
+
+    try:
+        _llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+
+        prompt = f"""You are a software observability assistant for Cleo HR, an AI hiring tool.
+
+An ID verification event just occurred. Generate two messages describing it.
+
+Status: {status}
+Raw data: {json.dumps(raw_data, indent=2)}
+Error: {error or "None"}
+
+Rules:
+- technical_message: For developers. Include session IDs, exact error text, field names, HTTP status codes if present. Be precise and specific.
+- non_technical_message: For HR managers. Plain English, no jargon. Say what happened and what (if anything) HR should do next.
+
+Return ONLY valid JSON, no markdown:
+{{"technical": "...", "non_technical": "..."}}"""
+
+        resp = _llm.invoke([LCHumanMessage(content=prompt)])
+        parsed = json.loads(resp.content.strip())
+        technical_message     = parsed.get("technical", "")
+        non_technical_message = parsed.get("non_technical", "")
+
+    except Exception as llm_err:
+        print(f"[LOGGER] LLM message generation failed: {llm_err}")
+        technical_message     = f"Status: {status}. Error: {error or 'none'}. Raw: {json.dumps(raw_data)}"
+        non_technical_message = f"ID verification status: {status.replace('_', ' ')}."
+
+    # ── Write to conversation_events ──────────────────────────────────────────
+    await log_event(
+        session_id=session_id,
+        thread_id=thread_id,
+        node_name="id_verification",
+        event_type="id_verification",
+        event_data={
+            "status":                status,
+            "technical_message":     technical_message,
+            "non_technical_message": non_technical_message,
+            "raw_data":              raw_data,
+            "error":                 error,
+        },
+    )
+
+
 async def update_run_status(
     session_id: str,
     status: str,              # 'completed' | 'errored'
