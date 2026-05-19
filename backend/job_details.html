@@ -217,7 +217,9 @@
                     throw new Error('Failed to fetch job details');
                 }
 
-                const job = await response.json();
+                const data = await response.json();
+                const job = data.job;
+                return job;
                 
                 if (!job) {
                     throw new Error('Job not found');
