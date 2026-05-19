@@ -381,60 +381,6 @@
   .event-card.error       { border-color: var(--red); background: rgba(240,91,91,0.05); }
   .event-card.node_enter  { border-color: var(--surface3); opacity: 0.7; }
 
-  /* ── ID Verification event cards ── */
-  .event-card.id_verification                           { border-color: var(--accent); }
-  .event-card.id_verify_waiting                         { border-color: var(--yellow); background: rgba(245,200,66,0.04); }
-  .event-card.id_verify_passed                          { border-color: var(--green);  background: rgba(62,207,142,0.04); }
-  .event-card.id_verify_failed                          { border-color: var(--red);    background: rgba(240,91,91,0.04); }
-  .event-card.id_verify_session_failed,
-  .event-card.id_verify_system_error                   { border-color: var(--red);    background: rgba(240,91,91,0.06); }
-  .event-card.id_verify_session_created                 { border-color: var(--accent); background: rgba(91,138,240,0.04); }
-
-  .event-type-label.id_verify_waiting                   { color: var(--yellow); }
-  .event-type-label.id_verify_passed                    { color: var(--green); }
-  .event-type-label.id_verify_failed,
-  .event-type-label.id_verify_session_failed,
-  .event-type-label.id_verify_system_error              { color: var(--red); }
-  .event-type-label.id_verify_session_created,
-  .event-type-label.id_verification                     { color: var(--accent); }
-
-  .idv-status-pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    padding: 2px 8px;
-    border-radius: 10px;
-    font-size: 10px;
-    font-weight: 600;
-    font-family: var(--mono);
-    letter-spacing: 0.04em;
-  }
-  .idv-pill-waiting  { background: rgba(245,200,66,0.15);  color: var(--yellow); }
-  .idv-pill-passed   { background: rgba(62,207,142,0.15);  color: var(--green);  }
-  .idv-pill-failed   { background: rgba(240,91,91,0.15);   color: var(--red);    }
-  .idv-pill-created  { background: rgba(91,138,240,0.15);  color: var(--accent); }
-  .idv-pill-error    { background: rgba(240,91,91,0.15);   color: var(--red);    }
-
-  .idv-message-row {
-    margin-top: 5px;
-    padding: 6px 8px;
-    border-radius: 5px;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    font-family: var(--sans);
-    font-size: 11px;
-    line-height: 1.5;
-    color: var(--text-mid);
-  }
-  .idv-message-label {
-    font-family: var(--mono);
-    font-size: 9px;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    color: var(--text-dim);
-    margin-bottom: 2px;
-  }
-
   .event-type-label {
     font-size: 10px;
     text-transform: uppercase;
@@ -607,6 +553,16 @@
     <button class="btn-sm" onclick="loadRuns()">Connect</button>
   </div>
   <input class="topbar-search" type="text" id="searchInput" placeholder="Search thread_id or message..." oninput="debounceSearch()">
+  <button class="btn-sm" id="reloadBtn" onclick="handleReload()" title="Reload"
+    style="padding:6px 10px;display:flex;align-items:center;gap:5px;flex-shrink:0;margin-left:4px;">
+    <svg id="reloadIcon" width="13" height="13" viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="23 4 23 10 17 10"/>
+      <polyline points="1 20 1 14 7 14"/>
+      <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+    </svg>
+    Reload
+  </button>
 </div>
 
 <!-- HOME: FILTER BAR -->
@@ -751,11 +707,33 @@ let totalRuns = 0;
 let filters = { error: false, ko: false, score: false };
 let searchTimer = null;
 
-let currentRun = null;       // run metadata
-let currentEvents = [];      // events array
-let currentState = null;     // LangGraph state
-let currentDiffs = [];       // state diffs
-let activeNodeFilter = null; // left pane node filter
+let currentRun = null;
+let currentEvents = [];
+let currentState = null;
+let currentDiffs = [];
+let activeNodeFilter = null;
+let currentSessionId = null;   // track open session for detail reload
+
+// ─────────────────────────────────────────────
+// RELOAD
+// ─────────────────────────────────────────────
+function spinReload(spinning) {
+  const icon = document.getElementById('reloadIcon');
+  if (!icon) return;
+  icon.style.transition = 'transform 0.5s ease';
+  icon.style.transform  = spinning ? 'rotate(360deg)' : '';
+  if (spinning) setTimeout(() => { icon.style.transform = ''; }, 500);
+}
+
+function handleReload() {
+  spinReload(true);
+  const isDetail = document.getElementById('detail-view').style.display !== 'none';
+  if (isDetail && currentSessionId) {
+    openRun(currentSessionId);   // reload detail view
+  } else {
+    loadRuns();                  // reload list view
+  }
+}
 
 // ─────────────────────────────────────────────
 // UTILS
@@ -910,6 +888,7 @@ function updatePagination() {
 // ─────────────────────────────────────────────
 async function openRun(sessionId) {
   showDetail();
+  currentSessionId = sessionId;   // ← track for reload
   // Show loading in all panes
   document.getElementById('flowNav').innerHTML = `<div class="empty-state"><div class="spinner"></div></div>`;
   document.getElementById('transcriptPane').innerHTML = `<div class="empty-state"><div class="spinner"></div></div>`;
@@ -1072,70 +1051,6 @@ function renderTranscript() {
           <div class="event-node-name">
             ${esc(ev.node_name || '')}
             <span style="color:${ok ? 'var(--green)' : 'var(--red)'}">${ok ? '✓ passed' : '✗ failed'}</span>
-          </div>
-          <span class="event-ts">${ts}</span>
-        </div>
-      `;
-    } else if (ev.event_type === 'id_verification') {
-      const idvStatus = data.status || 'unknown';
-
-      // pill config per status
-      const pillMap = {
-        'id_verify_session_created': { cls: 'idv-pill-created',  icon: '🔗', label: 'SESSION CREATED'  },
-        'id_verify_waiting':         { cls: 'idv-pill-waiting',  icon: '⏳', label: 'WAITING'          },
-        'id_verify_passed':          { cls: 'idv-pill-passed',   icon: '✅', label: 'PASSED'           },
-        'id_verify_failed':          { cls: 'idv-pill-failed',   icon: '❌', label: 'FAILED'           },
-        'id_verify_session_failed':  { cls: 'idv-pill-error',    icon: '⚠️', label: 'SESSION FAILED'   },
-        'id_verify_system_error':    { cls: 'idv-pill-error',    icon: '🔴', label: 'SYSTEM ERROR'     },
-      };
-      const pill    = pillMap[idvStatus] || { cls: 'idv-pill-created', icon: '🛡️', label: idvStatus.toUpperCase() };
-      const cardCls = idvStatus;
-
-      html += `
-        <div class="event-card id_verification ${esc(cardCls)}">
-          <span class="event-type-label ${esc(cardCls)}">ID VERIFY</span>
-          <div style="flex:1; min-width:0;">
-
-            <!-- Status pill -->
-            <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
-              <span class="idv-status-pill ${esc(pill.cls)}">${pill.icon} ${esc(pill.label)}</span>
-              ${data.raw_data?.simplici_session_id
-                ? `<span style="font-family:var(--mono);font-size:10px;color:var(--text-dim)">
-                     session: ${esc(data.raw_data.simplici_session_id)}
-                   </span>`
-                : ''}
-            </div>
-
-            <!-- Non-technical message (always visible) -->
-            ${data.non_technical_message ? `
-              <div class="idv-message-row">
-                <div class="idv-message-label">For HR</div>
-                ${esc(data.non_technical_message)}
-              </div>` : ''}
-
-            <!-- Technical message (collapsible) -->
-            ${data.technical_message ? `
-              <details>
-                <summary>technical detail</summary>
-                <div class="idv-message-row" style="margin-top:4px; color:var(--text-dim)">
-                  ${esc(data.technical_message)}
-                </div>
-              </details>` : ''}
-
-            <!-- Raw data (collapsible) -->
-            ${data.raw_data && Object.keys(data.raw_data).length > 0 ? `
-              <details>
-                <summary>raw data</summary>
-                <pre>${esc(JSON.stringify(data.raw_data, null, 2))}</pre>
-              </details>` : ''}
-
-            <!-- Error (if present) -->
-            ${data.error ? `
-              <details>
-                <summary style="color:var(--red)">error</summary>
-                <pre style="color:var(--red)">${esc(data.error)}</pre>
-              </details>` : ''}
-
           </div>
           <span class="event-ts">${ts}</span>
         </div>
