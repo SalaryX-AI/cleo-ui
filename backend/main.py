@@ -518,6 +518,15 @@ async def id_verification_webhook(request: Request):
                     await log_event(cleo_session_id, thread_id, node_name, "node_enter",
                                     {"state_keys": list(node_data.keys()) if node_data else []})
 
+                     # ── Show typing indicator during heavy compute nodes ──────────────
+                    if node_name in ("score", "summary") and ws:
+                        try:
+                            await ws.send_json({"type": "typing"})
+                        except Exception:
+                            pass
+                        continue   # still skip sending messages for these nodes
+                    
+                    
                     # Skip nodes that don't add new messages
                     if node_name not in NODES_WITH_NEW_MESSAGES:
                         continue

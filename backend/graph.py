@@ -525,7 +525,7 @@ def store_answer_node(state: ChatbotState) -> ChatbotState:
     Does this answer indicate they HAVE the required experience? Answer ONLY "yes" or "no"."""
                     response = llm.invoke([HumanMessage(content=prompt)])
                     
-                    qualified = response.content.strip().lower() == "yes"
+                    qualified = response.content.strip().lower().startswith("yes")
                     
                     state["experience_qualified"] = qualified
                     print("Experience qualified:", qualified)
