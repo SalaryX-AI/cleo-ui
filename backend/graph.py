@@ -551,13 +551,20 @@ def store_answer_node(state: ChatbotState) -> ChatbotState:
     return state
 
 
-def experience_router(state: ChatbotState) -> Literal["ask_question", "__end__"]:
+def experience_router(state: ChatbotState) -> Literal["ask_question", "__end__", "ask_address"]:
     print("experience_router called")
     
     if not state.get("experience_qualified", True):
         return "__end__"
     
-    return "ask_question"
+    # Check if more questions remain
+    idx       = state["current_question_index"]
+    questions = state.get("questions", [])
+
+    if idx < len(questions):
+        return "ask_question"
+    
+    return "ask_address"
 
 
 def question_router(state: ChatbotState) -> Literal["ask_question", "ask_address"]:
