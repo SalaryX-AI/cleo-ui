@@ -381,6 +381,39 @@
   .event-card.error       { border-color: var(--red); background: rgba(240,91,91,0.05); }
   .event-card.node_enter  { border-color: var(--surface3); opacity: 0.7; }
 
+  /* ── ID Verification cards ── */
+  .event-card.id_verify_session_created{ border-color: var(--accent); background: rgba(91,138,240,0.05); }
+  .event-card.id_verify_waiting        { border-color: var(--yellow); background: rgba(245,200,66,0.05); }
+  .event-card.id_verify_passed         { border-color: var(--green);  background: rgba(62,207,142,0.05); }
+  .event-card.id_verify_failed         { border-color: var(--red);    background: rgba(240,91,91,0.05); }
+  .event-card.id_verify_session_failed { border-color: var(--red);    background: rgba(240,91,91,0.06); }
+  .event-card.id_verify_system_error   { border-color: var(--red);    background: rgba(240,91,91,0.06); }
+  .event-type-label.id_verify_session_created { color: var(--accent); }
+  .event-type-label.id_verify_waiting         { color: var(--yellow); }
+  .event-type-label.id_verify_passed          { color: var(--green);  }
+  .event-type-label.id_verify_failed,
+  .event-type-label.id_verify_session_failed,
+  .event-type-label.id_verify_system_error    { color: var(--red);    }
+  .idv-pill {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 2px 8px; border-radius: 10px; font-size: 10px;
+    font-weight: 600; font-family: var(--mono); letter-spacing: 0.04em; margin-bottom: 5px;
+  }
+  .idv-pill-created { background: rgba(91,138,240,0.15);  color: var(--accent); }
+  .idv-pill-waiting { background: rgba(245,200,66,0.15);  color: var(--yellow); }
+  .idv-pill-passed  { background: rgba(62,207,142,0.15);  color: var(--green);  }
+  .idv-pill-failed,
+  .idv-pill-error   { background: rgba(240,91,91,0.15);   color: var(--red);    }
+  .idv-msg-box {
+    margin-top: 5px; padding: 6px 10px; border-radius: 5px;
+    background: var(--bg); border: 1px solid var(--border);
+    font-size: 11px; line-height: 1.5; color: var(--text-mid);
+  }
+  .idv-msg-label {
+    font-family: var(--mono); font-size: 9px; text-transform: uppercase;
+    letter-spacing: 0.1em; color: var(--text-dim); margin-bottom: 2px;
+  }
+
   .event-type-label {
     font-size: 10px;
     text-transform: uppercase;
@@ -1051,6 +1084,52 @@ function renderTranscript() {
           <div class="event-node-name">
             ${esc(ev.node_name || '')}
             <span style="color:${ok ? 'var(--green)' : 'var(--red)'}">${ok ? '✓ passed' : '✗ failed'}</span>
+          </div>
+          <span class="event-ts">${ts}</span>
+        </div>
+      `;
+    } else if (ev.event_type === 'id_verification') {
+      const idvStatus = data.status || 'id_verification';
+      const pillMap = {
+        'id_verify_session_created': { cls: 'idv-pill-created', icon: '🔗', label: 'SESSION CREATED' },
+        'id_verify_waiting':         { cls: 'idv-pill-waiting', icon: '⏳', label: 'WAITING'         },
+        'id_verify_passed':          { cls: 'idv-pill-passed',  icon: '✅', label: 'PASSED'          },
+        'id_verify_failed':          { cls: 'idv-pill-failed',  icon: '❌', label: 'FAILED'          },
+        'id_verify_session_failed':  { cls: 'idv-pill-error',   icon: '⚠️', label: 'SESSION FAILED'  },
+        'id_verify_system_error':    { cls: 'idv-pill-error',   icon: '🔴', label: 'SYSTEM ERROR'    },
+      };
+      const pill = pillMap[idvStatus] || { cls: 'idv-pill-created', icon: '🛡️', label: idvStatus.toUpperCase().replace(/_/g,' ') };
+      html += `
+        <div class="event-card ${esc(idvStatus)}">
+          <span class="event-type-label ${esc(idvStatus)}">ID VERIFY</span>
+          <div style="flex:1;min-width:0;">
+            <div class="idv-pill ${esc(pill.cls)}">${pill.icon} ${esc(pill.label)}</div>
+            ${data.raw_data && data.raw_data.simplici_session_id
+              ? `<div style="font-family:var(--mono);font-size:10px;color:var(--text-dim);margin-bottom:4px">
+                   session: ${esc(data.raw_data.simplici_session_id)}
+                 </div>` : ''}
+            ${data.non_technical_message ? `
+              <div class="idv-msg-box">
+                <div class="idv-msg-label">For HR</div>
+                ${esc(data.non_technical_message)}
+              </div>` : ''}
+            ${data.technical_message ? `
+              <details>
+                <summary>technical detail</summary>
+                <div class="idv-msg-box" style="margin-top:4px;color:var(--text-dim)">
+                  ${esc(data.technical_message)}
+                </div>
+              </details>` : ''}
+            ${data.raw_data && Object.keys(data.raw_data).length > 0 ? `
+              <details>
+                <summary>raw data</summary>
+                <pre>${esc(JSON.stringify(data.raw_data, null, 2))}</pre>
+              </details>` : ''}
+            ${data.error ? `
+              <details>
+                <summary style="color:var(--red)">error</summary>
+                <pre style="color:var(--red)">${esc(data.error)}</pre>
+              </details>` : ''}
           </div>
           <span class="event-ts">${ts}</span>
         </div>
