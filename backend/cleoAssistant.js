@@ -19,6 +19,7 @@ document.head.appendChild(link);
         sessionId: null,
         isOpen: false,
         reconnecting: false, // prevent multiple reconnect attempts
+        heartbeatInterval: null,
         
         /**
          * Initialize the chatbot with validated configuration
@@ -79,6 +80,11 @@ document.head.appendChild(link);
         
         handlePageVisible: function() {
             // Check if WebSocket is disconnected
+
+            if (!this.sessionId) {
+                console.log('[RECONNECT] No session yet, skipping reconnect');
+                return;
+            }
             if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
                 console.log('[RECONNECT] WebSocket disconnected, attempting reconnect...');
                 this.reconnectWebSocket();
@@ -546,7 +552,7 @@ document.head.appendChild(link);
                 const data = await response.json();
                 this.sessionId = data.session_id;
                 
-                this.ws = new WebSocket(`${this.config.wsUrl}/ws/${this.sessionId}`);
+                this.connectWebSocket();
                 
                 this.ws.onopen = () => {
                     this.updateStatus('Online', 'connected');
@@ -780,6 +786,24 @@ document.head.appendChild(link);
             if (input && sendBtn) {
                 input.disabled = true;
                 sendBtn.disabled = true;
+            }
+        },
+
+        startHeartbeat() {
+            this.stopHeartbeat(); // clear any existing interval first
+            this.heartbeatInterval = setInterval(() => {
+                if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+                    this.ws.send(JSON.stringify({ type: 'ping' }));
+                    console.log('[HEARTBEAT] Sent ping');
+                }
+            }, 30000); // every 30 seconds
+        },
+
+        stopHeartbeat() {
+            if (this.heartbeatInterval) {
+                clearInterval(this.heartbeatInterval);
+                this.heartbeatInterval = null;
+                console.log('[HEARTBEAT] Stopped');
             }
         }
     };
@@ -1340,30 +1364,24 @@ document.head.appendChild(link);
                 console.error('[WorkExperienceUI] No experiences to submit');
                 return;
             }
-            
+
             console.log('[WorkExperienceUI] Submitting all experiences:', this.experiences);
-            
-            // Show confirmation message
-            const summary = this.experiences.map(exp => 
+
+            const summary = this.experiences.map(exp =>
                 `${exp.role} at ${exp.company} (${exp.startDate} to ${exp.endDate})`
             ).join(', ');
-            
-            window.CleoChatbot.addMessage(
-                `My experience: ${summary}`,
-                false,
-                'body'
-            );
-            
-            // Send all experiences via WebSocket
+
+            window.CleoChatbot.addMessage(`My experience: ${summary}`, false, 'body');
+            window.CleoChatbot.showTypingIndicator();   // ← add this
+
             if (window.CleoChatbot && window.CleoChatbot.ws) {
                 window.CleoChatbot.ws.send(JSON.stringify({
                     type: 'work_experience_data',
-                    data: this.experiences  // Send array of all experiences
+                    data: this.experiences
                 }));
             }
 
-            // Hide UI
-            this.hide();
+            this.hide();   // ← move hide() to after send
         },
         
         show() {
@@ -1634,32 +1652,32 @@ document.head.appendChild(link);
         },
 
         submitEducation() {
-            if (!this.selectedOption) {
-                console.error('[EducationUI] No education selected!');
-                return;
-            }
+        if (!this.selectedOption) {
+            console.error('[EducationUI] No education selected!');
+            return;
+        }
 
-            // Build combined message: "College degree, 2018"
-            const submittedValue = this.selectedYear && this.selectedYear !== 'Not specified'
-                ? `${this.selectedOption}, ${this.selectedYear}`
-                : this.selectedOption;
+        const submittedValue = this.selectedYear && this.selectedYear !== 'Not specified'
+            ? `${this.selectedOption}, ${this.selectedYear}`
+            : this.selectedOption;
 
-            console.log('[EducationUI] Submitting:', submittedValue);
+        console.log('[EducationUI] Submitting:', submittedValue);
 
-            this.hide();
+        this.hide();
 
-            if (window.CleoChatbot && window.CleoChatbot.ws && window.CleoChatbot.ws.readyState === WebSocket.OPEN) {
-                window.CleoChatbot.addMessage(submittedValue, false, 'body');
+        if (window.CleoChatbot && window.CleoChatbot.ws && window.CleoChatbot.ws.readyState === WebSocket.OPEN) {
+            window.CleoChatbot.addMessage(submittedValue, false, 'body');
+            window.CleoChatbot.showTypingIndicator();          // ← add this
 
-                window.CleoChatbot.ws.send(JSON.stringify({
-                    type: 'user_message',
-                    content: submittedValue
-                }));
-            } else {
-                console.error('[EducationUI] WebSocket not ready!');
-                window.CleoChatbot.enableInput();
-            }
-        },
+            window.CleoChatbot.ws.send(JSON.stringify({
+                type: 'user_message',
+                content: submittedValue
+            }));
+        } else {
+            console.error('[EducationUI] WebSocket not ready!');
+            window.CleoChatbot.enableInput();
+        }
+    },
 
         show() {
             const messagesDiv = document.getElementById('chatbot-messages');

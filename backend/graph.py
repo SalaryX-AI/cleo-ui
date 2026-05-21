@@ -177,6 +177,9 @@ class ChatbotState(MessagesState):
 
     experience_qualified: bool = True
 
+    re_ask_attempts: Dict[str, int] = {}
+    kq_just_answered_index: int = -1
+
 
 # ==================== Acknowledgement ====================
 def acknowledge_node(state: ChatbotState) -> ChatbotState:
@@ -187,11 +190,33 @@ def acknowledge_node(state: ChatbotState) -> ChatbotState:
 
     ack_messages = cleo_engagement.ack_messages
     
-    message = ack_messages.get(ack_type)
+    message = ack_messages.get(ack_type) or ack_messages.get("default", "Let's continue!")
 
     state["messages"].append(AIMessage(content=message))
     
     return state
+
+
+def generate_reask_message(question: str, user_input: str) -> str:
+    """LLM-generated conversational re-ask that acknowledges what the user said"""
+    prompt = f"""You are Cleo, a friendly AI hiring assistant. A job applicant gave an unclear response.
+
+Question asked: "{question}"
+Applicant's response: "{user_input}"
+
+Write a brief, warm, conversational follow-up (1 sentence) that:
+- Naturally acknowledges what they said
+- Gently re-asks for what you need
+- Does NOT sound robotic or use phrases like "I didn't catch that"
+- Feels like a real conversation
+- Use simple language, no jargon with exact question
+
+Return ONLY the message, nothing else."""
+    try:
+        response = llm.invoke([HumanMessage(content=prompt)])
+        return response.content.strip()
+    except Exception:
+        return f"Just to confirm — {question}"
 
 
 def post_acknowledgement_router(state: ChatbotState) -> Literal["ask_knockout_question", "ask_work_experience", "ask_id_verification"]:
@@ -269,45 +294,57 @@ def start_node(state: ChatbotState) -> ChatbotState:
 
 
 def check_ready_node(state: ChatbotState) -> ChatbotState:
-    """Process ready response"""
-
     print("check_ready_node called")
 
     messages = state["messages"]
     last_message = messages[-1] if messages else None
-    
+
     if isinstance(last_message, HumanMessage):
         user_input = last_message.content.lower().strip()
+        question = "Are you ready to start the application process?"
 
-        prompt = CONSENT_EVALUATION_PROMPT.format(user_response=user_input)
-        response = llm.invoke(prompt)
-        
-        # Get LLM's decision (should be "Yes" or "No")
-        llm_decision = response.content.strip()
-        
-        print(f"User said: '{user_input}' | LLM decision: '{llm_decision}'")
-        
-        if llm_decision.lower() == "yes":
+        result = interpret_response(question, user_input, "yes_no")
+
+        if result["intent"] == "ambiguous":
+            attempts = state["re_ask_attempts"].get("ready", 0) + 1
+            state["re_ask_attempts"]["ready"] = attempts
+
+            if attempts >= 2:
+                # Default to decline after 2 unclear responses
+                state["ready_confirmed"] = False
+                state["messages"].append(AIMessage(content=cleo_engagement.decline_message))
+                state["re_ask_attempts"].pop("ready", None)
+            else:
+                reask = generate_reask_message(question, user_input)
+                state["messages"].append(AIMessage(content=reask))
+
+        elif result["intent"] == "yes":
             state["ready_confirmed"] = True
-            state["acknowledgement_type"] = "ready"
+            state["re_ask_attempts"].pop("ready", None)
+
         else:
-            # Send decline message
-            decline_message = cleo_engagement.decline_message
-            state["messages"].append(AIMessage(content=decline_message))    
-    
+            state["ready_confirmed"] = False
+            state["messages"].append(AIMessage(content=cleo_engagement.decline_message))
+            state["re_ask_attempts"].pop("ready", None)
+
     return state
 
 
-def ready_router(state: ChatbotState) -> Literal["ask_knockout_question", "__end__"]:
-    """Route based on ready confirmation"""
-    
+def reask_consent_node(state: ChatbotState) -> ChatbotState:
+    """Pure interrupt point after ambiguous consent — message already sent by check_ready_node"""
+    return {}
+
+
+def ready_router(state: ChatbotState) -> Literal["ask_knockout_question", "reask_consent", "__end__"]:
     print("ready_router called")
-    
+
+    if "ready" in state.get("re_ask_attempts", {}):
+        return "reask_consent"      # interrupt, then loop back to check_ready
+
     if state["ready_confirmed"]:
         return "ask_knockout_question"
-    return "__end__" # go directly to END
 
-
+    return "__end__"
 
 # ==================== knockout questions ============================
 def ask_knockout_question_node(state: ChatbotState) -> ChatbotState:
@@ -322,43 +359,137 @@ def ask_knockout_question_node(state: ChatbotState) -> ChatbotState:
         knockout_question = knockout_questions[idx]
 
         if idx == 2:
-            shifts_text = state['job_shift'].replace(", and ", ",\n").replace(", ", ",\n")
-            state["messages"].append(AIMessage(
-                content=f"We are currently hiring specifically for:\n{shifts_text}.\nAre you available to work that schedule?"
-            ))
+            raw_shift = state.get('job_shift', '').strip()
+            if raw_shift:
+                shifts_text = raw_shift.replace(", and ", ",\n").replace(", ", ",\n")
+                content = f"We are currently hiring specifically for:\n{shifts_text}.\nAre you available to work that schedule?"
+            else:
+                content = "Are you available to work various shifts including mornings, evenings, and weekends?"
+            state["messages"].append(AIMessage(content=content))
         else:
             state["messages"].append(AIMessage(content=knockout_question))
     
     return state
 
 
+def interpret_response(question: str, answer: str, expected_type: str = "yes_no") -> dict:
+    """
+    Central response interpreter. Never stores raw input — always returns meaning.
+    
+    Returns:
+        {"intent": "yes"|"no"|"ambiguous", "clean": "normalized value", "reason": "if ambiguous"}
+    """
+    if expected_type == "free_text":
+        return {"intent": "value", "clean": answer.strip(), "reason": ""}
+
+    prompt = f"""You are interpreting a job applicant's chat response.
+
+Question: "{question}"
+Response: "{answer}"
+
+Classify the response as YES, NO, or AMBIGUOUS.
+
+YES examples: yes, y, yep, yup, yeah, sure, ok, okay, of course, absolutely, definitely, 
+              correct, i do, i am, i have, i can, for sure, totally, certainly, 
+              "i served" (military), "i have experience", "i'm available", "sounds good"
+
+NO examples: no, n, nope, nah, not really, i don't, i can't, i haven't, i'm not, 
+             negative, never, "no experience", "can't make it"
+
+AMBIGUOUS — use this when:
+- Gibberish or typos with no clear meaning: "yrdy", "yryd", "asd", "lkj", random characters
+- Too vague: "maybe", "depends", "sometimes", "i think so", "probably", "not sure"
+- Unrelated to the question
+- Single letters other than y or n
+
+Return ONLY valid JSON, no markdown:
+{{"intent": "yes" or "no" or "ambiguous", "clean": "yes or no or the original text", "reason": "brief reason if ambiguous, otherwise empty string"}}"""
+
+    try:
+        response = llm.invoke([HumanMessage(content=prompt)])
+        clean = response.content.strip().replace("```json","").replace("```","").strip()
+        result = json.loads(clean)
+        return result
+    except Exception:
+        lower = answer.strip().lower()
+        if lower in ("yes","y","yep","yeah","yup","sure","ok","okay"):
+            return {"intent": "yes", "clean": "yes", "reason": ""}
+        elif lower in ("no","n","nope","nah"):
+            return {"intent": "no", "clean": "no", "reason": ""}
+        return {"intent": "ambiguous", "clean": answer, "reason": "Could not interpret"}
+    
+
+
 def store_kq_answer_node(state: ChatbotState) -> ChatbotState:
-    """Store knockout answer and increment index"""
-    
     print("store_kq_answer_node called")
-    
+
     messages = state["messages"]
     last_message = messages[-1] if messages else None
-    
-    if isinstance(last_message, HumanMessage):
-        idx = state["current_knockout_question_index"]
-        if idx < len(state["knockout_questions"]):
-            knockout_question = state["knockout_questions"][idx]
-            
-            if idx == 1:
-                age = extract_age_from_text(last_message.content)
-                print(f"Extracted age: {age}")
-                state["knockout_answers"][knockout_question] = age
-                state["applicant_age"] = age
-                state["current_knockout_question_index"] += 1
 
-                return state
-            
-            state["knockout_answers"][knockout_question] = last_message.content
-            state["current_knockout_question_index"] += 1
-    
+    if not isinstance(last_message, HumanMessage):
+        return state
+
+    idx = state["current_knockout_question_index"]
+    if idx >= len(state["knockout_questions"]):
+        return state
+
+    knockout_question = state["knockout_questions"][idx]
+
+    # ── Age question (idx==1) ─────────────────────────────────────────────────
+    if idx == 1:
+        age = extract_age_from_text(last_message.content)
+        print(f"Extracted age: {age}")
+
+        if age == "NONE":
+            attempts = state["re_ask_attempts"].get(knockout_question, 0) + 1
+            state["re_ask_attempts"][knockout_question] = attempts
+            print(f"[KQ-AGE] Could not extract age, attempt {attempts}")
+
+            if attempts >= 2:
+                state["knockout_answers"][knockout_question] = "no"
+                state["applicant_age"] = "NONE"
+                state["re_ask_attempts"].pop(knockout_question, None)
+                state["kq_just_answered_index"] = idx      # ← mark as answered
+            else:
+                state["kq_just_answered_index"] = -1       # ← re-ask, not answered
+            return state
+
+        state["knockout_answers"][knockout_question] = age
+        state["applicant_age"] = age
+        state["current_knockout_question_index"] += 1
+        state["re_ask_attempts"].pop(knockout_question, None)
+        state["kq_just_answered_index"] = idx              # ← mark as answered
+        return state
+
+    # ── All other KQ: yes/no with ambiguity detection ─────────────────────────
+    result = interpret_response(knockout_question, last_message.content, "yes_no")
+    print(f"KQ interpret result: {result}")
+
+    if result["intent"] == "ambiguous":
+        attempts = state["re_ask_attempts"].get(knockout_question, 0) + 1
+        state["re_ask_attempts"][knockout_question] = attempts
+
+        if attempts >= 2:
+            print(f"[KQ] 2 ambiguous attempts — defaulting to no")
+            state["knockout_answers"][knockout_question] = "no"
+            state["re_ask_attempts"].pop(knockout_question, None)
+            state["kq_just_answered_index"] = idx          # ← mark as answered
+        else:
+            state["kq_just_answered_index"] = -1           # ← re-ask, not answered
+        return state
+
+    # Clear answer
+    state["knockout_answers"][knockout_question] = result["clean"]
+    state["current_knockout_question_index"] += 1
+    state["re_ask_attempts"].pop(knockout_question, None)
+    state["kq_just_answered_index"] = idx                  # ← mark as answered
     return state
 
+
+def kq_ambiguity_router(state: ChatbotState) -> Literal["ask_knockout_question", "evaluate_single_knockout"]:
+    if state.get("kq_just_answered_index", -1) >= 0:
+        return "evaluate_single_knockout"
+    return "ask_knockout_question"
 
 # ==================== KNOCKOUT EVALUATION (Per Question) ====================
 
@@ -369,8 +500,12 @@ def evaluate_single_knockout_node(state: ChatbotState) -> ChatbotState:
     
     knockout_questions = state["knockout_questions"]
     knockout_answers = state["knockout_answers"]
-    current_index = state["current_knockout_question_index"] - 1
-    
+
+    just_answered = state.get("kq_just_answered_index", -1)
+    if just_answered >= 0:
+        current_index = just_answered
+    else:
+        current_index = state["current_knockout_question_index"] - 1
     if current_index < 0 or current_index >= len(knockout_questions):
         return state
     
@@ -379,14 +514,13 @@ def evaluate_single_knockout_node(state: ChatbotState) -> ChatbotState:
     
     print(f"Evaluating Q{current_index + 1}: {current_question}")
     print(f"Answer: {current_answer}")
-    print(f"Answer repr: {repr(current_answer)}")  # Shows exact bytes/encoding
-    print(f"Answer length: {len(current_answer)}")  # Detects hidden characters
+    print(f"Answer repr: {repr(current_answer)}")
+    print(f"Answer length: {len(current_answer)}")
     
-    # Normalize single-letter answers BEFORE LLM
     normalized_answer = current_answer.strip()
     
-    print(f"After strip: {repr(normalized_answer)}")  # Shows result after strip
-    print(f"Upper: {repr(normalized_answer.upper())}")  # Shows uppercase result
+    print(f"After strip: {repr(normalized_answer)}")
+    print(f"Upper: {repr(normalized_answer.upper())}")
 
     if normalized_answer.upper() == "Y":
         normalized_answer = "yes"
@@ -423,13 +557,11 @@ def evaluate_single_knockout_node(state: ChatbotState) -> ChatbotState:
         decision = response.content.strip().upper()
         print(f"LLM Decision: {decision}")
 
-    # Now the decision is set either by normalization or LLM
     print(f"Final Decision: {decision}")
     
     if decision == "NO":
         state["current_knockout_failed"] = True
         
-        # Add specific failure message based on question index
         failure_messages = [
             "We are only allowed to hire applicants who are legally eligible to work in the U.S. Thank you for your time!",
             "The minimum age for this position is 18. Thank you for your time!",
@@ -442,12 +574,11 @@ def evaluate_single_knockout_node(state: ChatbotState) -> ChatbotState:
     else:
         state["current_knockout_failed"] = False
         
-        # Add specific acknowledgment based on question index
         acknowledgment_messages = [
             "Got it, thank you.",
-            "Great, almost done with the requirements.",
+            "Great.",
             "Perfect! That sounds like a good fit for our team.",
-            ""  # No acknowledgment for last question - just continue
+            ""
         ]
         
         ack_message = acknowledgment_messages[current_index] if current_index < len(acknowledgment_messages) else ""
@@ -456,7 +587,6 @@ def evaluate_single_knockout_node(state: ChatbotState) -> ChatbotState:
             state["messages"].append(AIMessage(content=ack_message))
     
     return state
-
 
 def single_knockout_router(state: ChatbotState) -> Literal["ask_knockout_question", "ask_question", "__end__"]:
     """Route based on single knockout evaluation"""
@@ -488,16 +618,10 @@ def ask_question_node(state: ChatbotState) -> ChatbotState:
     questions = state["questions"] 
     
     if idx < len(questions):
-        question = questions[idx]        
-        
-        # prompt = ASK_QUESTION_PROMPT.format(
-        #     question=question,
-        #     previous_question = questions[idx-1] if idx > 0 else "None",
-        #     previous_answer = state["answers"][questions[idx-1]] if idx > 0 else "None",
-        #     )
-        
-        # response = llm.invoke(prompt)
-        # state["messages"].append(AIMessage(content=response.content))
+        question = questions[idx]    
+
+        if question in state.get("re_ask_attempts", {}):
+            return {}    
         
         state["messages"].append(AIMessage(content=question))
     
@@ -511,42 +635,64 @@ def store_answer_node(state: ChatbotState) -> ChatbotState:
     messages = state["messages"]
     last_message = messages[-1] if messages else None
 
-    if isinstance(last_message, HumanMessage):
-        idx = state["current_question_index"]
-        if idx < len(state["questions"]):
-            question = state["questions"][idx]
+    if not isinstance(last_message, HumanMessage):
+        return state
+
+    idx = state["current_question_index"]
+    if idx >= len(state["questions"]):
+        return state
+
+    question = state["questions"][idx]
+
+    # ── Interpret response ────────────────────────────────────────────────────
+    result = interpret_response(question, last_message.content, "yes_no")
+    print(f"Answer interpret result: {result}")
+
+    if result["intent"] == "ambiguous":
+        attempts = state["re_ask_attempts"].get(question, 0) + 1
+        state["re_ask_attempts"][question] = attempts
+
+        if attempts >= 3:
+            # Accept as-is after 3 ambiguous attempts
+            print(f"[ANSWER] 3 ambiguous attempts — storing raw")
             state["answers"][question] = last_message.content
             state["current_question_index"] += 1
+            state["re_ask_attempts"].pop(question, None)
+        else:
+            # state["messages"].append(AIMessage(
+            #     content=f"I want to make sure I got that right — could you confirm with a Yes or No?\n\n{question}"
+            # ))
+            reask = generate_reask_message(question, last_message.content)
+            state["messages"].append(AIMessage(content=reask))
+        
+        return state
 
-            # ── Experience check ──────────────────────────────────────────────
-            if idx == 0:
-                    prompt = f"""The candidate was asked: "{question}"
-    Their answer: "{last_message.content}"
-    Does this answer indicate they HAVE the required experience? Answer ONLY "yes" or "no"."""
-                    response = llm.invoke([HumanMessage(content=prompt)])
-                    
-                    qualified = response.content.strip().lower().startswith("yes")
-                    
-                    state["experience_qualified"] = qualified
-                    print("Experience qualified:", qualified)
+    # ── Clear answer — store clean value ──────────────────────────────────────
+    state["answers"][question] = result["clean"]
+    state["current_question_index"] += 1
+    state["re_ask_attempts"].pop(question, None)
 
-                    if qualified:
-                        ack = state.get("question_acknowledgements", {}).get(question, "")
-                        if ack:
-                            state["messages"].append(AIMessage(content=ack))
-                    else:
-                        if state.get("job_type") == "server":
-                            state["messages"].append(AIMessage(content="Thank you for your interest! This role does require at least 1 year of server experience. We'd encourage you to apply again once you've built that experience."))
+    # ── Experience check on first question ────────────────────────────────────
+    exp_question = state.get("experience_check_question", "")
+    if exp_question and question == exp_question:
+        qualified = result["intent"] == "yes"
+        state["experience_qualified"] = qualified
+        print(f"Experience qualified: {qualified}")
 
-                        elif state.get("job_type") == "cook":
-                            state["messages"].append(AIMessage(content="I appreciate your honesty. For this specific role, we require a bit more professional experience. We encourage you to apply again in the future!")) 
-                            
-                    return state
-            else:
-                # ── Normal acknowledgement ────────────────────────────────────────
-                ack = state.get("question_acknowledgements", {}).get(question, "")
-                if ack:
-                    state["messages"].append(AIMessage(content=ack))
+        if qualified:
+            ack = state.get("question_acknowledgements", {}).get(question, "")
+            if ack:
+                state["messages"].append(AIMessage(content=ack))
+        else:
+            state["messages"].append(AIMessage(
+                content=state.get("experience_fail_message", "Thank you for your time!")
+            ))
+        return state
+
+    # ── Normal acknowledgement ────────────────────────────────────────────────
+    ack = state.get("question_acknowledgements", {}).get(question, "")
+    if ack:
+        state["messages"].append(AIMessage(content=ack))
 
     return state
 
@@ -567,14 +713,24 @@ def experience_router(state: ChatbotState) -> Literal["ask_question", "__end__",
     return "ask_address"
 
 
-def question_router(state: ChatbotState) -> Literal["ask_question", "ask_address"]:
-    """Route to next question or scoring"""
-    
-    print("question_router called")
-    
-    if state["current_question_index"] < len(state["questions"]):
+def answer_router(state: ChatbotState) -> Literal["ask_question", "ask_address", "__end__"]:
+    print("answer_router called")
+
+    # If experience check failed — hard stop
+    if not state.get("experience_qualified", True):
+        return "__end__"
+
+    # If last answer was ambiguous (index not advanced) — re-ask same question
+    idx = state["current_question_index"]
+    questions = state.get("questions", [])
+    if idx < len(questions) and questions[idx] not in state.get("answers", {}):
         return "ask_question"
 
+    # More questions remaining
+    if idx < len(questions):
+        return "ask_question"
+
+    # All questions done
     return "ask_address"
 
 # ================================= ADDRESS =========================================
@@ -675,9 +831,12 @@ def process_gps_node(state: ChatbotState) -> ChatbotState:
 
                 if result["flag"]:
                     # Soft flag - ask clarifying question, don't hard-stop
-                    state["messages"].append(AIMessage(
-                        content=f"Thanks for sharing! We noticed your current location appears to be about {result['distance_miles']:.1f} mile(s) from the address you provided. Can you confirm that {typed_address} is your correct home address?"
-                    ))
+                    state["gps_flagged"] = True
+                    state["gps_flag_reason"] = result.get("flag_reason", "")
+                    
+                    # state["messages"].append(AIMessage(
+                    #     content=f"Thanks for sharing! We noticed your current location appears to be about {result['distance_miles']:.1f} mile(s) from the address you provided. Can you confirm that {typed_address} is your correct home address?"
+                    # ))
                 else:
                     state["messages"].append(AIMessage(
                         content="Verified! ✅ You're definitely within range."
@@ -714,29 +873,72 @@ def gps_router(state: ChatbotState) -> Literal["ask_name"]:
 # ==================== PERSONAL DETAILS COLLECTION ====================
 
 def ask_name_node(state: ChatbotState) -> ChatbotState:
-    """Ask for name"""
-    
     print("ask_name_node called")
 
-    ask_name = cleo_engagement.ask_name
+    attempts = state.get("re_ask_attempts", {}).get("name", 0)
 
-    state["messages"].append(AIMessage(content=ask_name))
-    
+    if attempts > 0:
+        last_human = next(
+            (m for m in reversed(state["messages"]) if isinstance(m, HumanMessage)),
+            None
+        )
+        user_input = last_human.content if last_human else ""
+        reask = generate_reask_message(
+            "What is your first and last name?", user_input
+        )
+        state["messages"].append(AIMessage(content=reask))
+    else:
+        state["messages"].append(AIMessage(content=cleo_engagement.ask_name))
+
     return state
 
 
 def store_name_node(state: ChatbotState) -> ChatbotState:
-    """Store name from user input"""
-    
     print("store_name_node called")
-    
+
     messages = state["messages"]
     last_message = messages[-1] if messages else None
-    
-    if isinstance(last_message, HumanMessage):
-        state["personal_details"]["name"] = last_message.content
-    
+
+    if not isinstance(last_message, HumanMessage):
+        return state
+
+    user_input = last_message.content.strip()
+
+    prompt = f"""Is this a valid full name (first name + last name)?
+
+Input: "{user_input}"
+
+Rules for VALID:
+- Has at least two separate words
+- Contains only letters, spaces, hyphens, or apostrophes
+- Is NOT gibberish or random characters
+
+Return ONLY "YES" or "NO". Nothing else."""
+
+    response = evaluation_llm.invoke(prompt)
+    is_valid = response.content.strip().upper() == "YES"
+
+    if not is_valid:
+        attempts = state["re_ask_attempts"].get("name", 0) + 1
+        state["re_ask_attempts"]["name"] = attempts
+        print(f"[NAME] Invalid name, attempt {attempts}: {user_input}")
+
+        if attempts >= 3:
+            # Accept as-is after 3 failed attempts
+            print(f"[NAME] 3 attempts — accepting: {user_input}")
+            state["personal_details"]["name"] = user_input
+            state["re_ask_attempts"].pop("name", None)
+        return state
+
+    print(f"[NAME] Valid name: {user_input}")
+    state["personal_details"]["name"] = user_input
+    state["re_ask_attempts"].pop("name", None)
     return state
+
+def name_router(state: ChatbotState) -> Literal["ask_name", "ask_email"]:
+    if "name" not in state.get("personal_details", {}):
+        return "ask_name"
+    return "ask_email"
 
 
 # ==================== EMAIL COLLECTION ====================
@@ -971,13 +1173,10 @@ def send_email_otp_node(state: ChatbotState) -> ChatbotState:
     success = True  # For testing
     
     if success:
-        message = f"Okay, I've just sent a 6-digit verification code to {email}. Please check your inbox (and spam folder)"
         state["email_otp_sent"] = True
     else:
-        message = cleo_engagement.otp_failure_message
         state["email_otp_sent_failed"] = True
-    
-    state["messages"].append(AIMessage(content=message))
+        state["messages"].append(AIMessage(content=cleo_engagement.otp_failure_message))
     
     return state
 
@@ -987,7 +1186,7 @@ def ask_email_otp_node(state: ChatbotState) -> ChatbotState:
     
     print("ask_email_otp_node called")
 
-    state["messages"].append(AIMessage(content=cleo_engagement.ask_email_otp))
+    state["messages"].append(AIMessage(content="I've sent a 6-digit verification code to that email. Enter it here to confirm."))
     
     return state
 
@@ -1027,7 +1226,7 @@ def verify_email_otp_node(state: ChatbotState) -> ChatbotState:
                 
                 state["email_otp_attempts"] = 0  # Reset for resend
             elif error == "invalid_format":
-                state["messages"].append(AIMessage(content="Please enter a 6-digit code (numbers only)."))
+                state["messages"].append(AIMessage(content="Format is Invalid!"))
             elif error == "incorrect":
                 if attempts >= 3:
                     state["messages"].append(AIMessage(content=cleo_engagement.email_otp_failure_message))
@@ -1093,13 +1292,13 @@ def send_phone_otp_node(state: ChatbotState) -> ChatbotState:
     # if session_uuid:
     #     state["phone_verify_session_uuid"] = session_uuid
     #     state["phone_otp_sent"] = True
-    #     message = f"I'm sending a verification text with a 6-digit code to {phone} now. Please check your messages."
+    #     message = f"I'm sending a 6-digit verification text now. Enter the code below to confirm."
     # else:
     #     state["phone_otp_sent_failed"] = True
     #     message = cleo_engagement.otp_failure_message
     
     # state["messages"].append(AIMessage(content=message))
-    state["messages"].append(AIMessage(content=f"I'm sending a verification text with a 6-digit code to {phone} now. Please check your messages."))  # for testing without Plivo
+    state["messages"].append(AIMessage(content=f"I'm sending a 6-digit verification text now. Enter the code below to confirm."))  # for testing without Plivo
     
     return state
 
@@ -1209,73 +1408,85 @@ def phone_otp_router(state: ChatbotState) -> Literal["acknowledgement","send_pho
 # ==================== WORK EXPERIENCE COLLECTION ====================
 
 def ask_work_experience_node(state: ChatbotState) -> ChatbotState:
-    """Ask about prior work experience"""
-    
     print("ask_work_experience_node called")
 
-    question = "Do you have any prior work experience in this field?"
-    
-    if state.get("job_type") in ["server", "cook"]:
-        question = "Have you held other roles before (beyond what we've already discussed)?"
-    
-    state["messages"].append(AIMessage(content=question))
-    
+    question = (
+        "Have you held other roles before (beyond what we've already discussed)?"
+        if state.get("job_type") in ["server", "cook"]
+        else "Do you have any prior work experience in this field?"
+    )
+
+    attempts = state.get("re_ask_attempts", {}).get("work_experience", 0)
+
+    if attempts > 0:
+        last_human = next(
+            (m for m in reversed(state["messages"]) if isinstance(m, HumanMessage)),
+            None
+        )
+        user_input = last_human.content if last_human else ""
+        reask = generate_reask_message(question, user_input)
+        state["messages"].append(AIMessage(content=reask))
+    else:
+        state["messages"].append(AIMessage(content=question))
+
+    return state
+
+
+def collect_work_experience_data_node(state: ChatbotState) -> ChatbotState:
+    """Work experience already stored in state by main.py — just acknowledge"""
+    print("collect_work_experience_data_node called")
+    state["messages"].append(AIMessage(content="Thanks! Work experience saved. 💼"))
     return state
 
 
 def store_work_experience_response_node(state: ChatbotState) -> ChatbotState:
-    """Store yes/no response and set flag for UI using LLM evaluation"""
-    
     print("store_work_experience_response_node called")
-    
+
     messages = state["messages"]
     last_message = messages[-1] if messages else None
-    
-    if isinstance(last_message, HumanMessage):
-        user_input = last_message.content.strip()
-        
-        # Store the answer in knockout_answers
-        state["knockout_answers"]["Do you have any prior work experience in this field?"] = last_message.content
-        
-        # Use LLM to evaluate the response
-        prompt = f"""
-        Evaluate if this answer indicates YES (has work experience) or NO (no work experience).
-        
-        Question: "Do you have any prior work experience in this field?"
-        Answer: "{user_input}"
-        
-        Rules:
-        - Positive responses (indicating YES): "yes", "yeah", "yep", "sure", "I have", "I do", "I worked", "definitely", "of course", mentions of specific jobs or companies
-        - Negative responses (indicating NO): "no", "nope", "not", "don't", "never", "haven't", "no experience", "fresh graduate", "n"
-        - Unclear/Incomplete: treat as NO (user can provide details if needed)
-        
-        Examples:
-        - "yes I have" → YES
-        - "I worked at McDonald's" → YES
-        - "yeah, 2 years" → YES
-        - "no" → NO
-        - "I'm a student" → NO (unclear, assume no)
-        - "not really" → NO
-        
-        Return ONLY "YES" or "NO". Nothing else.
-        
-        Decision:
-        """
-        
-        response = llm.invoke(prompt)
-        decision = response.content.strip().upper()
-        
-        print(f"Work experience evaluation: {decision}")
-        
-        if decision == "YES":
-            state["show_work_experience_ui"] = True
-            # Add a message that will trigger the UI
-            state["messages"].append(AIMessage(content="Great! Please provide your most recent work experience details below."))
-        else:
+
+    if not isinstance(last_message, HumanMessage):
+        return state
+
+    user_input = last_message.content.strip()
+    question = (
+        "Have you held other roles before (beyond what we've already discussed)?"
+        if state.get("job_type") in ["server", "cook"]
+        else "Do you have any prior work experience in this field?"
+    )
+
+    result = interpret_response(question, user_input, "yes_no")
+
+    if result["intent"] == "ambiguous":
+        attempts = state["re_ask_attempts"].get("work_experience", 0) + 1
+        state["re_ask_attempts"]["work_experience"] = attempts
+        print(f"[WORK_EXP] Ambiguous attempt {attempts}: {user_input}")
+
+        if attempts >= 2:
+            print(f"[WORK_EXP] 2 attempts — defaulting to NO")
             state["show_work_experience_ui"] = False
-            # No work experience - continue normally without UI
-    
+            state["re_ask_attempts"].pop("work_experience", None)
+        return state
+
+    # Clear answer
+    state["re_ask_attempts"].pop("work_experience", None)
+    state["knockout_answers"]["Do you have any prior work experience in this field?"] = result["clean"]
+
+    if result["intent"] == "yes":
+        state["show_work_experience_ui"] = True
+        state["messages"].append(AIMessage(content="Great! Please provide your most recent work experience details below."))
+    else:
+        state["show_work_experience_ui"] = False
+
     return state
+
+
+def work_experience_router(state: ChatbotState) -> Literal["ask_work_experience", "collect_work_experience_data", "ask_education"]:
+    if "work_experience" in state.get("re_ask_attempts", {}):
+        return "ask_work_experience"
+    if state.get("show_work_experience_ui"):
+        return "collect_work_experience_data"   
+    return "ask_education"   
 
 # ==================== EDUCATION COLLECTION ====================
 
@@ -1310,6 +1521,7 @@ def store_education_node(state: ChatbotState) -> ChatbotState:
             state["education_year"]  = "Not specified"
 
         print(f"Education level: {state['education_level']}, year: {state['education_year']}")
+        state["messages"].append(AIMessage(content="Thanks! Saved. 🎓"))
 
     return state
 
@@ -1357,9 +1569,21 @@ Return ONLY the JSON array, nothing else. Example: [{{"name": "ServSafe", "date"
 
 def ask_referral_node(state: ChatbotState) -> ChatbotState:
     print("ask_referral_node called")
-    state["messages"].append(AIMessage(
-        content="How did you hear about us? If you were referred by a current employee or resident, please let us know their name."
-    ))
+
+    question = "How did you hear about us? If you were referred by a current employee or resident, please let us know their name."
+    attempts = state.get("re_ask_attempts", {}).get("referral", 0)
+
+    if attempts > 0:
+        last_human = next(
+            (m for m in reversed(state["messages"]) if isinstance(m, HumanMessage)),
+            None
+        )
+        user_input = last_human.content if last_human else ""
+        reask = generate_reask_message(question, user_input)
+        state["messages"].append(AIMessage(content=reask))
+    else:
+        state["messages"].append(AIMessage(content=question))
+
     return state
 
 
@@ -1369,11 +1593,48 @@ def store_referral_node(state: ChatbotState) -> ChatbotState:
     messages = state["messages"]
     last_message = messages[-1] if messages else None
 
-    if isinstance(last_message, HumanMessage):
-        state["referral_source"] = last_message.content.strip()
-        state["messages"].append(AIMessage(content="Thanks! Noted. 🙌"))
+    if not isinstance(last_message, HumanMessage):
+        return state
 
-    return state    
+    user_input = last_message.content.strip()
+    question = "How did you hear about us? If you were referred by a current employee or resident, please let us know their name."
+
+    prompt = f"""A job applicant was asked: "{question}"
+Their response: "{user_input}"
+
+Is this a meaningful answer (a source like 'Indeed', 'friend', a name, 'social media', etc.)?
+Return ONLY "YES" or "NO"."""
+
+    try:
+        resp = evaluation_llm.invoke(prompt)
+        is_valid = resp.content.strip().upper() == "YES"
+    except Exception:
+        is_valid = True
+
+    if not is_valid:
+        attempts = state["re_ask_attempts"].get("referral", 0) + 1
+        state["re_ask_attempts"]["referral"] = attempts
+        print(f"[REFERRAL] Ambiguous attempt {attempts}: {user_input}")
+
+        if attempts >= 2:
+            print(f"[REFERRAL] 2 attempts — accepting raw: {user_input}")
+            state["referral_source"] = user_input
+            state["re_ask_attempts"].pop("referral", None)
+        return state
+
+    state["referral_source"] = user_input
+    state["re_ask_attempts"].pop("referral", None)
+    state["messages"].append(AIMessage(content="Thanks! Noted. 🙌"))
+    return state
+
+
+def referral_router(state: ChatbotState) -> Literal["ask_referral", "ask_military"]:
+    if "referral" in state.get("re_ask_attempts", {}):
+        return "ask_referral"
+    if not state.get("referral_source", ""):
+        return "ask_referral"
+    return "ask_military"
+
 
 # ==================== MILITARY SERVICE ====================
 
@@ -1381,14 +1642,34 @@ def ask_military_node(state: ChatbotState) -> ChatbotState:
     print("ask_military_node called")
 
     if state.get("military_served") and not state.get("military_follow_up_done"):
-        # Follow-up for branch/duty/rank
-        state["messages"].append(AIMessage(
-            content="Thank you for your service 🇺🇸 → Branch / Duty / Rank (optional) Or 'Skip' to continue."
-        ))
+        question = "Thank you for your service 🇺🇸 Could you optionally share your Branch, Duty Status, and Rank? Or just say 'Skip' to continue."
+        attempts = state.get("re_ask_attempts", {}).get("military_followup", 0)
+
+        if attempts > 0:
+            last_human = next(
+                (m for m in reversed(state["messages"]) if isinstance(m, HumanMessage)),
+                None
+            )
+            user_input = last_human.content if last_human else ""
+            reask = generate_reask_message(question, user_input)
+            state["messages"].append(AIMessage(content=reask))
+        else:
+            state["messages"].append(AIMessage(content=question))
+
     else:
-        state["messages"].append(AIMessage(
-            content="One optional question 💙 — Have you ever served in the U.S. military?"
-        ))
+        question = "One optional question 💙 — Have you ever served in the U.S. military?"
+        attempts = state.get("re_ask_attempts", {}).get("military_initial", 0)
+
+        if attempts > 0:
+            last_human = next(
+                (m for m in reversed(state["messages"]) if isinstance(m, HumanMessage)),
+                None
+            )
+            user_input = last_human.content if last_human else ""
+            reask = generate_reask_message(question, user_input)
+            state["messages"].append(AIMessage(content=reask))
+        else:
+            state["messages"].append(AIMessage(content=question))
 
     return state
 
@@ -1399,31 +1680,83 @@ def store_military_node(state: ChatbotState) -> ChatbotState:
     messages = state["messages"]
     last_message = messages[-1] if messages else None
 
-    if isinstance(last_message, HumanMessage):
-        user_text = last_message.content.strip().lower()
+    if not isinstance(last_message, HumanMessage):
+        return state
 
-        if not state.get("military_served"):
-            # First response — yes/no
-            if any(word in user_text for word in ["yes", "yeah", "yep", "served", "veteran", "army", "navy", "marines", "air force", "coast guard", "national guard"]):
-                state["military_served"] = True
-                # Don't set follow_up_done — will ask follow-up next
-            else:
+    user_text = last_message.content.strip()
+
+    if not state.get("military_served"):
+        # ── Initial yes/no question ───────────────────────────────────────────
+        question = "Have you ever served in the U.S. military?"
+        result = interpret_response(question, user_text, "yes_no")
+
+        if result["intent"] == "ambiguous":
+            attempts = state["re_ask_attempts"].get("military_initial", 0) + 1
+            state["re_ask_attempts"]["military_initial"] = attempts
+            print(f"[MILITARY] Ambiguous attempt {attempts}: {user_text}")
+
+            if attempts >= 3:
                 state["military_served"] = False
-                state["military_follow_up_done"] = True   # Skip follow-up
+                state["military_follow_up_done"] = True
+                state["re_ask_attempts"].pop("military_initial", None)
+        elif result["intent"] == "yes":
+            state["military_served"] = True
+            state["re_ask_attempts"].pop("military_initial", None)
         else:
-            # Follow-up response — branch/duty/rank
+            state["military_served"] = False
             state["military_follow_up_done"] = True
-            if user_text not in ["skip", "no", "none", "n/a"]:
-                state["military_details"] = {"details": last_message.content}
+            state["re_ask_attempts"].pop("military_initial", None)
+
+    else:
+        # ── Follow-up: branch/duty/rank ───────────────────────────────────────
+        follow_up_q = "military_followup"
+
+        prompt = f"""A job applicant was asked: "Could you optionally share your Branch, Duty Status, and Rank? Or just say 'Skip' to continue."
+
+Their response: "{user_text}"
+
+Classify their response:
+- "details" — they provided actual military information (branch, rank, duty status, or any combination)
+- "skip"    — they want to skip (said skip, no, none, n/a, pass, not now, or similar)
+- "ambiguous" — unclear, gibberish, or completely unrelated
+
+Return ONLY valid JSON: {{"intent": "details" or "skip" or "ambiguous", "clean": "normalized details or skip"}}"""
+
+        try:
+            resp = llm.invoke([HumanMessage(content=prompt)])
+            result = json.loads(resp.content.strip().replace("```json", "").replace("```", "").strip())
+        except Exception:
+            result = {"intent": "ambiguous", "clean": user_text}
+
+        if result["intent"] == "details":
+            state["military_details"] = {"details": result["clean"]}
+            state["military_follow_up_done"] = True
+            state["re_ask_attempts"].pop(follow_up_q, None)
+
+        elif result["intent"] == "skip":
+            state["military_follow_up_done"] = True
+            state["re_ask_attempts"].pop(follow_up_q, None)
+
+        else:
+            attempts = state["re_ask_attempts"].get(follow_up_q, 0) + 1
+            state["re_ask_attempts"][follow_up_q] = attempts
+            print(f"[MILITARY FOLLOWUP] Ambiguous attempt {attempts}: {user_text}")
+
+            if attempts >= 3:
+                state["military_follow_up_done"] = True
+                state["re_ask_attempts"].pop(follow_up_q, None)
 
     return state
 
 
 def military_router(state: ChatbotState) -> Literal["ask_military", "ask_background_check", "score"]:
-    """If served but follow-up not done, loop back for branch/duty/rank"""
+    # Re-ask path for ambiguous initial answer
+    if "military_initial" in state.get("re_ask_attempts", {}):
+        return "ask_military"
+
     if state.get("military_served") and not state.get("military_follow_up_done"):
         return "ask_military"
-    
+
     if state.get("verification_required") == "true":
         return "ask_background_check"
 
@@ -1585,8 +1918,9 @@ def score_node(state: ChatbotState) -> ChatbotState:
     # Knockout question answers (candidates reached here = passed all)
     knockout_questions = state.get("knockout_questions", [])
     knockout_answers   = state.get("knockout_answers", {})
-    for i, q in enumerate(knockout_questions):
-        answers[q] = knockout_answers.get(str(i), knockout_answers.get(i, "Yes"))
+    
+    for q in knockout_questions:
+        answers[q] = knockout_answers.get(q, "Yes")
 
     # Background check consent
     answers["background_check_consent"] = "Yes" if state.get("background_check_consented") else "No"
@@ -1656,7 +1990,7 @@ def score_node(state: ChatbotState) -> ChatbotState:
 
         state["score"] = sum(result["scores"].values())
 
-        print("Calculated score:", result["score"])
+        print("Calculated score:", state["score"])
         print("Calculated total_score:", total_possible)
 
     except json.JSONDecodeError:
@@ -1803,6 +2137,7 @@ def build_graph(checkpointer):
     workflow.add_node("delay_messages", delay_messages_node)
     workflow.add_node("check_ready", check_ready_node)
     workflow.add_node("acknowledgement", acknowledge_node)
+    workflow.add_node("reask_consent", reask_consent_node)
     
     workflow.add_node("ask_knockout_question", ask_knockout_question_node)
     workflow.add_node("store_kq_answer", store_kq_answer_node)
@@ -1816,6 +2151,7 @@ def build_graph(checkpointer):
     
     workflow.add_node("ask_work_experience", ask_work_experience_node)
     workflow.add_node("store_work_experience_response", store_work_experience_response_node)
+    workflow.add_node("collect_work_experience_data", collect_work_experience_data_node)
     
     workflow.add_node("ask_education", ask_education_node)
     workflow.add_node("store_education", store_education_node)
@@ -1860,6 +2196,7 @@ def build_graph(checkpointer):
     
     workflow.add_edge("start", "delay_messages")
     workflow.add_conditional_edges("delay_messages", post_delay_router)
+    workflow.add_edge("reask_consent", "check_ready")
     
     workflow.add_conditional_edges("check_ready", ready_router)
 
@@ -1867,12 +2204,12 @@ def build_graph(checkpointer):
     workflow.add_conditional_edges("acknowledgement", post_acknowledgement_router)
     
     workflow.add_edge("ask_knockout_question", "store_kq_answer")
-    workflow.add_edge("store_kq_answer", "evaluate_single_knockout")
+    workflow.add_conditional_edges("store_kq_answer", kq_ambiguity_router)
     workflow.add_conditional_edges("evaluate_single_knockout", single_knockout_router)
 
     # Questions loop
     workflow.add_edge("ask_question", "store_answer")
-    workflow.add_conditional_edges("store_answer", experience_router)
+    workflow.add_conditional_edges("store_answer", answer_router)
 
     # Address + GPS flow (between phone verification and questions)
     workflow.add_edge("ask_address", "store_address")
@@ -1882,7 +2219,7 @@ def build_graph(checkpointer):
 
     # Personal details flow with validation
     workflow.add_edge("ask_name", "store_name")
-    workflow.add_edge("store_name", "ask_email")
+    workflow.add_conditional_edges("store_name", name_router)
     workflow.add_edge("ask_email", "store_email")
     workflow.add_conditional_edges("store_email", email_router)  # Check email validity
     
@@ -1901,7 +2238,8 @@ def build_graph(checkpointer):
 
     # Work experience flow
     workflow.add_edge("ask_work_experience", "store_work_experience_response")
-    workflow.add_edge("store_work_experience_response", "ask_education")
+    workflow.add_conditional_edges("store_work_experience_response", work_experience_router)
+    workflow.add_edge("collect_work_experience_data", "ask_education")
 
     # Education flow
     workflow.add_edge("ask_education", "store_education")
@@ -1910,8 +2248,8 @@ def build_graph(checkpointer):
     # Certifications and military service flow
     workflow.add_edge("ask_certifications",       "store_certifications")
     workflow.add_edge("store_certifications",     "ask_referral")
-    workflow.add_edge("ask_referral",             "store_referral")
-    workflow.add_edge("store_referral",           "ask_military")
+    workflow.add_edge("ask_referral", "store_referral")
+    workflow.add_conditional_edges("store_referral", referral_router)
     workflow.add_edge("ask_military",             "store_military")
     workflow.add_conditional_edges("store_military", military_router)
     
@@ -1930,7 +2268,8 @@ def build_graph(checkpointer):
     
     app = workflow.compile(
         checkpointer=checkpointer,
-        interrupt_after=["delay_messages", "ask_knockout_question",  "ask_address", "ask_gps_verification", "ask_work_experience", "store_work_experience_response", "ask_education", "ask_certifications", "ask_referral", "ask_military", "ask_background_check", "ask_name", "ask_email", "ask_email_otp", "ask_phone", "ask_phone_otp", "ask_id_verification", "ask_question"]
+        interrupt_after=["delay_messages", "reask_consent","ask_knockout_question",  "ask_address", "ask_gps_verification", "ask_work_experience", "ask_education", "ask_certifications", "ask_referral", "ask_military", "ask_background_check", "ask_name", "ask_email", "ask_email_otp", "ask_phone", "ask_phone_otp", "ask_id_verification", "ask_question"],
+        interrupt_before=["collect_work_experience_data"]
     )
     
     return app

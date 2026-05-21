@@ -34,7 +34,7 @@ JOB_CONFIGS = {
         ],
         "scoring_model": {
             # ── Basic Requirements (5 each) ──────────────────────────────────────
-            "Are you legally eligible to work in the United States?": {
+            "Are you legally allowed to work in the United States?": {
                 "rule": "Yes -> 5, No -> 0",
                 "weight": 5,
                 "category": "Basic Requirements"
@@ -54,7 +54,7 @@ JOB_CONFIGS = {
 
             # ── Commitment — Schedule (4) ─────────────────────────────────────────
             "We are currently hiring specifically for evening and weekend shifts. Is your general availability a fit for that schedule?": {
-                "rule": "Yes -> 4, Partial -> 2, No -> 0",
+                "rule": "Yes -> 4, No -> 0",
                 "weight": 4,
                 "category": "Commitment"
             },
@@ -68,42 +68,42 @@ JOB_CONFIGS = {
 
             # ── Skills — Fine Dining (3) ──────────────────────────────────────────
             "Are you experienced with table service dining standards — things like setting tables for service, attention to detail, and handling multiple courses?": {
-                "rule": "Yes, experienced -> 3, Some experience -> 2, No -> 0",
+                "rule": "Yes -> 3, No -> 0",
                 "weight": 3,
                 "category": "Skills"
             },
 
             # ── Culture — Service Attitude (2) ────────────────────────────────────
             "Are you willing to provide friendly, attentive, and personalized service?": {
-                "rule": "Yes -> 2, Somewhat -> 1, No -> 0",
+                "rule": "Yes -> 2, No -> 0",
                 "weight": 2,
                 "category": "Culture"
             },
 
             # ── Skills — Menu Knowledge (3) ───────────────────────────────────────
             "Are you comfortable guiding guests through the menu and answering questions about ingredients or pairings?": {
-                "rule": "Yes -> 3, Willing to learn -> 2, No -> 0",
+                "rule": "Yes -> 3, No -> 0",
                 "weight": 3,
                 "category": "Skills"
             },
 
             # ── Culture — Senior Residents (3) ────────────────────────────────────
             "Our residents are at the heart of everything we do. Are you comfortable and patient when working closely with seniors?": {
-                "rule": "Yes -> 3, Somewhat -> 2, No -> 0",
+                "rule": "Yes -> 3, No -> 0",
                 "weight": 3,
                 "category": "Culture"
             },
 
             # ── Certifications (2) — from ask_certifications node ─────────────────
             "certifications": {
-                "rule": "ServSafe/TIPS/Food Safety cert present -> 2, Other cert -> 1, None -> 0",
+                "rule": "ServSafe/TIPS/Food Safety cert present -> 2, None,no -> 0",
                 "weight": 2,
                 "category": "Certifications"
             },
 
             # ── Experience — Server (5) ───────────────────────────────────────────
             "server_experience_years": {
-                "rule": "2+ years -> 5, 1-2 years -> 4, 6 months to 1 year -> 2, Less than 6 months -> 1, 0 years -> 0",
+                "rule": "2+ years -> 5, 1-2 years -> 5, 0 years -> 0",
                 "weight": 5,
                 "category": "Experience"
             },

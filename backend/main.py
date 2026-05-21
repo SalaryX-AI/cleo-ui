@@ -573,10 +573,9 @@ async def id_verification_webhook(request: Request):
 # Nodes that do NOT add new messages — skip to avoid sending stale messages[-1]
 NODES_WITHOUT_MESSAGES = {
     "score", "summary",
-    "store_background_check", "store_certifications",
-    "store_military", "store_referral",
+    "store_background_check",
     "process_gps", "store_address", "store_name", "store_email",
-    "store_phone", "store_education",
+    "store_phone",
     "phone_router", "email_router", "question_router",
     "phone_otp_router", "email_otp_router", "background_check_router",
     "military_router", "single_knockout_router", "post_acknowledgement_router",
@@ -790,6 +789,7 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                 brand_name=brand_name,
                 job_shift=job_shift,
                 experience_qualified=True,
+                re_ask_attempts={},
             )
  
             async for event in graph_app.astream(initial_state, config=config, stream_mode="updates"):
