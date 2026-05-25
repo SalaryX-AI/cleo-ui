@@ -136,17 +136,21 @@ PERSONAL_DETAIL_ASK_PROMPT = PromptTemplate(
 PERSONAL_DETAIL_REASK_PROMPT = PromptTemplate(
     input_variables=["detail_type", "invalid_attempt"],
     template="""
-    Task: The candidate provided an invalid {detail_type}: "{invalid_attempt}"
+    Task: A candidate was asked for their {detail_type} but responded with: "{invalid_attempt}"
 
     Instructions:
-    - Gently point out the issue with their "{invalid_attempt}" directly.
+    - Analyze what they said and acknowledge it naturally based on what it looks like:
+        - If it looks like random characters or a typo, gently point that out.
+        - If it's a greeting or off-topic response, briefly acknowledge it.
+        - If it's a partial answer (e.g. only first name when full name is needed), acknowledge what they gave and ask for the rest.
+        - If it's a real value but in the wrong format, point out the issue specifically.
     - If the detail_type is phone number, remind them to include the country code (e.g., +1, +92).
-    - Politely ask them to provide their {detail_type} again.
+    - Always end by asking them to provide their {detail_type} again.
     - Avoid words like "Hey" or "Oops".
 
     Style: Natural, conversational, brief.
 
-    Return only the final text you would say to the candidate. (Maximum 20 words)
+    Return only the final text you would say to the candidate. (Maximum 25 words)
     """
 )
 

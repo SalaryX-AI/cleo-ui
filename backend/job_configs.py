@@ -116,8 +116,34 @@ JOB_CONFIGS = {
             "Are you comfortable guiding guests through the menu and answering questions about ingredients or pairings?": "Got it.",
             "Our residents are at the heart of everything we do. Are you comfortable and patient when working closely with seniors?": "Great — that's the heart of what we do.",
         },
+        "required_questions": {
+            "We are looking for people with at least one year of server experience. Does that sound like you?": {
+                "pass_ack": "Great — that's a key requirement for this position.",
+                "fail_message": "Thank you for your interest! This role does require at least 1 year of server experience. We'd encourage you to apply again once you've built that experience.",
+            }
+    },
+
+        "flagged_questions": {
+            "Are you experienced with table service dining standards — things like setting tables for service, attention to detail, and handling multiple courses?": {
+                "pass_ack":   "Perfect — that's exactly what we're looking for.",
+                "flag_reason": "Comfort level with fine dining standards"
+            },
+            "Are you willing to provide friendly, attentive, and personalized service?": {
+                "pass_ack":   "Noted.",
+                "flag_reason": "Interpersonal skills concern"
+            },
+            "Are you comfortable guiding guests through the menu and answering questions about ingredients or pairings?": {
+                "pass_ack":   "Got it.",
+                "flag_reason": "Menu knowledge concern"
+            },
+            "Our residents are at the heart of everything we do. Are you comfortable and patient when working closely with seniors?": {
+                "pass_ack":   "Great — that's the heart of what we do.",
+                "flag_reason": "Culture fit concern"
+            }
+    }
     
     },
+    
     "assistant_manager": {
         "knockout_questions": [
             "To work here, you must be legally eligible to work in the U.S. Can you confirm that you are?",
@@ -207,7 +233,7 @@ JOB_CONFIGS = {
             "Are you legally allowed to work in the United States?",
             "Are you 18 or older?",
             "We are currently hiring specifically for evening and weekend shifts. Is your general availability a fit for that schedule?",
-            "Do you have reliable transportation to and from our store located at {address}?"
+            "Do you have reliable transportation to and from our location at {address}?"
         ],
         "questions": [
             "We're looking for someone with at least 3 years of experience as a cook in a professional kitchen. Does that match your background?",
@@ -300,6 +326,36 @@ JOB_CONFIGS = {
             "Do you have experience maintaining a sanitary workstation and following food safety standards (like ServSafe)?": "Got it.",
             "Are you familiar with preparing therapeutic diets or meals specifically modified for senior residents?": "Great! Caring for our residents' unique needs is the heart of our work.",
             "Our residents are seniors with unique needs. Are you patient, attentive, and comfortable working in a senior living environment?": "Wonderful — that kind of care makes all the difference here."
+        },
+
+        "required_questions": {
+            "We're looking for someone with at least 3 years of experience as a cook in a professional kitchen. Does that match your background?": {
+                "pass_ack":     "Great! That 3-year foundation is exactly what we need for our kitchen.",
+                "fail_message": "I appreciate your honesty. For this specific role, we require a bit more professional experience. We encourage you to apply again in the future!",
+            }
+        },
+
+        "flagged_questions": {
+            "Are you comfortable preparing soups, stocks, and sauces, and using methods like braising and roasting with minimal supervision?": {
+                "pass_ack":    "Perfect. Being able to handle stocks and braising independently is key here.",
+                "flag_reason": "Culinary technique comfort level",
+                "no_response": "Thank you. Our kitchen relies on those specific techniques for our daily menus, so we're looking for someone already comfortable with them."
+            },
+            "Are you comfortable with kitchen math, like scaling recipes and doing simple unit conversions?": {
+                "pass_ack":    "Noted.",
+                "flag_reason": "Basic kitchen math skills",
+                "no_response": ""
+            },
+            "Do you have experience maintaining a sanitary workstation and following food safety standards (like ServSafe)?": {
+                "pass_ack":    "Got it.",
+                "flag_reason": "Food safety knowledge concern",
+                "no_response": ""
+            },
+            "Are you familiar with preparing therapeutic diets or meals specifically modified for senior residents?": {
+                "pass_ack":    "Great! Caring for our residents' unique needs is the heart of our work.",
+                "flag_reason": "Therapeutic diet experience",
+                "no_response": ""
+            },
         },
     },
     "crew_member": {

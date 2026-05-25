@@ -788,8 +788,14 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
 
                 brand_name=brand_name,
                 job_shift=job_shift,
+
                 experience_qualified=True,
                 re_ask_attempts={},
+                required_questions=job.get("required_questions", {}),
+                flagged_questions=job.get("flagged_questions", {}),
+                required_question_failed=False,              
+                manager_flags=[],
+                end_conversation=False,
             )
  
             async for event in graph_app.astream(initial_state, config=config, stream_mode="updates"):
