@@ -1429,7 +1429,6 @@ document.head.appendChild(link);
         educationOptions: [
             'Less than high school',
             'High school or GED',
-            'Some college',
             'College degree',
             'Trade or certificate',
             'Prefer not to say'

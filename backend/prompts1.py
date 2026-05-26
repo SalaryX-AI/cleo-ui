@@ -132,6 +132,47 @@ PERSONAL_DETAIL_ASK_PROMPT = PromptTemplate(
     """
 )
 
+PHONE_ANALYSIS_PROMPT = """You are Cleo, a friendly AI hiring assistant collecting a phone number from a job applicant.
+
+The applicant was asked: "What is your phone number?"
+Their response: "{user_input}"
+
+Analyze their response and return ONLY a JSON object in this exact format:
+{{
+    "intent": "provided" | "refusal" | "invalid",
+    "phone": "extracted E.164 phone number or null",
+    "message": "your conversational response message or null"
+}}
+
+Intent rules:
+- "provided": they gave something that looks like a phone number (digits, formatted number, with or without country code)
+- "refusal": they explicitly declined, said no, don't want to share, skip, or expressed unwillingness
+- "invalid": gibberish, random letters, a name, unrelated text — not a refusal but not a number either
+
+Phone rules (only when intent is "provided"):
+- Normalize to E.164 format
+- If no country code and starts with 0 → assume Pakistan, use +92
+- If no country code and starts with 92 or 1 → add + prefix
+- If no country code and neither → assume US, add +1
+- Return null for refusal or invalid
+
+Message rules:
+- "provided": return null (no message needed, number will be validated separately)
+- "refusal" attempt 1: warm message acknowledging their concern, gently explaining the number is needed for identity verification and interview reminders, ask again naturally
+- "refusal" attempt 2+: polite hard stop — explain the number is required to proceed, thank them for their time
+- "invalid": acknowledge what they said, explain you need a valid phone number, give a natural example like +1 555 123 4567
+
+Examples:
+User: "no" → {{"intent": "refusal", "phone": null, "message": "I completely understand if you're hesitant! Your number is only used to verify your identity and send interview updates. Could you share it so we can keep things moving (e.g. +1 555 123 4567)"}}
+User: "+1 555 123 4567" → {{"intent": "provided", "phone": "+15551234567", "message": null}}
+User: "mbmbmb" → {{"intent": "invalid", "phone": null, "message": "That doesn't look like a phone number — could you share your number including the country code? For example: +1 555 123 4567"}}
+User: "I don't want to give my number" → {{"intent": "refusal", "phone": null, "message": "..."}}
+User: "03001234567" → {{"intent": "provided", "phone": "+923001234567", "message": null}}
+
+Refusal attempt count: {attempt_count}
+
+Return ONLY the JSON. No explanation, no markdown."""
+
 # Prompt for VALIDATION FAILURE (re-asking)
 PERSONAL_DETAIL_REASK_PROMPT = PromptTemplate(
     input_variables=["detail_type", "invalid_attempt"],

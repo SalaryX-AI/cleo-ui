@@ -186,6 +186,7 @@ class ChatbotState(MessagesState):
     required_question_failed: bool = False
     manager_flags: List[str] = []
     end_conversation: bool = False
+    phone_hard_stop: bool = False
 
 
 # ==================== Acknowledgement ====================
@@ -215,7 +216,7 @@ Write a brief, warm, conversational follow-up (1 sentence) that:
 - Naturally acknowledges what they said
 - Gently re-asks for what you need and why
 - Does NOT sound robotic or use phrases like "I didn't catch that"
-- Feels like a real conversation
+- Feels like a real conversation and should be professional but not too formal.
 - Use simple language, no jargon with exact question
 
 Return ONLY the message, nothing else."""
@@ -316,8 +317,8 @@ def check_ready_node(state: ChatbotState) -> ChatbotState:
             attempts = state["re_ask_attempts"].get("ready", 0) + 1
             state["re_ask_attempts"]["ready"] = attempts
 
-            if attempts >= 2:
-                # Default to decline after 2 unclear responses
+            if attempts >= 3:
+                # Default to decline after 3 unclear responses
                 state["ready_confirmed"] = False
                 state["messages"].append(AIMessage(content=cleo_engagement.decline_message))
                 state["re_ask_attempts"].pop("ready", None)
@@ -460,7 +461,7 @@ def store_kq_answer_node(state: ChatbotState) -> ChatbotState:
                 state["re_ask_attempts"][knockout_question] = attempts
                 print(f"[KQ-AGE] Could not extract age, attempt {attempts}")
 
-                if attempts >= 2:
+                if attempts >= 3:
                     state["knockout_answers"][knockout_question] = "no"
                     state["applicant_age"] = "NONE"
                     state["re_ask_attempts"].pop(knockout_question, None)
@@ -492,8 +493,8 @@ def store_kq_answer_node(state: ChatbotState) -> ChatbotState:
         attempts = state["re_ask_attempts"].get(knockout_question, 0) + 1
         state["re_ask_attempts"][knockout_question] = attempts
 
-        if attempts >= 2:
-            print(f"[KQ] 2 ambiguous attempts — defaulting to no")
+        if attempts >= 3:
+            print(f"[KQ] 3 ambiguous attempts — defaulting to no")
             state["knockout_answers"][knockout_question] = "no"
             state["re_ask_attempts"].pop(knockout_question, None)
             state["kq_just_answered_index"] = idx          
@@ -1124,112 +1125,142 @@ def email_router(state: ChatbotState) -> Literal["ask_email", "send_email_otp"]:
 # ==================== PHONE COLLECTION ====================
 
 def ask_phone_node(state: ChatbotState) -> ChatbotState:
-    """Ask for phone (or re-ask if validation failed)"""
-    
     print("ask_phone_node called")
 
-    # Check if validation failed
-    if state.get("phone_validation_failed"):
-         
-        # Check attempt count
-        if state.get("phone_attempt_count") >= 3:
-            # After 3 attempts, show example
-            prompt = PERSONAL_DETAIL_REASK_WITH_EXAMPLE_PROMPT.format(
-                detail_type="phone number",
-                invalid_attempt=state.get("invalid_phone_attempt"),
-                example="+1-234-567-8900"
-            )
+    # Refusal or invalid — message already sent by store_phone_node
+    if "phone_refusal" in state.get("re_ask_attempts", {}) or state.get("phone_validation_failed"):
+        return {}
 
-            # Use the chat template
-            messages = chat_template.format_messages(user_input=prompt)
-            response = llm.invoke(messages)
-            
-            state["messages"].append(AIMessage(content=response.content))
-        else:
-            # Normal re-ask (no example)
-            prompt = PERSONAL_DETAIL_REASK_PROMPT.format(
-                detail_type="phone number",
-                invalid_attempt=state.get("invalid_phone_attempt")
-            )
-
-            # Use the chat template
-            messages = chat_template.format_messages(user_input=prompt)
-            response = llm.invoke(messages)
-            
-            state["messages"].append(AIMessage(content=response.content))
-    else:
-        # Use normal ask prompt
-        ask_phone = cleo_engagement.ask_phone
-        state["messages"].append(AIMessage(content=ask_phone))
-    
+    # First time — show full consent message
+    state["messages"].append(AIMessage(content=cleo_engagement.ask_phone))
     return state
 
 
 def store_phone_node(state: ChatbotState) -> ChatbotState:
-    """Store phone from user input with validation"""
-    
+    """Store phone with single LLM call for classification + response generation"""
+
     print("store_phone_node called")
-    
+
     messages = state["messages"]
     last_message = messages[-1] if messages else None
-    
-    if isinstance(last_message, HumanMessage):
-        user_text = last_message.content.strip()
 
-        # Extract phone using LLM
-        phone = extract_phone_from_text(user_text)
-        
-        print(f"Original input: {user_text}")  # Debug
-        print(f"Extracted phone: {phone}")  # Debug
+    if not isinstance(last_message, HumanMessage):
+        return state
 
-        # Normalize phone to E.164 format
-        if phone:
-            if phone.startswith('+'):
-                # Case 1: Already has + prefix (+1 or +92) — do nothing
-                pass
-            elif phone.startswith('0'):
-                # Case 2: local format with leading 0 — remove 0, add +92
-                phone = '+92' + phone[1:]
-            elif phone.startswith('92') or phone.startswith('1'):
-                # Case 3: has country code digits but no + — just add +
-                phone = '+' + phone
-            else:
-                # Case 4: any other number — assume US, add +1
-                phone = '+1' + phone
+    user_text = last_message.content.strip()
+    print(f"Original input: {user_text}")
 
-        # Validate phone
-        if validate_phone(phone):
-            print("Phone Number is Valid:", phone)
-            
-            # Valid - store it
-            state["personal_details"]["phone"] = phone
-            state["phone_validation_failed"] = False
-            state["invalid_phone_attempt"] = ""
+    refusal_attempts = state.get("re_ask_attempts", {}).get("phone_refusal", 0)
 
-            state["phone_attempt_count"] = 0  # Reset counter
+    # ── Single LLM call: classify + extract + generate response ──────────────
+    prompt = PHONE_ANALYSIS_PROMPT.format(
+        user_input=user_text,
+        attempt_count=refusal_attempts + 1
+    )
 
-            state["acknowledgement_type"] = "questions"
+    try:
+        import json as _json
+        resp = llm.invoke([HumanMessage(content=prompt)])
+        clean = resp.content.strip().replace("```json", "").replace("```", "").strip()
+        result = _json.loads(clean)
+    except Exception as e:
+        print(f"[PHONE] LLM parse error: {e}")
+        result = {
+            "intent": "invalid",
+            "phone": None,
+            "message": "I didn't catch that — could you share your phone number? (e.g. +1 555 123 4567)"
+        }
 
-        else:
-            print("Phone Number is Invalid:", phone)
-            # Invalid - set flag to re-ask
+    intent  = result.get("intent", "invalid")
+    phone   = result.get("phone")
+    message = result.get("message")
+
+    print(f"[PHONE] Intent: {intent}, Phone: {phone}")
+
+    # ── Refusal ───────────────────────────────────────────────────────────────
+    if intent == "refusal":
+        attempts = refusal_attempts + 1
+        state["re_ask_attempts"]["phone_refusal"] = attempts
+
+        if attempts >= 2:
+            state["phone_hard_stop"] = True
             state["phone_validation_failed"] = True
-            state["invalid_phone_attempt"] = phone
+            state["re_ask_attempts"].pop("phone_refusal", None)
+            # Fixed closing message — don't use LLM here, it contradicts the hard stop
+            state["messages"].append(AIMessage(
+                content="No problem at all! Since a phone number is required to complete the application, we'll need to pause here. Thank you so much for your time — we hope to connect with you again in the future! 🙏"
+            ))
+        else:
+            # LLM-generated warm message for attempt 1 only
+            state["messages"].append(AIMessage(content=message))
 
-            state["phone_attempt_count"] += 1  # Increment counter
-    
+        return state
+
+    # ── Invalid / gibberish ───────────────────────────────────────────────────
+    if intent == "invalid":
+        count = state.get("phone_attempt_count", 0) + 1
+        state["phone_attempt_count"] = count
+        state["phone_validation_failed"] = True
+        state["invalid_phone_attempt"] = user_text
+
+        if count >= 3:
+            state["messages"].append(AIMessage(
+                content="It seems we're having trouble with the phone number. Unfortunately we need a valid number to proceed. Thank you for your time! 🙏"
+            ))
+        else:
+            state["messages"].append(AIMessage(content=message))
+        return state
+
+    # ── Provided — validate the extracted number ──────────────────────────────
+    state["re_ask_attempts"].pop("phone_refusal", None)
+
+    if phone and validate_phone(phone):
+        print(f"[PHONE] Valid: {phone}")
+        state["personal_details"]["phone"] = phone
+        state["phone_validation_failed"] = False
+        state["invalid_phone_attempt"] = ""
+        state["phone_attempt_count"] = 0
+        state["acknowledgement_type"] = "questions"
+    else:
+        print(f"[PHONE] Provided but failed validation: {phone}")
+        count = state.get("phone_attempt_count", 0) + 1
+        state["phone_attempt_count"] = count
+        state["phone_validation_failed"] = True
+        state["invalid_phone_attempt"] = phone or user_text
+
+        if count >= 3:
+            state["messages"].append(AIMessage(
+                content="It seems we're having trouble with your phone number. Unfortunately we need a valid number to proceed. Thank you for your time! 🙏"
+            ))
+        else:
+            state["messages"].append(AIMessage(
+                content="I wasn't able to recognize that as a valid number. Could you double-check and try again? (e.g. +1 555 123 4567)"
+            ))
+
     return state
 
 
-def phone_router(state: ChatbotState) -> Literal["ask_phone", "send_phone_otp"]:
-    """Check if phone is valid, re-ask or continue"""
-    
+def phone_router(state: ChatbotState) -> Literal["ask_phone", "send_phone_otp", "__end__"]:
     print("phone_router called")
-    
+
+    # Hard stop — refused twice
+    if state.get("phone_hard_stop"):
+        return "__end__"
+
+    # Hard stop — too many invalid attempts
+    if state.get("phone_attempt_count", 0) >= 3:
+        return "__end__"
+
+    # Refusal attempt 1 — re-ask (message already sent)
+    if "phone_refusal" in state.get("re_ask_attempts", {}):
+        return "ask_phone"
+
+    # Invalid format or gibberish — re-ask
     if state.get("phone_validation_failed", False):
-        return "ask_phone"  # Re-ask for phone
-    
-    return "send_phone_otp"  # Continue to phone OTP verification
+        return "ask_phone"
+
+    # Valid phone stored — continue
+    return "send_phone_otp"
 
 
 # ==================== EMAIL OTP VERIFICATION NODES ====================
@@ -1545,7 +1576,7 @@ def store_work_experience_response_node(state: ChatbotState) -> ChatbotState:
         state["re_ask_attempts"]["work_experience"] = attempts
         print(f"[WORK_EXP] Ambiguous attempt {attempts}: {user_input}")
 
-        if attempts >= 2:
+        if attempts >= 3:
             print(f"[WORK_EXP] 2 attempts — defaulting to NO")
             state["show_work_experience_ui"] = False
             state["re_ask_attempts"].pop("work_experience", None)
@@ -1665,8 +1696,8 @@ Return ONLY one word: decline, certifications, or ambiguous."""
         state["re_ask_attempts"]["certifications"] = attempts
         print(f"[CERT] Ambiguous attempt {attempts}: {user_input}")
 
-        if attempts >= 2:
-            print(f"[CERT] 2 attempts — treating as no certifications")
+        if attempts >= 3:
+            print(f"[CERT] 3 attempts — treating as no certifications")
             state["certifications"] = []
             state["re_ask_attempts"].pop("certifications", None)
             state["messages"].append(AIMessage(content="No problem! Moving on. 👍"))
@@ -1735,10 +1766,19 @@ def store_referral_node(state: ChatbotState) -> ChatbotState:
     user_input = last_message.content.strip()
     question = "How did you hear about us? If you were referred by a current employee or resident, please let us know their name."
 
-    prompt = f"""A job applicant was asked: "{question}"
+    prompt = f"""A job applicant was asked: "How did you hear about us? If referred by someone, please share their name."
 Their response: "{user_input}"
 
-Is this a meaningful answer (a source like 'Indeed', 'friend', a name, 'social media', etc.)?
+Is this a meaningful answer? Accept ANY of these as valid:
+- Job boards or platforms (LinkedIn, Indeed, Glassdoor, ZipRecruiter, etc.)
+- Social media (Instagram, Facebook, TikTok, etc.)
+- A person's name or "referred by someone"
+- Word of mouth, friend, family member
+- Website, Google, flyer, sign
+- Any other recognizable source
+
+Only return "NO" for completely gibberish or nonsensical responses.
+
 Return ONLY "YES" or "NO"."""
 
     try:
@@ -1752,8 +1792,8 @@ Return ONLY "YES" or "NO"."""
         state["re_ask_attempts"]["referral"] = attempts
         print(f"[REFERRAL] Ambiguous attempt {attempts}: {user_input}")
 
-        if attempts >= 2:
-            print(f"[REFERRAL] 2 attempts — accepting raw: {user_input}")
+        if attempts >= 3:
+            print(f"[REFERRAL] 3 attempts — accepting raw: {user_input}")
             state["referral_source"] = user_input
             state["re_ask_attempts"].pop("referral", None)
         return state
@@ -2328,7 +2368,7 @@ def build_graph(checkpointer):
     # ======================== Build flow ==========================================
     
     # Set entry point
-    workflow.set_entry_point("start")
+    workflow.set_entry_point("ask_phone")
     
     workflow.add_edge("start", "delay_messages")
     workflow.add_conditional_edges("delay_messages", post_delay_router)
@@ -2369,7 +2409,11 @@ def build_graph(checkpointer):
     workflow.add_conditional_edges("verify_email_otp", email_otp_router)
     
     workflow.add_edge("ask_phone", "store_phone")
-    workflow.add_conditional_edges("store_phone", phone_router)  # Check phone validity
+    workflow.add_conditional_edges("store_phone", phone_router, {
+    "ask_phone":      "ask_phone",
+    "send_phone_otp": "send_phone_otp",
+    "__end__":        END,
+    })
     
     # Phone OTP verification flow
     workflow.add_conditional_edges("send_phone_otp", phone_otp_router)

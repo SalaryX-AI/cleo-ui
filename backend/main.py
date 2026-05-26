@@ -573,9 +573,8 @@ async def id_verification_webhook(request: Request):
 # Nodes that do NOT add new messages — skip to avoid sending stale messages[-1]
 NODES_WITHOUT_MESSAGES = {
     "score", "summary",
-    "store_background_check",
     "process_gps", "store_address", "store_name", "store_email",
-    "store_phone",
+
     "phone_router", "email_router", "question_router",
     "phone_otp_router", "email_otp_router", "background_check_router",
     "military_router", "single_knockout_router", "post_acknowledgement_router",
@@ -645,9 +644,11 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
  
         messages = node_data["messages"]
  
-        # ── delay_messages: send last 2 with extra delay ──────────────────────
+        # ── delay_messages: send last 3 with extra delay ──────────────────────
         if node_name == "delay_messages":
-            for msg in messages[-2:]:
+            delay_type = node_data.get("delay_node_type", "greeting")
+            count = 3 if delay_type == "end" else 2
+            for msg in messages[-count:]:
                 if isinstance(msg, AIMessage):
                     await websocket.send_json({"type": "typing"})
                     await asyncio.sleep(0.5)
@@ -663,7 +664,9 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
  
         # ── ask_id_verification: send last 3 messages, UI on last ─────────────
         if node_name == "ask_id_verification":
-            for msg in messages[-3:]:
+            delay_type = node_data.get("delay_node_type", "greeting")
+            count = 3 if delay_type == "end" else 2
+            for msg in messages[-count:]:
                 if isinstance(msg, AIMessage):
                     is_last       = (msg == messages[-1])
                     id_verify_ui  = is_last
@@ -796,6 +799,7 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                 required_question_failed=False,              
                 manager_flags=[],
                 end_conversation=False,
+                phone_hard_stop=False
             )
  
             async for event in graph_app.astream(initial_state, config=config, stream_mode="updates"):
@@ -807,7 +811,9 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                         messages = node_data["messages"]
  
                         if node_name == "delay_messages":
-                            for msg in messages[-2:]:
+                            delay_type = node_data.get("delay_node_type", "greeting")
+                            count = 3 if delay_type == "end" else 2
+                            for msg in messages[-count:]:
                                 if isinstance(msg, AIMessage):
                                     await websocket.send_json({"type": "typing"})
                                     await asyncio.sleep(0.5)
