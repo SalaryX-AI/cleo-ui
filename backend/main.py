@@ -575,11 +575,12 @@ async def id_verification_webhook(request: Request):
 NODES_WITHOUT_MESSAGES = {
     "score", "summary",
     "process_gps", "store_address",
-
     "phone_router", "email_router", "question_router",
     "phone_otp_router", "email_otp_router", "background_check_router",
     "military_router", "single_knockout_router", "post_acknowledgement_router",
     "id_verification_router",
+    "send_email_otp",
+    "send_phone_otp",   
 }
  
  
