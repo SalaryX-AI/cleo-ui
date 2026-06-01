@@ -20,6 +20,7 @@ document.head.appendChild(link);
         isOpen: false,
         reconnecting: false, // prevent multiple reconnect attempts
         heartbeatInterval: null,
+        conversationEnded: false, 
         
         /**
          * Initialize the chatbot with validated configuration
@@ -79,16 +80,15 @@ document.head.appendChild(link);
         },
         
         handlePageVisible: function() {
-            // Check if WebSocket is disconnected
-
-            if (!this.sessionId) {
-                console.log('[RECONNECT] No session yet, skipping reconnect');
-                return;
-            }
-            if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-                console.log('[RECONNECT] WebSocket disconnected, attempting reconnect...');
-                this.reconnectWebSocket();
-            }
+                    if (this.conversationEnded) {
+                        console.log('[RECONNECT] Conversation ended — skipping reconnect');
+                        return;
+                    }
+                    if (!this.sessionId) return;
+                    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+                        console.log('[RECONNECT] WebSocket disconnected, attempting reconnect...');
+                        this.reconnectWebSocket();
+                    }
         },
 
         updateConnectionStatus: function(status) {
@@ -133,9 +133,25 @@ document.head.appendChild(link);
                         if (statusDiv.parentNode) statusDiv.remove();
                     }, 2000);
                 }
+
+                else if (status === 'completed') {
+                const statusDiv = document.createElement('div');
+                statusDiv.className = 'connection-status';
+                statusDiv.style.cssText = `
+                    display: flex;
+                    align-items: center;
+                    gap: 6px;
+                    font-size: 12px;
+                    color: #8b5cf6;
+                    margin-left: 8px;
+                `;
+                statusDiv.innerHTML = '✅ Complete';
+                header.appendChild(statusDiv);
+            }
         },
         
         reconnectWebSocket: function() {
+            if (this.conversationEnded) return; 
             // Prevent multiple simultaneous reconnect attempts
             if (this.reconnecting) {
                 console.log('[RECONNECT] Already reconnecting, skipping...');
@@ -226,8 +242,14 @@ document.head.appendChild(link);
                     console.log('[HEARTBEAT] Received pong');
                     return;
                 }
+
+                if (data.type === 'conversation_ended') {
+                    console.log('[CLEO] Conversation ended — blocking reconnect');
+                    this.conversationEnded = true;
+                    return;
+                }
                 
-                // ✅ NEW: Handle state sync response
+                // Handle state sync response
                 if (data.type === 'state_synced') {
                     console.log('[SYNC] State synchronized');
                     return;
@@ -242,14 +264,16 @@ document.head.appendChild(link);
             
             this.ws.onclose = (event) => {
                 console.log('WebSocket disconnected', event.code, event.reason);
-
-                // Show disconnected status
-                this.updateConnectionStatus('disconnected');
-
                 this.disableInput();
                 this.stopHeartbeat();
-                
-                // Auto-reconnect on unexpected disconnection
+
+                if (this.conversationEnded) {
+                    this.updateStatus('Application complete', 'connected');
+                    return;   // ← no reconnect attempt
+                }
+
+                this.updateConnectionStatus('disconnected');
+
                 if (event.code !== 1000 && !this.reconnecting) {
                     console.log('[RECONNECT] Unexpected disconnect, reconnecting in 2s...');
                     setTimeout(() => this.reconnectWebSocket(), 2000);
@@ -582,8 +606,12 @@ document.head.appendChild(link);
                 };
                 
                 this.ws.onclose = () => {
-                    this.hideTypingIndicator();  // Hide on close
-                    this.updateStatus('Disconnected', 'disconnected');
+                    this.hideTypingIndicator();
+                    if (this.conversationEnded) {
+                        this.updateStatus('Application complete', 'connected');
+                    } else {
+                        this.updateStatus('Disconnected', 'disconnected');
+                    }
                     this.disableInput();
                 };
                 
@@ -595,6 +623,16 @@ document.head.appendChild(link);
         },
         
         handleMessage(data) {
+
+            // ── Conversation ended by stop command ────────────────────────────
+            if (data.type === 'conversation_ended') {
+                console.log('[CLEO] Conversation ended');
+                this.conversationEnded = true;
+                this.hideTypingIndicator();
+                this.disableInput();
+                this.updateStatus('Application complete', 'connected');
+                return;
+            }
             
             // Handle typing event
             if (data.type === 'typing') {

@@ -1,5 +1,6 @@
 """FastAPI WebSocket server for screening chatbot"""
 
+import datetime
 import sys
 import time
 import re as _re
@@ -324,7 +325,7 @@ def set_job_address(job_config: dict, location: str):
         q.format(address=location) for q in job["knockout_questions"]
     ]
 
-    print(f"Updated Job ->: {job}")
+    # print(f"Updated Job ->: {job}")
 
     return job
 
@@ -982,6 +983,23 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
             if not user_input:
                 print("[DEBUG] Empty user input, skipping")
                 continue
+
+            # ── Stop command — end conversation immediately ───────────────────────────────
+            if user_input.lower().strip(".,!?") in ("stop", "quit", "exit", "bye", "cancel", "i want to stop", "please stop"):
+                print(f"[DEBUG] Stop command received — ending conversation")
+                await websocket.send_json({"type": "typing"})
+                await asyncio.sleep(0.5)
+                await websocket.send_json({
+                    "type":        "ai_message",
+                    "content":     "No problem! You can come back and apply when you're ready. Good luck! 👋",
+                    "messageType": "body"
+                })
+                await asyncio.sleep(0.8)
+                await websocket.send_json({"type": "conversation_ended"})  # ← tells frontend not to reconnect
+                await update_run_status(session_id, "completed")
+                await websocket.close()
+                break
+            # ─────────────────────────────────────────────────────────────────────────────
  
             await log_event(session_id, thread_id, None, "user_message", {"content": user_input})
  
