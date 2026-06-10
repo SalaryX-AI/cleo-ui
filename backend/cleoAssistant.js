@@ -38,6 +38,8 @@ document.head.appendChild(link);
             // Store configuration
             this.config = {
                 jobType: options.jobType,
+                jobTemplateID: options.jobTemplateID,
+                singleCompany: options.singleCompany,
                 jobLocation: options.jobLocation,
                 jobID: options.jobID,
                 jobShift: options.jobShift,
@@ -545,6 +547,8 @@ document.head.appendChild(link);
 
                 const apiKey    = this.config.apiKey;
                 const jobType   = this.config.jobType;
+                
+                const jobTemplateID = this.config.jobTemplateID;
                 const location  = this.config.jobLocation;
                 const jobID     = this.config.jobID;
                 const companyID = this.config.companyID;
@@ -552,13 +556,15 @@ document.head.appendChild(link);
                 const isLive    = this.config.isLive;
                 const jobShift  = this.config.jobShift;
                 const brandName = this.config.brandName;
-
+                const singleCompany = this.config.singleCompany;
                 const response = await fetch(`${this.config.apiUrl}/start-session`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         api_key:    apiKey,
                         job_type:   jobType,
+
+                        job_template_id: jobTemplateID,
                         location:   location,
                         job_id:     jobID,
                         company_id: companyID,
@@ -566,6 +572,7 @@ document.head.appendChild(link);
                         is_live:    isLive,
                         job_shift:  jobShift,
                         brand_name: brandName,
+                        single_company: singleCompany
                     })
                 });
                 
@@ -854,12 +861,12 @@ document.head.appendChild(link);
     const WorkExperienceUI = {
         
         jobRoles: [
-            'Assistant Manager', 'Server', 'Assistant Store Manager', 'Barista', 'Cashier',
-            'Coffee Specialist', 'Cook', 'Crew Member', 'Customer Support',
-            'Dining Room', 'Dishwasher', 'Drive Thru', 'Grill Cook',
-            'Guest Experience', 'Host', 'Kitchen Staff', 'Maintenance',
-            'Overnight Crew', 'Prep Cook', 'Prep Team', 'Shift Coordinator',
-            'Shift Lead', 'Shift Leader', 'Shift Manager', 'Shift Supervisor',
+            "Painter", "Assistant Manager", "Server", "Assistant Store Manager", "Barista", "Cashier",
+            "Coffee Specialist", "Cook", "Crew Member", "Customer Support",
+            "Dining Room", "Dishwasher", "Drive Thru", "Grill Cook",
+            "Guest Experience", "Host", "Kitchen Staff", "Maintenance",
+            "Overnight Crew", "Prep Cook", "Prep Team", "Shift Coordinator",
+            "Shift Lead", "Shift Leader", "Shift Manager", "Shift Supervisor",
             'Store Support', 'Team Lead', 'Team Member', 'Trainer'
         ],
         
@@ -2754,14 +2761,18 @@ document.head.appendChild(link);
         // Read Values from data attribute
         const jobLocation = container.getAttribute('data-job-location') ||'unknown';
         const jobType = container.getAttribute('data-job-type') || 'Position';
+
+        const jobTemplateID = container.getAttribute('data-job-templates-id') || '456';
         const jobID = container.getAttribute('data-job-id') || '123';
         const companyID = container.getAttribute('data-company-id') || '987';
         const isLive = container.getAttribute('data-isLive') === 'true';
         const brandName = container.getAttribute('data-brand-name') || "";
         const jobShift  = container.getAttribute('data-job-shift')  || "";
         const verificationRequired = container.getAttribute('data-verification-required') || 'false';
-
+        const singleCompany = container.getAttribute('data-single-company') === 'true';
+       
         console.log('CleoChatbot: jobType from data attribute:', container.getAttribute('data-job-type'));
+        console.log('CleoChatbot: jobTemplateID from data attribute:', jobTemplateID);
         console.log('CleoChatbot: jobLocation from data attribute:', container.getAttribute('data-job-location'));
         console.log('CleoChatbot: jobID from data attribute:', container.getAttribute('data-job-id'));
         console.log('CleoChatbot: companyID from data attribute:', container.getAttribute('data-company-id'));
@@ -2769,7 +2780,7 @@ document.head.appendChild(link);
         console.log('CleoChatbot: jobShift from data attribute:', jobShift);
         console.log('CleoChatbot: brandName from data attribute:', brandName);
         console.log('CleoChatbot: verificationRequired from data attribute:', verificationRequired);
-
+        console.log('CleoChatbot: singleCompany from data attribute:', singleCompany);
         if (!jobType) {
             console.error('CleoChatbot: job_type is required to initialize the chatbot');
             return;
@@ -2795,6 +2806,7 @@ document.head.appendChild(link);
             // Initialize chatbot with validated configuration
             CleoChatbot.init({
                 jobType: jobType,  // Use jobType from data attribute
+                jobTemplateID: jobTemplateID, // Pass jobTemplate
                 jobLocation: jobLocation,
                 jobID: jobID,
                 companyID: companyID,
@@ -2802,12 +2814,14 @@ document.head.appendChild(link);
                 jobShift: jobShift,
                 brandName: brandName,
                 verificationRequired: verificationRequired,
+                singleCompany: singleCompany,
                 apiKey: config.apiKey,
                 apiUrl: CHATBOT_CONFIG.apiBaseUrl,
                 wsUrl: CHATBOT_CONFIG.wsBaseUrl
             });
 
             console.log('CleoChatbot initialized successfully for job type:', jobType);
+            console.log('CleoChatbot: jobTemplateID initialized:', jobTemplateID);
 
         } catch (error) {
             console.error('CleoChatbot initialization failed:', error.message);

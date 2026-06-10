@@ -193,6 +193,9 @@ class ChatbotState(MessagesState):
     kq_ambiguous_default: bool = False
     generic_fail: bool = False
     email_hard_stop: bool = False
+    single_company: bool = False
+    incomplete_application: bool = False
+
 
 
 # ==================== Acknowledgement ====================
@@ -222,7 +225,7 @@ Write a brief, warm, conversational follow-up (1 sentence) that:
 - Naturally acknowledges what they said
 - Gently re-asks for what you need and why
 - Does NOT sound robotic or use phrases like "I didn't catch that"
-- Feels like a real conversation and should be professional but not too formal.
+- Feels like a real conversation and should be professional and empathize but not too formal.
 - Use simple language, no jargon with exact question
 
 Return ONLY the message, nothing else."""
@@ -231,6 +234,55 @@ Return ONLY the message, nothing else."""
         return response.content.strip()
     except Exception:
         return f"Just to confirm — {question}"
+    
+
+
+def interpret_response(question: str, answer: str, expected_type: str = "yes_no") -> dict:
+    """
+    Central response interpreter. Never stores raw input — always returns meaning.
+    
+    Returns:
+        {"intent": "yes"|"no"|"ambiguous", "clean": "normalized value", "reason": "if ambiguous"}
+    """
+    if expected_type == "free_text":
+        return {"intent": "value", "clean": answer.strip(), "reason": ""}
+
+    prompt = f"""You are interpreting a job applicant's chat response.
+
+Question: "{question}"
+Response: "{answer}"
+
+Classify the response as YES, NO, or AMBIGUOUS.
+
+YES examples: yes, y, yep, yup, yeah, sure, of course, absolutely, definitely, 
+              correct, i do, i am, i have, i can, for sure, totally, certainly, 
+              "i served" (military), "i have experience", "i'm available", "sounds good"
+
+NO examples: no, n, nope, nah, not really, i don't, i can't, i haven't, i'm not, 
+             negative, never, "no experience", "can't make it"
+
+AMBIGUOUS — use this when:
+- Gibberish or typos with no clear meaning: "yrdy", "yryd", "asd", "lkj", random characters
+- Too vague: "maybe", "depends", "sometimes", "i think so", "probably", "not sure"
+- Unrelated to the question
+- Single letters other than y or n
+
+Return ONLY valid JSON, no markdown:
+{{"intent": "yes" or "no" or "ambiguous", "clean": "yes or no or the original text", "reason": "brief reason if ambiguous, otherwise empty string"}}"""
+
+    try:
+        response = llm.invoke([HumanMessage(content=prompt)])
+        clean = response.content.strip().replace("```json","").replace("```","").strip()
+        result = json.loads(clean)
+        return result
+    except Exception:
+        lower = answer.strip().lower()
+        if lower in ("yes","y","yep","yeah","yup","sure","ok","okay"):
+            return {"intent": "yes", "clean": "yes", "reason": ""}
+        elif lower in ("no","n","nope","nah"):
+            return {"intent": "no", "clean": "no", "reason": ""}
+        return {"intent": "ambiguous", "clean": answer, "reason": "Could not interpret"}
+
 
 
 def post_acknowledgement_router(state: ChatbotState) -> Literal["ask_knockout_question", "ask_work_experience", "ask_id_verification"]:
@@ -352,7 +404,7 @@ def ready_router(state: ChatbotState) -> Literal["ask_knockout_question", "reask
     print("ready_router called")
 
     if "ready" in state.get("re_ask_attempts", {}):
-        return "reask_consent"      # interrupt, then loop back to check_ready
+        return "reask_consent"
 
     if state["ready_confirmed"]:
         return "ask_knockout_question"
@@ -362,15 +414,27 @@ def ready_router(state: ChatbotState) -> Literal["ask_knockout_question", "reask
 # ==================== knockout questions ============================
 def ask_knockout_question_node(state: ChatbotState) -> ChatbotState:
     """Ask knockout questions"""
-    
+
     print("ask_knockout_question_node called")
-    
+
     idx = state["current_knockout_question_index"]
     knockout_questions = state["knockout_questions"]
-    
+
     if idx < len(knockout_questions):
         knockout_question = knockout_questions[idx]
 
+        # ── Re-ask — generate dynamic conversational message ─────────────────
+        if knockout_question in state.get("re_ask_attempts", {}):
+            last_human = next(
+                (m for m in reversed(state["messages"]) if isinstance(m, HumanMessage)),
+                None
+            )
+            user_input = last_human.content if last_human else ""
+            reask = generate_reask_message(knockout_question, user_input)
+            state["messages"].append(AIMessage(content=reask))
+            return state
+
+        # ── Initial ask ───────────────────────────────────────────────────────
         if idx == 2:
             raw_shift = state.get('job_shift', '').strip()
             if raw_shift:
@@ -381,55 +445,8 @@ def ask_knockout_question_node(state: ChatbotState) -> ChatbotState:
             state["messages"].append(AIMessage(content=content))
         else:
             state["messages"].append(AIMessage(content=knockout_question))
-    
+
     return state
-
-
-def interpret_response(question: str, answer: str, expected_type: str = "yes_no") -> dict:
-    """
-    Central response interpreter. Never stores raw input — always returns meaning.
-    
-    Returns:
-        {"intent": "yes"|"no"|"ambiguous", "clean": "normalized value", "reason": "if ambiguous"}
-    """
-    if expected_type == "free_text":
-        return {"intent": "value", "clean": answer.strip(), "reason": ""}
-
-    prompt = f"""You are interpreting a job applicant's chat response.
-
-Question: "{question}"
-Response: "{answer}"
-
-Classify the response as YES, NO, or AMBIGUOUS.
-
-YES examples: yes, y, yep, yup, yeah, sure, of course, absolutely, definitely, 
-              correct, i do, i am, i have, i can, for sure, totally, certainly, 
-              "i served" (military), "i have experience", "i'm available", "sounds good"
-
-NO examples: no, n, nope, nah, not really, i don't, i can't, i haven't, i'm not, 
-             negative, never, "no experience", "can't make it"
-
-AMBIGUOUS — use this when:
-- Gibberish or typos with no clear meaning: "yrdy", "yryd", "asd", "lkj", random characters
-- Too vague: "maybe", "depends", "sometimes", "i think so", "probably", "not sure"
-- Unrelated to the question
-- Single letters other than y or n
-
-Return ONLY valid JSON, no markdown:
-{{"intent": "yes" or "no" or "ambiguous", "clean": "yes or no or the original text", "reason": "brief reason if ambiguous, otherwise empty string"}}"""
-
-    try:
-        response = llm.invoke([HumanMessage(content=prompt)])
-        clean = response.content.strip().replace("```json","").replace("```","").strip()
-        result = json.loads(clean)
-        return result
-    except Exception:
-        lower = answer.strip().lower()
-        if lower in ("yes","y","yep","yeah","yup","sure","ok","okay"):
-            return {"intent": "yes", "clean": "yes", "reason": ""}
-        elif lower in ("no","n","nope","nah"):
-            return {"intent": "no", "clean": "no", "reason": ""}
-        return {"intent": "ambiguous", "clean": answer, "reason": "Could not interpret"}
     
 
 
@@ -1720,6 +1737,13 @@ def store_education_node(state: ChatbotState) -> ChatbotState:
 
     return state
 
+def education_router(state: ChatbotState) -> Literal["ask_certifications", "ask_referral"]:
+    
+    if state.get("job_type") == "painter":
+        return "ask_referral"
+    
+    return "ask_certifications" 
+
 
 # ==================== CERTIFICATIONS ====================
 
@@ -2334,8 +2358,6 @@ def score_node(state: ChatbotState) -> ChatbotState:
 
     return state
 
-
-
 def summary_node(state: ChatbotState) -> ChatbotState:
     """Generate comprehensive JSON report and send to XANO"""
     
@@ -2360,6 +2382,7 @@ def summary_node(state: ChatbotState) -> ChatbotState:
 
     work_experiences = state.get("work_experience", [])
     education_level = state.get("education_level", "")
+
     
     # Convert score to percentage
     score = (score / total_score) * 100 if total_score > 0 else 0
@@ -2426,6 +2449,8 @@ def summary_node(state: ChatbotState) -> ChatbotState:
     }
 
     json_report = generate_json_report(data)
+
+    single_company = state.get("single_company", False)
     
     # Send to XANO
     send_applicant_to_xano(
@@ -2441,7 +2466,8 @@ def summary_node(state: ChatbotState) -> ChatbotState:
         job_id=job_id,
         company_id=company_id,
         is_live=is_live,
-        conversation_history=conversation_history
+        conversation_history=conversation_history,
+        single_company=single_company
     )
     
     return state
@@ -2450,14 +2476,23 @@ def end_node(state: ChatbotState) -> ChatbotState:
     """End conversation"""
     
     print("end_node called")
-    
-    # name = state["personal_details"].get("name")
-    
+
+    if state.get("incomplete_application"):
+        state["messages"].append(AIMessage(content="One of our support team members will reach out to you shortly. It is difficult to complete the application at this time. Thanks! 🙏"))
+        return state
+        
     state["messages"].append(AIMessage(content=f"Great job! You've successfully completed the application. Your information has been securely saved and submitted to {state.get('brand_name')}."))
 
     state["delay_node_type"] = "end"
 
     return state
+
+def post_end_router(state: ChatbotState) -> Literal["delay_messages", "__end__"]:
+    
+    if state.get("incomplete_application"):
+        return "__end__"
+    
+    return "delay_messages"
 
 
 # ==================== GRAPH BUILDER ====================
@@ -2604,7 +2639,11 @@ def build_graph(checkpointer):
 
     # Education flow
     workflow.add_edge("ask_education", "store_education")
-    workflow.add_edge("store_education", "ask_certifications")
+    
+    workflow.add_conditional_edges("store_education", education_router, {
+        "ask_certifications": "ask_certifications",
+        "ask_referral":       "ask_referral",
+    })
     
     # Certifications and military service flow
     workflow.add_edge("ask_certifications", "store_certifications")
@@ -2648,8 +2687,8 @@ def build_graph(checkpointer):
     # Scoring and end
     workflow.add_edge("score", "summary")
     workflow.add_edge("summary", "end")
-    workflow.add_edge("end", "delay_messages")
-    
+    workflow.add_conditional_edges("end", post_end_router)
+        
     app = workflow.compile(
         checkpointer=checkpointer,
         interrupt_after=["delay_messages", "reask_consent","ask_knockout_question",  "ask_address", "ask_gps_verification", "ask_work_experience", "ask_education", "ask_certifications", "ask_referral", "ask_military", "ask_background_check", "ask_name", "ask_email", "ask_email_otp", "ask_phone", "ask_phone_otp", "ask_id_verification", "ask_question"],

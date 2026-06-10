@@ -15,6 +15,7 @@ import json
 import uuid
 
 from requests import session
+from xano_jobs import fetch_job_specific_qualifiers
 from graph import build_graph, ChatbotState
 from job_configs import JOB_CONFIGS
 # from xano_jobs import read_job_config_from_db
@@ -265,6 +266,9 @@ async def start_session(request: Request):
     job_shift  = data.get("job_shift", "various shifts")
     brand_name = data.get("brand_name", "our company")
     verification_required = data.get("verification_required", False)
+    single_company = data.get("single_company", False)
+    template_id = data.get("job_template_id", "default_template")
+
 
     print(f"Starting session for job_type: {job_type} at location: {location}")
 
@@ -299,6 +303,8 @@ async def start_session(request: Request):
         "brand_name": brand_name,
         "job_shift":  job_shift,
         "verification_required": verification_required,
+        "single_company": single_company,
+        "job_template_id": template_id
     }
 
     # Log new run
@@ -606,6 +612,8 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
     company_id = session["company_id"]
     is_live    = session["is_live"]
     job_shift  = session["job_shift"]
+    template_id = session["job_template_id"]
+    single_company = session["single_company"]
  
     job_config = JOB_CONFIGS[job_type]
     job        = set_job_address(job_config, location)
@@ -722,11 +730,17 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
         else:
             # ── NEW SESSION — start fresh workflow ────────────────────────────
             print(f"[NEW SESSION] No existing state, starting new workflow for {session_id}")
+
+            qualifiers = await fetch_job_specific_qualifiers(template_id)
  
             initial_state = ChatbotState(
                 messages=[],
-                questions=job["questions"],
-                scoring_model=job["scoring_model"],
+                questions=qualifiers["questions"],
+                scoring_model={**job["scoring_model"], **qualifiers["scoring_model"]},
+                required_questions=qualifiers["required_questions"],
+                flagged_questions=qualifiers["flagged_questions"],
+                question_acknowledgements=qualifiers["question_acknowledgements"],
+    
                 current_question_index=0,
                 answers={},
                 personal_details={},
@@ -788,7 +802,6 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                 background_check_consented=False,
                 referral_source="",
                 education_year="",
-                question_acknowledgements=job.get("question_acknowledgements", {}),
                 verification_required=verification_required,
 
                 brand_name=brand_name,
@@ -796,8 +809,6 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
 
                 experience_qualified=True,
                 re_ask_attempts={},
-                required_questions=job.get("required_questions", {}),
-                flagged_questions=job.get("flagged_questions", {}),
                 required_question_failed=False,              
                 manager_flags=[],
                 end_conversation=False,
@@ -805,6 +816,8 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                 kq_ambiguous_default=False,
                 generic_fail=False,
                 email_hard_stop=False,
+                single_company=single_company,
+                incomplete_application=False,
             )
  
             async for event in graph_app.astream(initial_state, config=config, stream_mode="updates"):

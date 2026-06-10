@@ -32,7 +32,8 @@ def send_applicant_to_xano(
     job_id: str,
     company_id: str,
     is_live: bool,
-    conversation_history: list
+    conversation_history: list,
+    single_company: bool = False
 
 ):
     """
@@ -61,8 +62,12 @@ def send_applicant_to_xano(
             }
     
     try:
+        print(f"Single company mode: {single_company}")
         # Determine status
-        status = "HR Manager Review" if score >= 50 else "Rejected by Cleo"
+        if single_company == "true":
+            status = "Hiring Manager Review"
+        else:
+            status = "HR Manager Review"    
 
         # Format conversation as JSON string
         conversation_json = json.dumps(conversation_history)

@@ -121,7 +121,7 @@ JOB_CONFIGS = {
                 "pass_ack": "Great — that's a key requirement for this position.",
                 "fail_message": "Thank you for your interest! This role does require at least 1 year of server experience. We'd encourage you to apply again once you've built that experience.",
             }
-    },
+        },
 
         "flagged_questions": {
             "Are you experienced with table service dining standards — things like setting tables for service, attention to detail, and handling multiple courses?": {
@@ -142,6 +142,56 @@ JOB_CONFIGS = {
             }
     }
     
+    },
+
+    "painter": {
+        "knockout_questions": [
+            "Are you legally allowed to work in the United States?",
+            "Are you 18 or older?",
+            "We are currently hiring specifically for evening and weekend shifts.  Are you available to work that schedule?",
+            "Do you have reliable transportation to and from our location at {address}?"
+        ],
+        "scoring_model": {
+            # ── Basic Requirements (5 each) ──────────────────────────────────────
+            "Are you legally allowed to work in the United States?": {
+                "rule": "Yes -> 5, No -> 0",
+                "weight": 5,
+                "category": "Basic Requirements"
+            },
+            "Are you 18 or older?": {
+                "rule": "Yes -> 5, No -> 0",
+                "weight": 5,
+                "category": "Basic Requirements"
+            },
+
+            # ── Compliance (5) ───────────────────────────────────────────────────
+            "background_check_consent": {
+                "rule": "Yes -> 5, No -> 0",
+                "weight": 5,
+                "category": "Compliance"
+            },
+
+            # ── Commitment — Schedule (4) ─────────────────────────────────────────
+            "We are currently hiring specifically for evening and weekend shifts. Is your general availability a fit for that schedule?": {
+                "rule": "Yes -> 4, No -> 0",
+                "weight": 4,
+                "category": "Commitment"
+            },
+
+            # ── Logistics — Transportation (4) ────────────────────────────────────
+            "Do you have reliable transportation to and from our store located at {address}?": {
+                "rule": "Yes -> 4, No -> 0",
+                "weight": 4,
+                "category": "Logistics"
+            },
+
+            # ── Certifications (2) — from ask_certifications node ─────────────────
+            "certifications": {
+                "rule": "ServSafe/TIPS/Food Safety cert present -> 2, None,no -> 0",
+                "weight": 2,
+                "category": "Certifications"
+            },
+        },
     },
     
     "assistant_manager": {

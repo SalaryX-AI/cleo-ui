@@ -278,7 +278,7 @@
                         <div class="section-content">
                             ${(job.shifts && job.shifts.length > 0)
                                 ? job.shifts.join('<br>')
-                                : (job.Shift || 'Morning')}
+                                : ('Morning')}
                         </div>
                     </div>
 
@@ -349,13 +349,15 @@
                 const job = await fetchJobDetails(jobId);
 
                 console.log('Job Type:', job.job_template);
+                console.log('Job Template ID:', job.job_templates_id);
                 console.log('Location:', job.job_location);
                 console.log('Job ID:', job.id);
                 console.log('Company ID:', job.related_company);
                 console.log('Job Shift:', job.shifts);
                 console.log('Company Name:', job._related_company?.company_name);
                 console.log('Verification Required', job.verificationRequired);
-                
+                const singleCompany = job._related_company?._related_user?.single_company ?? false;
+
 
 
                 // Extract company name and shifts from Xano response
@@ -377,6 +379,8 @@
                 document.getElementById('cleo-chatbot').setAttribute('data-brand-name', companyName);
                 document.getElementById('cleo-chatbot').setAttribute('data-job-shift', jobShift);
                 document.getElementById('cleo-chatbot').setAttribute('data-verification-required', job.verificationRequired);
+                document.getElementById('cleo-chatbot').setAttribute('data-job-templates-id', job.job_templates_id);
+                document.getElementById('cleo-chatbot').setAttribute('data-single-company', singleCompany.toString());
                 
                 // Load Cleo Assistant script
                 const script = document.createElement("script"); 
