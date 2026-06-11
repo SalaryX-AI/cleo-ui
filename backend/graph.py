@@ -197,23 +197,7 @@ class ChatbotState(MessagesState):
     incomplete_application: bool = False
 
 
-
-# ==================== Acknowledgement ====================
-def acknowledge_node(state: ChatbotState) -> ChatbotState:
-    """Send acknowledgment message"""
-    print(f"acknowledge_node called (type: {state['acknowledgement_type']})")
-
-    ack_type = state.get("acknowledgement_type", "default")
-
-    ack_messages = cleo_engagement.ack_messages
-    
-    message = ack_messages.get(ack_type) or ack_messages.get("default", "Let's continue!")
-
-    state["messages"].append(AIMessage(content=message))
-    
-    return state
-
-
+# ===========================================================================================================
 def generate_reask_message(question: str, user_input: str) -> str:
     """LLM-generated conversational re-ask that acknowledges what the user said"""
     prompt = f"""You are Cleo, a friendly AI hiring assistant. A job applicant gave an unclear response.
@@ -284,6 +268,20 @@ Return ONLY valid JSON, no markdown:
         return {"intent": "ambiguous", "clean": answer, "reason": "Could not interpret"}
 
 
+# ==================== Acknowledgement ====================
+def acknowledge_node(state: ChatbotState) -> ChatbotState:
+    """Send acknowledgment message"""
+    print(f"acknowledge_node called (type: {state['acknowledgement_type']})")
+
+    ack_type = state.get("acknowledgement_type", "default")
+
+    ack_messages = cleo_engagement.ack_messages
+    
+    message = ack_messages.get(ack_type) or ack_messages.get("default", "Let's continue!")
+
+    state["messages"].append(AIMessage(content=message))
+    
+    return state
 
 def post_acknowledgement_router(state: ChatbotState) -> Literal["ask_knockout_question", "ask_work_experience", "ask_id_verification"]:
     """Decide where to go after acknowledgement"""
@@ -676,6 +674,10 @@ def single_knockout_router(state: ChatbotState) -> Literal["ask_knockout_questio
     if state["current_knockout_question_index"] < len(state["knockout_questions"]):
         return "ask_knockout_question"  # Ask next question
     
+    # All KQs passed — skip screening questions if none configured
+    if not state.get("questions"):
+        return "ask_address" 
+    
     # All questions passed
     return "ask_question"  # Continue to work experience
 
@@ -685,6 +687,10 @@ def ask_question_node(state: ChatbotState) -> ChatbotState:
     """Ask screening question"""
     
     print("ask_question_node called")
+
+    # No screening questions configured — skip silently
+    if not questions:
+        return {}
     
     idx = state["current_question_index"]
     questions = state["questions"] 
@@ -850,6 +856,10 @@ def answer_router(state: ChatbotState) -> Literal["ask_question", "ask_address",
 
     idx       = state["current_question_index"]
     questions = state.get("questions", [])
+
+    # No screening questions — skip to next section
+    if not questions:
+        return "ask_address"
 
     if idx < len(questions) and questions[idx] in state.get("re_ask_attempts", {}):
         return "ask_question"
@@ -2574,7 +2584,12 @@ def build_graph(checkpointer):
     
     workflow.add_edge("ask_knockout_question", "store_kq_answer")
     workflow.add_conditional_edges("store_kq_answer", kq_ambiguity_router)
-    workflow.add_conditional_edges("evaluate_single_knockout", single_knockout_router)
+    workflow.add_conditional_edges("evaluate_single_knockout", single_knockout_router, {
+    "ask_knockout_question": "ask_knockout_question",
+    "ask_question":          "ask_question",
+    "ask_address":           "ask_address",
+    "__end__":               END,
+    })
 
     # Questions loop
     workflow.add_edge("ask_question", "store_answer")
