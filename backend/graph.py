@@ -688,12 +688,13 @@ def ask_question_node(state: ChatbotState) -> ChatbotState:
     
     print("ask_question_node called")
 
+    questions = state["questions"] or []
+
     # No screening questions configured — skip silently
     if not questions:
         return {}
     
     idx = state["current_question_index"]
-    questions = state["questions"] 
     
     if idx < len(questions):
         question = questions[idx]    
