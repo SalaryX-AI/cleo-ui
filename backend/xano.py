@@ -2,6 +2,7 @@ import requests
 from langchain_openai import ChatOpenAI
 from langchain.schema import HumanMessage
 import json
+import json as _json
 
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
@@ -63,6 +64,7 @@ def send_applicant_to_xano(
     
     try:
         print(f"Single company mode: {single_company}")
+        
         # Determine status
         if single_company == "true":
             status = "Hiring Manager Review"
@@ -74,29 +76,45 @@ def send_applicant_to_xano(
 
         print(f"Conversation History: {conversation_json}")
 
-        # Generate PDF (using summary from JSON report)
-        summary = json_report.get("fit_score", {}).get("explanation", "No summary available")
+        # if isinstance(json_report, str):
+        #     try:
+        #         report_dict = _json.loads(json_report)
+        #     except Exception:
+        #         report_dict = {}
+        # else:
+        #     report_dict = json_report
+
+        # # Generate PDF (using summary from JSON report)
+        # summary = report_dict.get("fit_score", {}).get("explanation", "No summary available")
                 
         # Generate PDF
-        pdf_buffer = generate_applicant_pdf(
-            name=name,
-            email=email,
-            phone=phone,
-            score=score,
-            total_score=total_score,
-            summary=summary,
-            answers=answers,
-            status=status
-        )
+        # pdf_buffer = generate_applicant_pdf(
+        #     name=name,
+        #     email=email,
+        #     phone=phone,
+        #     score=score,
+        #     total_score=total_score,
+        #     summary=summary,
+        #     answers=answers,
+        #     status=status
+        # )
         
         # Prepare form data
         
-        files = {
-            'Report_pdf': ('applicant_report.pdf', pdf_buffer, 'application/pdf')
-        }
+        # files = {
+        #     'Report_pdf': ('applicant_report.pdf', pdf_buffer, 'application/pdf')
+        # }
 
-        # Convert JSON report to string
-        profile_summary_json = json.dumps(json_report, indent=2)
+        if isinstance(json_report, str):
+            try:
+                profile_summary = _json.loads(json_report)
+            except Exception:
+                profile_summary = json_report
+        else:
+            profile_summary = json_report
+
+        if isinstance(profile_summary, (dict, list)):
+            profile_summary = _json.dumps(profile_summary)    
         
         data = {
             'Name': name,
@@ -104,12 +122,12 @@ def send_applicant_to_xano(
             'Phone': phone,
             'Age': age,
             'Score': int(score),
-            'Report_pdf': ('applicant_report.pdf', pdf_buffer, 'application/pdf'),
+            # 'Report_pdf': ('applicant_report.pdf', pdf_buffer, 'application/pdf'),
             'job_id': JOB_ID,
             'company_id': COMPANY_ID,
             'Status': status,
             'session_id': 100,
-            'ProfileSummary': profile_summary_json,
+            'ProfileSummary': profile_summary,
             'my_session_id': session_id,
             'ConversationHistory': conversation_json,
             

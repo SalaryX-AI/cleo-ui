@@ -100,6 +100,7 @@ async def fetch_job_specific_qualifiers(template_id: str) -> dict:
         
         items = response.json()
         print(f"[XANO] Fetched {len(items)} job-specific qualifier questions")
+        print(f"[XANO] Sample item: {items[0] if items else 'No items'}")
         return parse_job_specific_qualifiers(items)
     except Exception as e:
         print(f"[XANO] Error fetching job-specific qualifiers: {e}")

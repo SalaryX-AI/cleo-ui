@@ -2461,6 +2461,59 @@ def summary_node(state: ChatbotState) -> ChatbotState:
 
     json_report = generate_json_report(data)
 
+    # ── Structured certifications ─────────────────────────────────────────────
+    raw_certs = state.get("certifications", [])
+    structured_certifications = [
+        {
+            "certificate_name": cert.get("name", ""),
+            "expiry_date":      ""   # not collected from applicant
+        }
+        for cert in raw_certs
+    ] if raw_certs else []
+
+    # ── Structured education ──────────────────────────────────────────────────
+    structured_education = [
+        {
+            "degree_name":    state.get("education_level", ""),
+            "passing_year":   state.get("education_year", ""),
+            "institute_name": ""   # not collected from applicant
+        }
+    ] if state.get("education_level") else []
+
+    # ── Structured work experience ────────────────────────────────────────────
+    structured_work_experience = [
+        {
+            "position":   exp.get("role", ""),
+            "employer":   exp.get("company", ""),
+            "start_date": exp.get("startDate", ""),
+            "end_date":   exp.get("endDate", ""),
+            "location":   ""   # not collected from applicant
+        }
+        for exp in work_experiences
+    ] if work_experiences else []
+
+    
+    # ── Merge structured fields into LLM-generated report ────────────────────────
+    try:
+        import json as _json
+        
+        # Handle both dict and string return from generate_json_report
+        if isinstance(json_report, dict):
+            report_dict = json_report
+        else:
+            report_dict = _json.loads(json_report)
+
+        report_dict["certifications"]          = structured_certifications
+        report_dict["education_structured"]    = structured_education
+        report_dict["work_experience_structured"] = structured_work_experience
+
+        json_report = _json.dumps(report_dict, indent=2)
+        print("[SUMMARY] Structured fields merged into JSON report")
+
+    except Exception as e:
+        print(f"[SUMMARY] Warning: Could not merge structured fields — {e}")
+    
+
     single_company = state.get("single_company", False)
     
     # Send to XANO
