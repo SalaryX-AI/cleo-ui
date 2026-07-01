@@ -20,6 +20,99 @@ from prompts1 import GENERATE_JOB_CONFIG_PROMPT
 
 
 # ==========================================================================================================
+
+XANO_API_URL    = "https://xoho-w3ng-km3o.n7e.xano.io/api:6skoiMBa/candidate_new_api"
+XANO_PATCH_URL  = "https://xoho-w3ng-km3o.n7e.xano.io/api:6skoiMBa/candidate/{candidate_id}"
+
+
+def get_xano_headers(is_live: bool) -> dict:
+    return {
+        "Content-Type": "application/json",
+        "x-api-key":    "sk_test_51QxA9F7C2E8B4D1A6F9C3E7B2A",
+        "X-Data-Source": "live" if is_live else "test"
+    }
+
+
+def create_candidate_record(
+    name: str, email: str, phone: str,
+    job_id: str, company_id: str,
+    session_id: str, is_live: bool,
+    single_company: bool
+) -> int:
+    """
+    POST to create initial candidate record after phone verification.
+    Returns candidate_id (int) or 0 on failure.
+    """
+    status = "Hiring Manager Review" if single_company == "true" else "HR Manager Review"
+
+    payload = {
+        "Name":          name,
+        "Email":         email,
+        "Phone":         phone,
+        "job_id":        job_id,
+        "company_id":    company_id,
+        "Status":        status,
+        "session_id":    100,
+        "my_session_id": session_id,
+        "Score":         0,
+        "ProfileSummary":      {},
+        "ConversationHistory": [],
+    }
+
+    try:
+        response = requests.post(
+            XANO_API_URL,
+            json=payload,
+            headers=get_xano_headers(is_live)
+        )
+        if response.status_code == 200:
+            candidate_id = response.json().get("id", 0)
+            print(f"[XANO] Candidate created — ID: {candidate_id}")
+            return candidate_id
+        else:
+            print(f"[XANO] Create failed: {response.status_code} — {response.text}")
+            return 0
+    except Exception as e:
+        print(f"[XANO] Create error: {e}")
+        return 0
+
+
+def update_candidate_section(
+    candidate_id: int,
+    section: str,
+    data: dict,
+    is_live: bool
+) -> bool:
+    """
+    PATCH candidate record after each section completes.
+    Only sends fields relevant to the completed section.
+    """
+    if not candidate_id:
+        print(f"[XANO] PATCH skipped — no candidate_id")
+        return False
+
+    url = XANO_PATCH_URL.format(candidate_id=candidate_id)
+
+    payload = {"candidate_id": candidate_id, **data}
+
+    try:
+        response = requests.patch(
+            url,
+            json=payload,
+            headers=get_xano_headers(is_live)
+        )
+        if response.status_code == 200:
+            print(f"[XANO] Section '{section}' saved — candidate {candidate_id}")
+            return True
+        else:
+            print(f"[XANO] PATCH failed ({section}): {response.status_code} — {response.text}")
+            return False
+    except Exception as e:
+        print(f"[XANO] PATCH error ({section}): {e}")
+        return False
+    
+
+
 def send_applicant_to_xano(
     name: str,
     email: str,

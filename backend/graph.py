@@ -7,13 +7,13 @@ from urllib import response
 from langgraph.graph import StateGraph, END, MessagesState
 from langgraph.types import interrupt
 from langchain_openai import ChatOpenAI
-from langchain.schema import HumanMessage, AIMessage
+from langchain.schema import HumanMessage, AIMessage, SystemMessage
 from prompts1 import *
 import os
 from dotenv import load_dotenv
 from langchain.prompts import ChatPromptTemplate
 import time
-from xano import send_applicant_to_xano
+from xano import create_candidate_record, update_candidate_section
 from location_services import verify_location
 import phonenumbers
 from id_verification import create_id_verify_session, save_session_mapping
@@ -63,13 +63,15 @@ def validate_phone(phone: str) -> bool:
         parsed = phonenumbers.parse(phone, None)
         return phonenumbers.is_valid_number(parsed)
     except:
-        return False
+        return False      
 
 
 GENERIC_AMBIGUITY_FAIL_MESSAGE = (
     "It looks like we've hit a small snag understanding that. "
     "If you'd like to try again, feel free to restart the chat whenever you're ready. Good luck!"
 )
+
+RE_CONTACT_MESSAGE = "Thank you so much for taking the time to apply! We're unable to complete your application right now, but one of our team members will reach out to you shortly. 😊"
 
 # ==================== State Definition ====================
 
@@ -196,76 +198,229 @@ class ChatbotState(MessagesState):
     single_company: bool = False
     incomplete_application: bool = False
 
+    kq_reask_reason: str = "gibberish"       # reason passed to ask_knockout_question_node
+    answer_reask_reason: str = "gibberish"   # reason passed to ask_question_node
+    job_location: str = ""                   # location for job
+
+    candidate_id: int = 0
+    profile_summary: dict = {}
 
 # ===========================================================================================================
-def generate_reask_message(question: str, user_input: str) -> str:
-    """LLM-generated conversational re-ask that acknowledges what the user said"""
-    prompt = f"""You are Cleo, a friendly AI hiring assistant. A job applicant gave an unclear response.
+def xano_patch(state: ChatbotState, section: str, data: dict):
+    """Fire-and-forget PATCH to Xano. Logs errors, never crashes the graph."""
+    candidate_id = state.get("candidate_id", 0)
+    is_live      = state.get("is_live", False)
+    if candidate_id:
+        update_candidate_section(candidate_id, section, data, is_live)
+    else:
+        print(f"[XANO] Skipping PATCH '{section}' — no candidate_id yet")  
 
-Question asked: "{question}"
-Applicant's response: "{user_input}"
 
-Write a brief, warm, conversational follow-up (1 sentence) that:
-- Naturally acknowledges what they said
-- Gently re-asks for what you need and why
-- Does NOT sound robotic or use phrases like "I didn't catch that"
-- Feels like a real conversation and should be professional and empathize but not too formal.
-- Use simple language, no jargon with exact question
+REASK_INSTRUCTIONS = {
+    
+    "none": "",
+    
+    "gibberish": (
+        "The candidate's response was unclear or didn't make sense."
+        "Optionally give a simple example of what kind of answer you need."
+    ),
+    "partial": (
+        "The candidate gave a partial or hesitant answer."
+        "Gently ask them to confirm clearly for the record."
+    ),
+    "concern_expressed": (
+        "The candidate expressed concern or hesitation about the requirement."
+        "re-ask in a reassuring way."
+    ),
+    "conditional": (
+        "The candidate answered with a condition or caveat."
+        "Clarify you need a direct yes or no for this specific requirement."
+    ),
+    "uncertain": (
+        "The candidate is unsure how to respond."
+        "Politely encourage them to provide the answer that best reflects their current situation."
+    ),
+}
 
-Return ONLY the message, nothing else."""
+def generate_reask_message(
+    question: str,
+    user_input: str,
+    reason: str = "gibberish",
+    conversation_history: list = None
+) -> str:
+    """
+    Context-aware re-ask with full conversation history.
+    LLM sees previous messages so it naturally varies its response.
+    """
+
+    print(f"[REASK] Generating re-ask for question: '{question}' with reason: '{reason}'")
+    instruction = REASK_INSTRUCTIONS.get(reason, REASK_INSTRUCTIONS["gibberish"])
+
+    # ── Build conversation context from history ───────────────────────────────
+    context_block = ""
+    if conversation_history:
+        recent = conversation_history[-6:]
+        lines = []
+        for msg in recent:
+            if isinstance(msg, AIMessage):
+                lines.append(f"Cleo: {msg.content}")
+            elif isinstance(msg, HumanMessage):
+                lines.append(f"Applicant: {msg.content}")
+        context_block = "\n".join(lines)
+
+    system_prompt = (
+        "You are Cleo, a warm and friendly AI hiring assistant for a senior living"
+        "community in the U.S. You are helping screen job applicants through a chat conversation."
+    )
+
+    user_prompt = f"""The applicant gave an unclear response and needs a follow-up.
+
+RECENT CONVERSATION:
+{context_block if context_block else "(No prior context)"}
+
+CURRENT QUESTION: "{question}"
+APPLICANT'S LATEST RESPONSE: "{user_input}"
+RE-ASK GUIDANCE: {instruction}
+
+Rules:
+- You can see the full conversation above — do NOT repeat what was already said
+- Naturally reference what the applicant said within your response, do NOT use a robotic prefix like "You mentioned '...'"
+- Do NOT start with "I"
+- Do NOT thanks the applicant for their response
+- Do NOT add any extra commentary or explanation
+
+Return ONLY the message. (Only 25 words)"""
+
     try:
-        response = llm.invoke([HumanMessage(content=prompt)])
+        response = llm.invoke([
+            SystemMessage(content=system_prompt),
+            HumanMessage(content=user_prompt)
+        ])
         return response.content.strip()
     except Exception:
-        return f"Just to confirm — {question}"
+        return f"Just to confirm for our records — {question}"
     
 
 
 def interpret_response(question: str, answer: str, expected_type: str = "yes_no") -> dict:
     """
-    Central response interpreter. Never stores raw input — always returns meaning.
-    
+    Enhanced 8-class intent classifier. Backwards compatible — resolved_intent
+    always returns 'yes' | 'no' | 'ambiguous' for existing node logic.
+
     Returns:
-        {"intent": "yes"|"no"|"ambiguous", "clean": "normalized value", "reason": "if ambiguous"}
+        intent          — detailed 8-class classification
+        resolved_intent — 'yes' | 'no' | 'ambiguous' for routing
+        clean           — 'yes' | 'no' | original text
+        caveat          — any condition/concern extracted
+        should_flag     — whether hiring manager should see this
+        flag_note       — Reference the candidate's actual words, not the question category
+        reask_reason    — why we're re-asking (for generate_reask_message)
     """
     if expected_type == "free_text":
-        return {"intent": "value", "clean": answer.strip(), "reason": ""}
+        return {
+            "intent": "value", "resolved_intent": "yes",
+            "clean": answer.strip(), "caveat": "",
+            "should_flag": False, "flag_note": "", "reask_reason": "gibberish"
+        }
 
-    prompt = f"""You are interpreting a job applicant's chat response.
+    # ── Fast path: unambiguous single-word answers ────────────────────────────
+    lower = answer.strip().lower().rstrip(".,!? ")
+    if lower in ("yes", "y", "yep", "yeah", "yup", "sure",
+                 "absolutely", "definitely", "of course", "certainly", "correct",
+                 "i do", "i am", "i can", "i have", "sounds good", "for sure"):
+        return {
+            "intent": "yes", "resolved_intent": "yes", "clean": "yes",
+            "caveat": "", "should_flag": False, "flag_note": "", "reask_reason": "none"
+        }
+    if lower in ("no", "n", "nope", "nah", "never", "negative",
+                 "i don't", "i cant", "i can't", "i haven't", "i'm not",
+                 "not really", "no experience", "not eligible"):
+        return {
+            "intent": "no", "resolved_intent": "no", "clean": "no",
+            "caveat": "", "should_flag": False, "flag_note": "", "reask_reason": "none"
+        }
 
-Question: "{question}"
-Response: "{answer}"
+    # ── LLM for nuanced responses ─────────────────────────────────────────────
+    prompt = f"""You are analyzing a job applicant's response to a hiring screening question.
 
-Classify the response as YES, NO, or AMBIGUOUS.
+    Question: "{question}"
+    Applicant's response: "{answer}"
 
-YES examples: yes, y, yep, yup, yeah, sure, of course, absolutely, definitely, 
-              correct, i do, i am, i have, i can, for sure, totally, certainly, 
-              "i served" (military), "i have experience", "i'm available", "sounds good"
+    Classify the response into exactly one of these 9 intent classes:
+    - "gibberish"        Completely unrelated, nonsensical, or cannot be understood at all ("asdfgh", "pizza", "???", random characters)
+    - "strong_yes"       Clear enthusiastic affirmation with emphasis ("Absolutely!", "100% yes!", "Definitely!", "Of course!")
+    - "yes"              Clean, direct affirmation with no qualifiers ("yes", "I can", "I do", "sure", "confirmed", "that's correct")
+    - "conditional_yes"  Says yes BUT adds a condition, caveat, or hesitation word ("yes somehow", "yes but...", "yes though I...", "yes, I guess", "yes, I think so")
+    - "partial_yes"      Implies mostly yes without saying it clearly ("I think so", "probably", "most of the time", "usually", "should be fine", "I'll try")
+    - "uncertain"        Genuinely unsure, can't commit ("I'm not sure", "maybe", "it depends", "hard to say", "possibly", "I don't know")
+    - "partial_no"       Implies mostly no without a clear refusal ("not really", "barely", "not exactly", "kind of not", "not always")
+    - "conditional_no"   Would say no unless something changes ("not unless...", "only if...", "not right now but maybe", "depends on the schedule")
+    - "no"               Clear direct denial ("no", "I can't", "I don't", "I'm not eligible", "I haven't", "never", "nope")
 
-NO examples: no, n, nope, nah, not really, i don't, i can't, i haven't, i'm not, 
-             negative, never, "no experience", "can't make it"
+    Key distinctions:
+    - "yes somehow I am" → "conditional_yes" (has hedging word "somehow")
+    - "I confirmed" / "it is confirmed" → "yes" (clear affirmation, no qualifier)
+    - "I think I can" → "partial_yes" (implies yes but uncertain)
+    - "I'm not sure but probably" → "uncertain" (cannot commit)
+    - "yes but I may need flexibility" → "conditional_yes" (yes + explicit condition)
+    - "maybe" alone → "uncertain"
+    - "not really but I could try" → "partial_no"
 
-AMBIGUOUS — use this when:
-- Gibberish or typos with no clear meaning: "yrdy", "yryd", "asd", "lkj", random characters
-- Too vague: "maybe", "depends", "sometimes", "i think so", "probably", "not sure"
-- Unrelated to the question
-- Single letters other than y or n
+    Also determine:
+    - "caveat": The specific condition, concern, or hedging phrase the applicant mentioned. Empty string if none.
+    - "should_flag": true if the response contains a caveat, hesitation, or condition a hiring manager should know — even if it resolves as yes.
+    - "flag_note": 5-10 word manager note. Empty string if should_flag is false.
 
-Return ONLY valid JSON, no markdown:
-{{"intent": "yes" or "no" or "ambiguous", "clean": "yes or no or the original text", "reason": "brief reason if ambiguous, otherwise empty string"}}"""
+    Return ONLY valid JSON, no markdown:
+    {{"intent": "<class>", "caveat": "<phrase or empty>", "should_flag": false, "flag_note": ""}}"""
+
+    # Intent → resolved_intent mapping
+    YES_INTENTS      = {"strong_yes", "yes", "conditional_yes"}
+    NO_INTENTS       = {"no"}
+    REASK_REASONS    = {
+        "partial_yes":    "partial",
+        "uncertain":      "uncertain",
+        "partial_no":     "partial",
+        "conditional_no": "conditional",
+        "conditional_yes": "conditional",
+        "gibberish":       "gibberish",
+    }
 
     try:
-        response = llm.invoke([HumanMessage(content=prompt)])
-        clean = response.content.strip().replace("```json","").replace("```","").strip()
-        result = json.loads(clean)
-        return result
-    except Exception:
-        lower = answer.strip().lower()
-        if lower in ("yes","y","yep","yeah","yup","sure","ok","okay"):
-            return {"intent": "yes", "clean": "yes", "reason": ""}
-        elif lower in ("no","n","nope","nah"):
-            return {"intent": "no", "clean": "no", "reason": ""}
-        return {"intent": "ambiguous", "clean": answer, "reason": "Could not interpret"}
+        import json as _json
+        resp = evaluation_llm.invoke(prompt)
+        raw = resp.content.strip().replace("```json", "").replace("```", "").strip()
+        data = _json.loads(raw)
+
+        intent = data.get("intent", "ambiguous")
+
+        if intent in YES_INTENTS:
+            resolved = "yes"
+            clean    = "yes"
+        elif intent in NO_INTENTS:
+            resolved = "no"
+            clean    = "no"
+        else:
+            resolved = "ambiguous"
+            clean    = answer
+
+        return {
+            "intent":          intent,
+            "resolved_intent": resolved,
+            "clean":           clean,
+            "caveat":          data.get("caveat", ""),
+            "should_flag":     data.get("should_flag", False),
+            "flag_note":       data.get("flag_note", ""),
+            "reask_reason":    REASK_REASONS.get(intent, "gibberish"),
+        }
+
+    except Exception as e:
+        print(f"[INTERPRET] Error: {e} — falling back")
+        return {
+            "intent": "ambiguous", "resolved_intent": "ambiguous",
+            "clean": answer, "caveat": "", "should_flag": False,
+            "flag_note": "", "reask_reason": "gibberish"
+        }
 
 
 # ==================== Acknowledgement ====================
@@ -308,7 +463,7 @@ def delay_messages_node(state: ChatbotState) -> ChatbotState:
 
     message_map = {
         "greeting": [
-            f"Our employees are the heart of {state.get('brand_name')} — a five-star senior living community in Boca Raton.",
+            f"Our employees are the heart of {state.get('brand_name')} — a five-star senior living community in {state.get('job_location')}.",
             "I just need to ask a few quick screening questions, it should only take a couple of minutes. Ready to start? (You can type 'Stop' anytime.)"
         ],
         "end": [
@@ -368,7 +523,7 @@ def check_ready_node(state: ChatbotState) -> ChatbotState:
 
         result = interpret_response(question, user_input, "yes_no")
 
-        if result["intent"] == "ambiguous":
+        if result["resolved_intent"] == "ambiguous":
             attempts = state["re_ask_attempts"].get("ready", 0) + 1
             state["re_ask_attempts"]["ready"] = attempts
 
@@ -378,10 +533,10 @@ def check_ready_node(state: ChatbotState) -> ChatbotState:
                 state["messages"].append(AIMessage(content=cleo_engagement.decline_message))
                 state["re_ask_attempts"].pop("ready", None)
             else:
-                reask = generate_reask_message(question, user_input)
+                reask = generate_reask_message(question, user_input, reason=result["reask_reason"], conversation_history=state["messages"])
                 state["messages"].append(AIMessage(content=reask))
 
-        elif result["intent"] == "yes":
+        elif result["resolved_intent"] == "yes":
             state["ready_confirmed"] = True
             state["re_ask_attempts"].pop("ready", None)
 
@@ -428,7 +583,8 @@ def ask_knockout_question_node(state: ChatbotState) -> ChatbotState:
                 None
             )
             user_input = last_human.content if last_human else ""
-            reask = generate_reask_message(knockout_question, user_input)
+            reason = state.get("kq_reask_reason", "gibberish")
+            reask  = generate_reask_message(knockout_question, user_input, reason, conversation_history=state["messages"])
             state["messages"].append(AIMessage(content=reask))
             return state
 
@@ -524,26 +680,35 @@ def store_kq_answer_node(state: ChatbotState) -> ChatbotState:
     result = interpret_response(knockout_question, last_message.content, "yes_no")
     print(f"KQ interpret result: {result}")
 
-    if result["intent"] == "ambiguous":
+    resolved = result["resolved_intent"]
+
+    if resolved == "ambiguous":
         attempts = state["re_ask_attempts"].get(knockout_question, 0) + 1
         state["re_ask_attempts"][knockout_question] = attempts
+        state["kq_reask_reason"] = result["reask_reason"]   # ← Phase 4
 
         if attempts >= 3:
             print(f"[KQ] 3 ambiguous attempts — defaulting to no")
             state["knockout_answers"][knockout_question] = "no"
             state["re_ask_attempts"].pop(knockout_question, None)
-            state["kq_just_answered_index"] = idx     
-            state["kq_ambiguous_default"] = True      
+            state["kq_just_answered_index"] = idx
+            state["kq_ambiguous_default"] = True
         else:
-            state["kq_just_answered_index"] = -1           
+            state["kq_just_answered_index"] = -1
         return state
 
-    # Clear answer
+    # Clear answer — store and flag caveat if present
     state["knockout_answers"][knockout_question] = result["clean"]
+    if result.get("should_flag") and result.get("flag_note"):
+        flags = list(state.get("manager_flags", []))
+        flags.append(f"KQ caveat on Q{idx+1}: {result['flag_note']}")
+        state["manager_flags"] = flags
+        print(f"[KQ] Caveat flagged: {result['flag_note']}")
+
     state["current_knockout_question_index"] += 1
     state["re_ask_attempts"].pop(knockout_question, None)
-    state["kq_just_answered_index"] = idx                  # ← mark as answered
-    return state
+    state["kq_just_answered_index"] = idx
+    return state   
 
 
 def kq_ambiguity_router(state: ChatbotState) -> Literal["ask_knockout_question", "evaluate_single_knockout"]:
@@ -582,11 +747,11 @@ def evaluate_single_knockout_node(state: ChatbotState) -> ChatbotState:
     print(f"After strip: {repr(normalized_answer)}")
     print(f"Upper: {repr(normalized_answer.upper())}")
 
-    if normalized_answer.upper() == "Y":
+    if normalized_answer.upper() in ("Y", "YES"):
         normalized_answer = "yes"
         decision = "YES"
         print(f"[NORMALIZED] 'Y' → 'yes', Decision: YES")
-    elif normalized_answer.upper() == "N":
+    elif normalized_answer.upper() in ("N", "NO"):
         normalized_answer = "no"
         decision = "NO"
         print(f"[NORMALIZED] 'N' → 'no', Decision: NO")
@@ -700,9 +865,17 @@ def ask_question_node(state: ChatbotState) -> ChatbotState:
         question = questions[idx]    
 
         if question in state.get("re_ask_attempts", {}):
-            return {}    
+            last_human = next(
+                (m for m in reversed(state["messages"]) if isinstance(m, HumanMessage)),
+                None
+            )
+            user_input = last_human.content if last_human else ""
+            reason = state.get("answer_reask_reason", "gibberish")
+            state["messages"].append(AIMessage(content=generate_reask_message(question, user_input, reason, conversation_history=state["messages"])))
+            return state
+   
         
-        state["messages"].append(AIMessage(content=question))
+        state["messages"].append(AIMessage(content=question))  
     
     return state
 
@@ -727,8 +900,11 @@ def store_answer_node(state: ChatbotState) -> ChatbotState:
     result = interpret_response(question, last_message.content, "yes_no")
     print(f"Answer interpret result: {result}")
 
+    resolved = result["resolved_intent"]
+
     # ── Ambiguous path ────────────────────────────────────────────────────────
-    if result["intent"] == "ambiguous":
+    if resolved == "ambiguous":
+        state["answer_reask_reason"] = result["reask_reason"]
         attempts = state["re_ask_attempts"].get(question, 0) + 1
         state["re_ask_attempts"][question] = attempts
 
@@ -759,15 +935,15 @@ def store_answer_node(state: ChatbotState) -> ChatbotState:
             state["generic_fail"] = True
             return state
 
-        else:                                                              # ← fix: was missing
-            reask = generate_reask_message(question, last_message.content)
+        else:                                                             
+            reask = generate_reask_message(question, last_message.content, reason=state.get("answer_reask_reason", "gibberish"), conversation_history=state["messages"])
             state["messages"].append(AIMessage(content=reask))
-        return state                                                       # ← fix: was missing
+        return state
 
     # ── Clear answer — normalize to yes/no ───────────────────────────────────
-    if result["intent"] == "yes":
+    if resolved == "yes":
         state["answers"][question] = "yes"
-    elif result["intent"] == "no":
+    elif resolved == "no":
         state["answers"][question] = "no"
     else:
         state["answers"][question] = result["clean"]
@@ -778,7 +954,7 @@ def store_answer_node(state: ChatbotState) -> ChatbotState:
     # ── Experience check question (hard stop on NO) ───────────────────────────
     exp_question = state.get("experience_check_question", "")
     if exp_question and question == exp_question:
-        qualified = result["intent"] == "yes"
+        qualified = resolved == "yes"
         state["experience_qualified"] = qualified
         print(f"Experience qualified: {qualified}")
 
@@ -796,7 +972,7 @@ def store_answer_node(state: ChatbotState) -> ChatbotState:
     required_questions = state.get("required_questions", {})
     if question in required_questions:
         req = required_questions[question]
-        if result["intent"] == "yes":
+        if resolved == "yes":
             state["messages"].append(AIMessage(content=req["pass_ack"]))
         else:
             state["messages"].append(AIMessage(content=req["fail_message"]))
@@ -807,7 +983,7 @@ def store_answer_node(state: ChatbotState) -> ChatbotState:
     flagged_questions = state.get("flagged_questions", {})
     if question in flagged_questions:
         fq = flagged_questions[question]
-        if result["intent"] == "yes":
+        if resolved == "yes":
             state["messages"].append(AIMessage(content=fq["pass_ack"]))
         else:
             flags = list(state.get("manager_flags", []))
@@ -876,6 +1052,31 @@ def ask_address_node(state: ChatbotState) -> ChatbotState:
     """Ask for home address and show autocomplete UI"""
 
     print("ask_address_node called")
+
+    # ── POST: Create candidate record after KQs pass ──────────────────────────
+    if not state.get("candidate_id"):
+        candidate_id = create_candidate_record(
+            name=" ",
+            email=" ",
+            phone=" ",
+            job_id=state.get("job_id", ""),
+            company_id=state.get("company_id", ""),
+            session_id=state.get("session_id", ""),
+            is_live=state.get("is_live", False),
+            single_company=state.get("single_company", False),
+        )
+        state["candidate_id"] = candidate_id
+        print(f"[CANDIDATE] Record created — ID: {candidate_id}")
+
+        # ── Build profile_summary and PATCH ──────────────────────────────────
+        state["profile_summary"].update({
+            "knockout_answers": state.get("knockout_answers", {}),
+            "screening_answers": state.get("answers", {}),
+            "manager_flags": state.get("manager_flags", []),
+        })
+        xano_patch(state, "screening_complete", {
+            "ProfileSummary": state["profile_summary"]
+        })
 
     state["messages"].append(AIMessage(
         content="Perfect. Since this role is on-site, could you please share your home address? We just want to make sure the commute will be manageable for you!"
@@ -1140,7 +1341,7 @@ def store_email_node(state: ChatbotState) -> ChatbotState:
     result = interpret_response("Can you provide your email address?", user_text, "yes_no")
     print(f"[EMAIL] Intent: {result['intent']}")
 
-    if result["intent"] == "no":
+    if result["resolved_intent"] == "no":
         attempts = refusal_attempts + 1
         state["re_ask_attempts"]["email_refusal"] = attempts
         print(f"[EMAIL] Refusal detected, attempt {attempts}")
@@ -1572,6 +1773,13 @@ def verify_phone_otp_node(state: ChatbotState) -> ChatbotState:
         if is_valid:
             state["phone_verified"] = True
             state["acknowledgement_type"] = "questions"
+
+            # ── PATCH: name, email, phone now verified ────────────────────────
+            xano_patch(state, "contact_details", {
+                "Name":  state["personal_details"].get("name", ""),
+                "Email": state["personal_details"].get("email", ""),
+                "Phone": state["personal_details"].get("phone", ""),
+            })
         else:
             state["phone_otp_attempts"] += 1
             attempts = state["phone_otp_attempts"]
@@ -1642,7 +1850,7 @@ def ask_work_experience_node(state: ChatbotState) -> ChatbotState:
             None
         )
         user_input = last_human.content if last_human else ""
-        reask = generate_reask_message(question, user_input)
+        reask = generate_reask_message(question, user_input, reason=state.get("answer_reask_reason"), conversation_history=state["messages"])
         state["messages"].append(AIMessage(content=reask))
     else:
         state["messages"].append(AIMessage(content=question))
@@ -1674,16 +1882,19 @@ def store_work_experience_response_node(state: ChatbotState) -> ChatbotState:
     )
 
     result = interpret_response(question, user_input, "yes_no")
+    resolved = result["resolved_intent"]
+    print(f"[WORK_EXP] Resolved intent: {resolved}, Cleaned answer: {result['clean']}")
 
-    if result["intent"] == "ambiguous":
+    if resolved == "ambiguous":
         attempts = state["re_ask_attempts"].get("work_experience", 0) + 1
         state["re_ask_attempts"]["work_experience"] = attempts
+        state["answer_reask_reason"] = result["reask_reason"]
         print(f"[WORK_EXP] Ambiguous attempt {attempts}: {user_input}")
 
         if attempts >= 3:
                 print(f"[WORK_EXP] 3 attempts — ending conversation")
                 state["re_ask_attempts"].pop("work_experience", None)
-                state["messages"].append(AIMessage(content=GENERIC_AMBIGUITY_FAIL_MESSAGE))
+                state["messages"].append(AIMessage(content=RE_CONTACT_MESSAGE))
                 state["generic_fail"] = True
                 return state
         return state
@@ -1692,7 +1903,7 @@ def store_work_experience_response_node(state: ChatbotState) -> ChatbotState:
     state["re_ask_attempts"].pop("work_experience", None)
     state["knockout_answers"]["Do you have any prior work experience in this field?"] = result["clean"]
 
-    if result["intent"] == "yes":
+    if resolved == "yes":
         state["show_work_experience_ui"] = True
         state["messages"].append(AIMessage(content="Great! Please provide your most recent work experience details below."))
     else:
@@ -1770,7 +1981,7 @@ def ask_certifications_node(state: ChatbotState) -> ChatbotState:
             None
         )
         user_input = last_human.content if last_human else ""
-        reask = generate_reask_message(question, user_input)
+        reask = generate_reask_message(question, user_input, reason=state.get("answer_reask_reason", "gibberish"), conversation_history=state["messages"])
         state["messages"].append(AIMessage(content=reask))
     else:
         state["messages"].append(AIMessage(content=question))
@@ -1814,7 +2025,7 @@ Return ONLY one word: decline, certifications, or ambiguous."""
         if attempts >= 3:
             print(f"[CERT] 3 attempts — ending conversation")
             state["re_ask_attempts"].pop("certifications", None)
-            state["messages"].append(AIMessage(content=GENERIC_AMBIGUITY_FAIL_MESSAGE))
+            state["messages"].append(AIMessage(content=RE_CONTACT_MESSAGE))
             state["generic_fail"] = True
             return state
         return state                                                       # ← fix: was missing
@@ -1864,7 +2075,7 @@ def ask_referral_node(state: ChatbotState) -> ChatbotState:
             None
         )
         user_input = last_human.content if last_human else ""
-        reask = generate_reask_message(question, user_input)
+        reask = generate_reask_message(question, user_input, reason=state.get("answer_reask_reason", "gibberish"), conversation_history=state["messages"])
         state["messages"].append(AIMessage(content=reask))
     else:
         state["messages"].append(AIMessage(content=question))
@@ -1926,7 +2137,7 @@ Return ONLY one word: VALID, DECLINE, or AMBIGUOUS."""
         if attempts >= 3:
             print(f"[REFERRAL] 3 attempts — ending conversation")
             state["re_ask_attempts"].pop("referral", None)
-            state["messages"].append(AIMessage(content=GENERIC_AMBIGUITY_FAIL_MESSAGE))
+            state["messages"].append(AIMessage(content=RE_CONTACT_MESSAGE))
             state["generic_fail"] = True
             return state
         return state
@@ -1963,7 +2174,7 @@ def ask_military_node(state: ChatbotState) -> ChatbotState:
                 None
             )
             user_input = last_human.content if last_human else ""
-            reask = generate_reask_message(question, user_input)
+            reask = generate_reask_message(question, user_input, reason=state.get("answer_reask_reason", "gibberish"), conversation_history=state["messages"])
             state["messages"].append(AIMessage(content=reask))
         else:
             state["messages"].append(AIMessage(content=question))
@@ -1978,7 +2189,7 @@ def ask_military_node(state: ChatbotState) -> ChatbotState:
                 None
             )
             user_input = last_human.content if last_human else ""
-            reask = generate_reask_message(question, user_input)
+            reask = generate_reask_message(question, user_input, reason=state.get("answer_reask_reason", "gibberish"), conversation_history=state["messages"])
             state["messages"].append(AIMessage(content=reask))
         else:
             state["messages"].append(AIMessage(content=question))
@@ -2001,8 +2212,9 @@ def store_military_node(state: ChatbotState) -> ChatbotState:
         # ── Initial yes/no question ───────────────────────────────────────────
         question = "Have you ever served in the U.S. military?"
         result = interpret_response(question, user_text, "yes_no")
+        resolved = result["resolved_intent"]  
 
-        if result["intent"] == "ambiguous":
+        if resolved == "ambiguous":
             attempts = state["re_ask_attempts"].get("military_initial", 0) + 1
             state["re_ask_attempts"]["military_initial"] = attempts
             print(f"[MILITARY] Ambiguous attempt {attempts}: {user_text}")
@@ -2010,9 +2222,9 @@ def store_military_node(state: ChatbotState) -> ChatbotState:
             if attempts >= 3:
                     print(f"[MILITARY] 3 attempts — ending conversation")
                     state["re_ask_attempts"].pop("military_initial", None)
-                    state["messages"].append(AIMessage(content=GENERIC_AMBIGUITY_FAIL_MESSAGE))
+                    state["messages"].append(AIMessage(content=RE_CONTACT_MESSAGE))
                     state["generic_fail"] = True
-        elif result["intent"] == "yes":
+        elif resolved == "yes":
             state["military_served"] = True
             state["re_ask_attempts"].pop("military_initial", None)
         else:
@@ -2082,6 +2294,29 @@ def ask_background_check_node(state: ChatbotState) -> ChatbotState:
     # Re-ask — message already sent by store_background_check_node
     if "background_check" in state.get("re_ask_attempts", {}):
         return {}
+    
+    # ── Build profile_summary and PATCH ──────────────────────────────────
+    work_experiences = state.get("work_experience", [])
+    state["profile_summary"].update({
+        "work_experience": [
+            {
+                "position":   exp.get("role", ""),
+                "employer":   exp.get("company", ""),
+                "start_date": exp.get("startDate", ""),
+                "end_date":   exp.get("endDate", ""),
+            }
+            for exp in work_experiences
+        ],
+        "education_level":  state.get("education_level", ""),
+        "certifications":   state.get("certifications", []),
+        "referral_source":  state.get("referral_source", ""),
+        "military_served":  state.get("military_served", False),
+        "military_details": state.get("military_details", {}),
+    })
+    xano_patch(state, "work_history_complete", {
+        "ProfileSummary": state["profile_summary"]
+    })
+    # ─────────────────────────────────────────────────────────────────────
 
     # Initial ask
     state["messages"].append(AIMessage(
@@ -2103,40 +2338,20 @@ def store_background_check_node(state: ChatbotState) -> ChatbotState:
 
     user_text = last_message.content.strip()
 
-    # ── Single LLM call: classify response ───────────────────────────────────
-    prompt = f"""A job applicant was asked about consenting to a mandatory Level II background check
-(fingerprint-based FBI/FDLE check) required by Florida state law for all employees.
-
-Their response: "{user_text}"
-
-Classify their response into exactly one of these three categories:
-
-- "CONSENT" — they agree, understand, or are okay with the background check.
-  Includes: "yes", "sure", "okay", "fine", "I agree", "no problem", "that's fine", "go ahead".
-
-- "DECLINE" — they explicitly refuse or object to the background check.
-  Includes: "no", "I don't agree", "I'm not comfortable", "refuse", "I won't", "skip".
-
-- "AMBIGUOUS" — completely unclear, gibberish, unrelated, or cannot be determined.
-
-Return ONLY one word: CONSENT, DECLINE, or AMBIGUOUS."""
-
-    try:
-        resp = llm.invoke([HumanMessage(content=prompt)])
-        classification = resp.content.strip().upper()
-        print(f"[BGC] Classification: {classification} for: {user_text}")
-    except Exception:
-        classification = "AMBIGUOUS"
+    question = "Are you okay with a mandatory Level II background check required by Florida state law?"
+    result = interpret_response(question, user_text, "yes_no")
+    resolved = result["resolved_intent"]
+    print(f"[BGC] Intent: {result['intent']} | Resolved: {resolved} for: {user_text}")
 
     # ── Consent ───────────────────────────────────────────────────────────────
-    if classification == "CONSENT":
+    if resolved == "yes":
         state["background_check_consented"] = True
         state["re_ask_attempts"].pop("background_check", None)
         state["messages"].append(AIMessage(content="Got it — understood. ✅ Let's continue!"))
         return state
 
     # ── Decline ───────────────────────────────────────────────────────────────
-    if classification == "DECLINE":
+    if resolved == "no":
         state["background_check_consented"] = False
         state["re_ask_attempts"].pop("background_check", None)
         state["messages"].append(AIMessage(
@@ -2157,12 +2372,13 @@ Return ONLY one word: CONSENT, DECLINE, or AMBIGUOUS."""
         return state
 
     reask = generate_reask_message(
-        "Are you okay with a mandatory Level II background check required by Florida state law?",
-        user_text
+        question,
+        user_text,
+        reason=result["reask_reason"],
+        conversation_history=state["messages"]
     )
     state["messages"].append(AIMessage(content=reask))
     return state
-
 
 
 def background_check_router(state: ChatbotState) -> Literal["ask_background_check", "ask_id_verification", "score", "__end__"]:
@@ -2513,26 +2729,21 @@ def summary_node(state: ChatbotState) -> ChatbotState:
     except Exception as e:
         print(f"[SUMMARY] Warning: Could not merge structured fields — {e}")
     
-
-    single_company = state.get("single_company", False)
     
-    # Send to XANO
-    send_applicant_to_xano(
-        name=name,
-        email=email,
-        phone=phone,
-        age = age,
-        score=score,
-        total_score=total_score,
-        json_report=json_report,
-        answers=answers,
-        session_id=session_id,
-        job_id=job_id,
-        company_id=company_id,
-        is_live=is_live,
-        conversation_history=conversation_history,
-        single_company=single_company
+    # ── Final PATCH: score + full report + conversation history ───────────────
+    import json as _json
+    update_candidate_section(
+        candidate_id=state.get("candidate_id", 0),
+        section="final",
+        data={
+            "Score":               int(score),
+            "Age":                 age,
+            "ProfileSummary":      json_report,
+            "ConversationHistory": conversation_history,
+        },
+        is_live=state.get("is_live", False)
     )
+    # ─────────────────────────────────────────────────────────────────────────
     
     return state
 

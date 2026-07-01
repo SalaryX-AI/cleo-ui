@@ -6,6 +6,8 @@ llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.5)
 from prompts1 import JSON_REPORT_PROMPT
 
 
+
+
 def extract_email_from_text(text: str) -> str:
     """Extract email address from natural language using LLM"""
     prompt = f"""Extract ONLY the email address from this text. 
@@ -61,7 +63,7 @@ def extract_age_from_text(text: str) -> str:
     print(f"extracting_age_from_text called...")
     prompt = f"""Extract the age from this text response. Follow these rules:
 
-        1. If the person confirms they are 18 or older with affirmative words (yes, "Y", "y", I'm, I am, yeah, sure, yep, of course, definitely, absolutely), return exactly: 18+
+        1. If the person confirms they are 18 or older with affirmative words (yes, "Y", "y", I'm, I am, yeah, sure, yep, of course, definitely, absolutely, ok, okay), return exactly: 18+
         2. If the person mentions a specific age in numbers (e.g., "I am 33", "33 years old"), return only the number: 33
         3. If the person mentions age in words (e.g., "thirty-three", "twenty five"), convert to number: 33
         4. If the response is negative (no, nope, not yet), return: NONE

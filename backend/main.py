@@ -818,6 +818,11 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                 email_hard_stop=False,
                 single_company=single_company,
                 incomplete_application=False,
+                kq_reask_reason="",
+                answer_reask_reason="",
+                job_location=location,
+                candidate_id= 0,
+                profile_summary={}
             )
  
             async for event in graph_app.astream(initial_state, config=config, stream_mode="updates"):
