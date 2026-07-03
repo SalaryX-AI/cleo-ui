@@ -234,6 +234,7 @@ REASK_INSTRUCTIONS = {
     ),
     "conditional": (
         "The candidate answered with a condition or caveat."
+        "Briefly and naturally reference the applicant's response without quoting or repeating it verbatim"
         "Clarify you need a direct yes or no for this specific requirement."
     ),
     "uncertain": (
@@ -283,13 +284,16 @@ APPLICANT'S LATEST RESPONSE: "{user_input}"
 RE-ASK GUIDANCE: {instruction}
 
 Rules:
-- You can see the full conversation above — do NOT repeat what was already said
-- Naturally reference what the applicant said within your response, do NOT use a robotic prefix like "You mentioned '...'"
+- .
+- Use the conversation history if available; don't repeat information already covered.
+- Keep the tone natural and conversational; vary your phrasing.
 - Do NOT start with "I"
 - Do NOT thanks the applicant for their response
 - Do NOT add any extra commentary or explanation
 
 Return ONLY the message. (Only 25 words)"""
+
+
 
     try:
         response = llm.invoke([
@@ -935,9 +939,6 @@ def store_answer_node(state: ChatbotState) -> ChatbotState:
             state["generic_fail"] = True
             return state
 
-        else:                                                             
-            reask = generate_reask_message(question, last_message.content, reason=state.get("answer_reask_reason", "gibberish"), conversation_history=state["messages"])
-            state["messages"].append(AIMessage(content=reask))
         return state
 
     # ── Clear answer — normalize to yes/no ───────────────────────────────────
@@ -1338,8 +1339,11 @@ def store_email_node(state: ChatbotState) -> ChatbotState:
 
     # ── Refusal detection ─────────────────────────────────────────────────────
     refusal_attempts = state.get("re_ask_attempts", {}).get("email_refusal", 0)
-    result = interpret_response("Can you provide your email address?", user_text, "yes_no")
-    print(f"[EMAIL] Intent: {result['intent']}")
+    if not extract_email_from_text(user_text):
+        result = interpret_response("Can you provide your email address?", user_text, "yes_no")
+        print(f"[EMAIL] Intent: {result['intent']}")
+    else:
+        result = {"resolved_intent": "yes"}
 
     if result["resolved_intent"] == "no":
         attempts = refusal_attempts + 1
