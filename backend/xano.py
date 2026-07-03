@@ -43,7 +43,9 @@ def create_candidate_record(
     POST to create initial candidate record after phone verification.
     Returns candidate_id (int) or 0 on failure.
     """
-    status = "Hiring Manager Review" if single_company == "true" else "HR Manager Review"
+
+    print(f"single_company: {single_company}")
+    status1 = "Hiring Manager Review" if single_company else "HR Manager Review"
 
     payload = {
         "Name":          name,
@@ -51,7 +53,7 @@ def create_candidate_record(
         "Phone":         phone,
         "job_id":        job_id,
         "company_id":    company_id,
-        "Status":        status,
+        "Status":        status1,
         "session_id":    100,
         "my_session_id": session_id,
         "Score":         0,
@@ -159,7 +161,7 @@ def send_applicant_to_xano(
         print(f"Single company mode: {single_company}")
         
         # Determine status
-        if single_company == "true":
+        if single_company:
             status = "Hiring Manager Review"
         else:
             status = "HR Manager Review"    
