@@ -205,6 +205,7 @@ class ChatbotState(MessagesState):
     candidate_id: int = 0
     profile_summary: dict = {}
 
+
 # ===========================================================================================================
 def xano_patch(state: ChatbotState, section: str, data: dict):
     """Fire-and-forget PATCH to Xano. Logs errors, never crashes the graph."""
@@ -216,20 +217,181 @@ def xano_patch(state: ChatbotState, section: str, data: dict):
         print(f"[XANO] Skipping PATCH '{section}' — no candidate_id yet")  
 
 
+def build_json_report(state: ChatbotState) -> dict:
+    """Build and generate JSON report from current state. Missing fields default to empty/null."""
+   
+    # Extract data from state
+    name = state["personal_details"].get("name", "Candidate")
+    email = state["personal_details"].get("email", "")
+    phone = state["personal_details"].get("phone", "")
+    
+    age = state.get("applicant_age", "")
+    session_id = state.get("session_id", "")
+    
+    knockout_answers = state.get("knockout_answers", {})
+    answers = state.get("answers", {})
+    
+    score = state.get("score", 0)
+    total_score = state.get("total_score", 100)
+
+    work_experiences = state.get("work_experience", [])
+    education_level = state.get("education_level", "")
+
+    # Convert score to percentage
+    score = (score / total_score) * 100 if total_score > 0 else 0
+    total_score = 100
+
+    if score > 100:
+        score = 100
+
+    # Format knockout answers for prompt
+    knockout_text = "\n".join([
+        f"Q: {q}\nA: {a}" for q, a in knockout_answers.items()
+    ])
+    
+    # Format screening answers for prompt
+    answers_text = "\n".join([
+        f"Q: {q}\nA: {a}" for q, a in answers.items()
+    ])
+
+    # Format work experiences for prompt
+    work_exp_text = ""
+    if work_experiences:
+        work_exp_text = "\n".join([
+            f"- {exp['role']} at {exp['company']} ({exp['startDate']} to {exp['endDate']})"
+            for exp in work_experiences
+        ])
+    else:
+        work_exp_text = "No prior work experience"
+
+    print(f"Work Experience in state variable: {work_experiences}") 
+    print(f"Work Experience formatted text:\n{work_exp_text}")
+
+    # Extract all conversation messages
+    all_messages = state.get("messages", [])
+    conversation_history = []
+    
+    for msg in all_messages:
+        if isinstance(msg, HumanMessage):
+            conversation_history.append({
+                "role": "user",
+                "content": msg.content
+            })
+        elif isinstance(msg, AIMessage):
+            conversation_history.append({
+                "role": "ai",
+                "content": msg.content
+            })
+    
+    print(f"Conversation history length: {len(conversation_history)}")
+    
+    address = state.get("address", {})
+
+    data = {
+        "name": name,
+        "email": email,
+        "phone": phone,
+        "session_id": session_id,
+        "knockout_answers": knockout_text,
+        "answers": answers_text,
+        "score": score,
+        "total_score": total_score,
+        "work_experience": work_exp_text,
+        "education": education_level,
+        "address": address
+    }
+
+    json_report = generate_json_report(data)
+
+    # ── Structured certifications ─────────────────────────────────────────────
+    raw_certs = state.get("certifications", [])
+    structured_certifications = [
+        {
+            "certificate_name": cert.get("name", ""),
+            "expiry_date":      ""   # not collected from applicant
+        }
+        for cert in raw_certs
+    ] if raw_certs else []
+
+    # ── Structured education ──────────────────────────────────────────────────
+    structured_education = [
+        {
+            "degree_name":    state.get("education_level", ""),
+            "passing_year":   state.get("education_year", ""),
+            "institute_name": ""   # not collected from applicant
+        }
+    ] if state.get("education_level") else []
+
+    # ── Structured work experience ────────────────────────────────────────────
+    structured_work_experience = [
+        {
+            "position":   exp.get("role", ""),
+            "employer":   exp.get("company", ""),
+            "start_date": exp.get("startDate", ""),
+            "end_date":   exp.get("endDate", ""),
+            "location":   ""   # not collected from applicant
+        }
+        for exp in work_experiences
+    ] if work_experiences else []
+
+    
+    # ── Merge structured fields into LLM-generated report ────────────────────────
+    try:
+        import json as _json
+        
+        # Handle both dict and string return from generate_json_report
+        if isinstance(json_report, dict):
+            report_dict = json_report
+        else:
+            report_dict = _json.loads(json_report)
+
+        report_dict["certifications"]          = structured_certifications
+        report_dict["education_structured"]    = structured_education
+        report_dict["work_experience_structured"] = structured_work_experience
+
+        json_report = _json.dumps(report_dict, indent=2)
+        print("[SUMMARY] Structured fields merged into JSON report")
+
+    except Exception as e:
+        print(f"[SUMMARY] Warning: Could not merge structured fields — {e}")
+    
+    
+    # ── Final PATCH: score + full report + conversation history ───────────────
+    import json as _json
+    update_candidate_section(
+        candidate_id=state.get("candidate_id", 0),
+        section="final",
+        data={
+            "Score":               int(score),
+            "Age":                 age,
+            "ProfileSummary":      json_report,
+            "ConversationHistory": conversation_history,
+        },
+        is_live=state.get("is_live", False)
+    )
+    # ─────────────────────────────────────────────────────────────────────────
+
+    return state
+
+
+
 REASK_INSTRUCTIONS = {
     
     "none": "",
     
     "gibberish": (
         "The candidate's response was unclear or didn't make sense."
+        "Briefly and naturally reference the applicant's response without quoting or repeating it verbatim"
         "Optionally give a simple example of what kind of answer you need."
     ),
     "partial": (
         "The candidate gave a partial or hesitant answer."
+        "Briefly and naturally reference the applicant's response without quoting or repeating it verbatim"
         "Gently ask them to confirm clearly for the record."
     ),
     "concern_expressed": (
         "The candidate expressed concern or hesitation about the requirement."
+        "Briefly and naturally reference the applicant's response without quoting or repeating it verbatim"
         "re-ask in a reassuring way."
     ),
     "conditional": (
@@ -239,6 +401,7 @@ REASK_INSTRUCTIONS = {
     ),
     "uncertain": (
         "The candidate is unsure how to respond."
+        "Briefly and naturally reference the applicant's response without quoting or repeating it verbatim"
         "Politely encourage them to provide the answer that best reflects their current situation."
     ),
 }
@@ -284,7 +447,6 @@ APPLICANT'S LATEST RESPONSE: "{user_input}"
 RE-ASK GUIDANCE: {instruction}
 
 Rules:
-- .
 - Use the conversation history if available; don't repeat information already covered.
 - Keep the tone natural and conversational; vary your phrasing.
 - Do NOT start with "I"
@@ -1069,15 +1231,17 @@ def ask_address_node(state: ChatbotState) -> ChatbotState:
         state["candidate_id"] = candidate_id
         print(f"[CANDIDATE] Record created — ID: {candidate_id}")
 
-        # ── Build profile_summary and PATCH ──────────────────────────────────
-        state["profile_summary"].update({
-            "knockout_answers": state.get("knockout_answers", {}),
-            "screening_answers": state.get("answers", {}),
-            "manager_flags": state.get("manager_flags", []),
-        })
-        xano_patch(state, "screening_complete", {
-            "ProfileSummary": state["profile_summary"]
-        })
+        # # ── Build profile_summary and PATCH ──────────────────────────────────
+        # state["profile_summary"].update({
+        #     "knockout_answers": state.get("knockout_answers", {}),
+        #     "screening_answers": state.get("answers", {}),
+        #     "manager_flags": state.get("manager_flags", []),
+        # })
+        # xano_patch(state, "screening_complete", {
+        #     "ProfileSummary": state["profile_summary"]
+        # })
+
+        build_json_report(state)  # Update profile_summary with latest answers
 
     state["messages"].append(AIMessage(
         content="Perfect. Since this role is on-site, could you please share your home address? We just want to make sure the commute will be manageable for you!"
@@ -1784,6 +1948,7 @@ def verify_phone_otp_node(state: ChatbotState) -> ChatbotState:
                 "Email": state["personal_details"].get("email", ""),
                 "Phone": state["personal_details"].get("phone", ""),
             })
+            build_json_report(state)  # Update profile_summary with latest answers
         else:
             state["phone_otp_attempts"] += 1
             attempts = state["phone_otp_attempts"]
@@ -2300,27 +2465,29 @@ def ask_background_check_node(state: ChatbotState) -> ChatbotState:
         return {}
     
     # ── Build profile_summary and PATCH ──────────────────────────────────
-    work_experiences = state.get("work_experience", [])
-    state["profile_summary"].update({
-        "work_experience": [
-            {
-                "position":   exp.get("role", ""),
-                "employer":   exp.get("company", ""),
-                "start_date": exp.get("startDate", ""),
-                "end_date":   exp.get("endDate", ""),
-            }
-            for exp in work_experiences
-        ],
-        "education_level":  state.get("education_level", ""),
-        "certifications":   state.get("certifications", []),
-        "referral_source":  state.get("referral_source", ""),
-        "military_served":  state.get("military_served", False),
-        "military_details": state.get("military_details", {}),
-    })
-    xano_patch(state, "work_history_complete", {
-        "ProfileSummary": state["profile_summary"]
-    })
+    # work_experiences = state.get("work_experience", [])
+    # state["profile_summary"].update({
+    #     "work_experience": [
+    #         {
+    #             "position":   exp.get("role", ""),
+    #             "employer":   exp.get("company", ""),
+    #             "start_date": exp.get("startDate", ""),
+    #             "end_date":   exp.get("endDate", ""),
+    #         }
+    #         for exp in work_experiences
+    #     ],
+    #     "education_level":  state.get("education_level", ""),
+    #     "certifications":   state.get("certifications", []),
+    #     "referral_source":  state.get("referral_source", ""),
+    #     "military_served":  state.get("military_served", False),
+    #     "military_details": state.get("military_details", {}),
+    # })
+    # xano_patch(state, "work_history_complete", {
+    #     "ProfileSummary": state["profile_summary"]
+    # })
     # ─────────────────────────────────────────────────────────────────────
+
+    build_json_report(state)  # Update profile_summary with latest answers
 
     # Initial ask
     state["messages"].append(AIMessage(
