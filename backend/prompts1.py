@@ -445,7 +445,7 @@ JSON_REPORT_PROMPT = PromptTemplate(
           "employer": null (if not mentioned),
           "duration": null (if not mentioned) format should be (start date - end date),
           "skills": any 2-3 skills based on relevant_experience,
-          "relevant_experience": "Summary of candidate's experience from their answers (2-3 sentences)"
+          "relevant_experience": "Summary of candidate's experience from their answers (2-3 sentences) "
         }}
       ],
       "education": {education},
@@ -464,7 +464,9 @@ JSON_REPORT_PROMPT = PromptTemplate(
           "List 3-5 key strengths from answers"
         ],
         "concerns": [
-          "List any concerns or gaps, or empty array if none"
+            "If work_experience is null or empty, say 'Work experience not provided' — do NOT say 'No prior work experience' or imply the candidate has none",
+          "If education is null or empty, say 'Education details not provided' — do NOT say candidate lacks education",
+          "List any other genuine concerns or gaps, or empty array if none"
         ]
       }},
       "interview_notes": {{
@@ -481,6 +483,8 @@ JSON_REPORT_PROMPT = PromptTemplate(
     3. Use actual data from the candidate's answers
     4. Be objective and professional
     5. Ensure all boolean values are lowercase (true/false not True/False)
+    6. If work_experience, education, or any other field is null or not provided, do NOT make negative assumptions about the candidate. Instead state the data was not provided (e.g. "Work experience not provided", "Education details not provided")
+    7. Never say "No prior work experience" or "lacks experience" — if the field is empty, it simply means the data was not collected yet
     
     Generate the JSON report now:
     """

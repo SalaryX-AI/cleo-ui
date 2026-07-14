@@ -216,6 +216,97 @@ def xano_patch(state: ChatbotState, section: str, data: dict):
     else:
         print(f"[XANO] Skipping PATCH '{section}' — no candidate_id yet")  
 
+def calculate_score(state: ChatbotState) -> ChatbotState:
+    # Merge all answer sources into one dict for scoring
+    answers = {}
+
+    # Screening question answers
+    answers.update(state.get("answers", {}))
+
+    # Knockout question answers (candidates reached here = passed all)
+    knockout_questions = state.get("knockout_questions", [])
+    knockout_answers   = state.get("knockout_answers", {})
+    
+    for q in knockout_questions:
+        answers[q] = knockout_answers.get(q, "Yes")
+
+    # Background check consent
+    answers["background_check_consent"] = "Yes" if state.get("background_check_consented") else "No"
+
+    # Certifications
+    certs = state.get("certifications", [])
+    if certs:
+        cert_names = ", ".join([c.get("name", "") for c in certs])
+        answers["certifications"] = cert_names
+    else:
+        answers["certifications"] = "None"
+
+    work_experience = state.get("work_experience", [])
+    # Total years of work experience
+    if work_experience:
+        from datetime import datetime
+        total_months = 0
+        for exp in work_experience:
+            try:
+                start = datetime.strptime(exp.get("startDate", ""), "%Y-%m")
+                end_str = exp.get("endDate", "").strip().lower()
+                end = datetime.now() if end_str in ("present", "current", "") else datetime.strptime(end_str, "%Y-%m")
+                total_months += (end.year - start.year) * 12 + (end.month - start.month)
+            except Exception:
+                pass
+        total_years = round(total_months / 12, 1)
+    else:
+        total_years = 0.0
+
+    answers["server_experience_years"] = f"{total_years} years"
+    answers["cook_experience_years"]   = f"{total_years} years"    
+
+    scoring_model = state["scoring_model"]
+
+    print("Merged Answers:", answers)
+    print("Scoring Model:", scoring_model)
+
+    answers_str = json.dumps(answers, indent=2)
+    scoring_str = json.dumps(scoring_model, indent=2)
+
+    # Dynamically calculate total_score from scoring model weights
+    total_possible = sum(
+        rule.get("weight", 0) 
+        for rule in scoring_model.values() 
+        if isinstance(rule, dict)
+    )
+
+    prompt = SCORING_PROMPT.format(
+        answers=answers_str,
+        scoring_model=scoring_str,
+        total_score=total_possible     
+    )
+    response = llm.invoke(prompt)
+    print("Scoring node response:", response.content)
+
+    try:
+        score_text = response.content.strip()
+        if score_text.startswith("```json"):
+            score_text = score_text.replace("```json", "").replace("```", "").strip()
+        elif score_text.startswith("```"):
+            score_text = score_text.replace("```", "").strip()
+
+        result = json.loads(score_text)
+
+        state["scores"]      = result["scores"]
+        state["total_score"] = total_possible
+
+        state["score"] = sum(result["scores"].values())
+
+        print("Calculated score:", state["score"])
+        print("Calculated total_score:", total_possible)
+
+    except json.JSONDecodeError:
+        state["scores"]      = {}
+        state["score"]       = 0
+        state["total_score"] = total_possible
+
+    return state
 
 def build_json_report(state: ChatbotState) -> dict:
     """Build and generate JSON report from current state. Missing fields default to empty/null."""
@@ -230,6 +321,8 @@ def build_json_report(state: ChatbotState) -> dict:
     
     knockout_answers = state.get("knockout_answers", {})
     answers = state.get("answers", {})
+
+    calculate_score(state)  # Ensure score is calculated before building report
     
     score = state.get("score", 0)
     total_score = state.get("total_score", 100)
