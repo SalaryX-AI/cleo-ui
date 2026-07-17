@@ -37,6 +37,7 @@ document.head.appendChild(link);
             
             // Store configuration
             this.config = {
+                mode: options.mode || 'job',
                 jobType: options.jobType,
                 jobTemplateID: options.jobTemplateID,
                 singleCompany: options.singleCompany,
@@ -211,8 +212,10 @@ document.head.appendChild(link);
         },
         
         connectWebSocket: function() {
-            const wsUrl = `${this.config.wsUrl}/ws/${this.sessionId}`;
-            this.ws = new WebSocket(wsUrl);
+            const wsPath = this.config.mode === 'passport'
+                ? `${this.config.wsUrl}/passport/ws/${this.sessionId}`
+                : `${this.config.wsUrl}/ws/${this.sessionId}`;
+            this.ws = new WebSocket(wsPath);
             
             this.ws.onopen = () => {
                 console.log('✅ WebSocket connected');
@@ -557,24 +560,36 @@ document.head.appendChild(link);
                 const jobShift  = this.config.jobShift;
                 const brandName = this.config.brandName;
                 const singleCompany = this.config.singleCompany;
-                const response = await fetch(`${this.config.apiUrl}/start-session`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        api_key:    apiKey,
-                        job_type:   jobType,
-
-                        job_template_id: jobTemplateID,
-                        location:   location,
-                        job_id:     jobID,
-                        company_id: companyID,
-                        verification_required: verificationRequired,
-                        is_live:    isLive,
-                        job_shift:  jobShift,
-                        brand_name: brandName,
-                        single_company: singleCompany
-                    })
-                });
+                
+                let response;
+                if (this.config.mode === 'passport') {
+                    response = await fetch(`${this.config.apiUrl}/start-passport-session`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            api_key: apiKey,
+                            is_live: isLive,
+                        })
+                    });
+                } else {
+                    response = await fetch(`${this.config.apiUrl}/start-session`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            api_key:    apiKey,
+                            job_type:   jobType,
+                            job_template_id: jobTemplateID,
+                            location:   location,
+                            job_id:     jobID,
+                            company_id: companyID,
+                            verification_required: verificationRequired,
+                            is_live:    isLive,
+                            job_shift:  jobShift,
+                            brand_name: brandName,
+                            single_company: singleCompany
+                        })
+                    });
+                }
                 
                 if (!response.ok) {
                     throw new Error('Failed to start session');
@@ -668,6 +683,11 @@ document.head.appendChild(link);
                 else if (data.show_address_ui) 
                 {
                     AddressUI.show();
+                }
+                // Show shift preference checkboxes (passport mode only)
+                else if (data.show_shift_ui)
+                {
+                    ShiftPreferenceUI.show();
                 }
                 // Show GPS verification button
                 else if (data.show_gps_ui) 
@@ -854,6 +874,179 @@ document.head.appendChild(link);
     };
 
 
+    // ── Shift Preference UI (passport mode) ──────────────────────────────────
+    const ShiftPreferenceUI = {
+
+        render() {
+            const container = document.createElement('div');
+            container.id = 'shift-preference-ui';
+
+            container.innerHTML = `
+                <style>
+                    #shift-preference-ui {
+                        margin: 12px 0;
+                        padding: 16px;
+                        background: #f7f7fa;
+                        border-radius: 14px;
+                        border: 1px solid rgba(102,126,234,0.15);
+                    }
+
+                    .shift-label {
+                        font-size: 13px;
+                        font-weight: 600;
+                        color: #4a4a55;
+                        margin-bottom: 12px;
+                        display: block;
+                    }
+
+                    .shift-options {
+                        display: grid;
+                        grid-template-columns: 1fr 1fr;
+                        gap: 8px;
+                        margin-bottom: 14px;
+                    }
+
+                    .shift-option {
+                        display: flex;
+                        align-items: center;
+                        gap: 8px;
+                        padding: 10px 14px;
+                        background: #fff;
+                        border: 2px solid #e0e0e8;
+                        border-radius: 10px;
+                        cursor: pointer;
+                        font-size: 13px;
+                        font-weight: 500;
+                        color: #333;
+                        transition: border-color 0.15s, background 0.15s;
+                        user-select: none;
+                    }
+
+                    .shift-option.selected {
+                        border-color: #667eea;
+                        background: rgba(102,126,234,0.07);
+                        color: #667eea;
+                    }
+
+                    .shift-option input[type="checkbox"] {
+                        accent-color: #667eea;
+                        width: 15px;
+                        height: 15px;
+                        flex-shrink: 0;
+                    }
+
+                    .shift-confirm-btn {
+                        width: 100%;
+                        padding: 12px;
+                        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                        color: white;
+                        border: none;
+                        border-radius: 12px;
+                        font-size: 14px;
+                        font-weight: 600;
+                        cursor: pointer;
+                        transition: opacity 0.2s, transform 0.12s;
+                        font-family: inherit;
+                    }
+
+                    .shift-confirm-btn:disabled {
+                        background: #ccc;
+                        cursor: not-allowed;
+                    }
+
+                    .shift-confirm-btn:hover:not(:disabled) {
+                        transform: translateY(-1px);
+                        opacity: 0.92;
+                    }
+                </style>
+
+                <span class="shift-label">Select all shifts that work for you 👇</span>
+
+                <div class="shift-options">
+                    <label class="shift-option" id="shift-days">
+                        <input type="checkbox" value="Days" /> 🌅 Days
+                    </label>
+                    <label class="shift-option" id="shift-evenings">
+                        <input type="checkbox" value="Evenings" /> 🌆 Evenings
+                    </label>
+                    <label class="shift-option" id="shift-overnights">
+                        <input type="checkbox" value="Overnights" /> 🌙 Overnights
+                    </label>
+                    <label class="shift-option" id="shift-weekends">
+                        <input type="checkbox" value="Weekends" /> 📅 Weekends
+                    </label>
+                </div>
+
+                <button class="shift-confirm-btn" id="shift-confirm-btn" disabled>
+                    Confirm Availability
+                </button>
+            `;
+
+            return container;
+        },
+
+        attachEventListeners() {
+            const checkboxes = document.querySelectorAll('#shift-preference-ui input[type="checkbox"]');
+            const confirmBtn = document.getElementById('shift-confirm-btn');
+
+            checkboxes.forEach(cb => {
+                cb.addEventListener('change', () => {
+                    // Toggle selected style on parent label
+                    cb.closest('.shift-option').classList.toggle('selected', cb.checked);
+
+                    // Enable confirm only if at least one selected
+                    const anySelected = [...checkboxes].some(c => c.checked);
+                    confirmBtn.disabled = !anySelected;
+                });
+            });
+
+            confirmBtn.addEventListener('click', () => this.submit());
+        },
+
+        submit() {
+            const checkboxes = document.querySelectorAll('#shift-preference-ui input[type="checkbox"]:checked');
+            const selected = [...checkboxes].map(cb => cb.value);
+
+            if (!selected.length) return;
+
+            // Show as user bubble
+            window.CleoChatbot.addMessage(
+                `My availability: ${selected.join(', ')}`,
+                false,
+                'body'
+            );
+
+            // Send to backend
+            if (window.CleoChatbot && window.CleoChatbot.ws) {
+                window.CleoChatbot.ws.send(JSON.stringify({
+                    type: 'shift_selection',
+                    data: selected
+                }));
+            }
+
+            // Dispatch passport preview update
+            window.dispatchEvent(new CustomEvent('passportUpdate', {
+                detail: { shifts: selected }
+            }));
+
+            this.hide();
+        },
+
+        show() {
+            const messagesDiv = document.getElementById('chatbot-messages');
+            const ui = this.render();
+            messagesDiv.appendChild(ui);
+            this.attachEventListeners();
+            messagesDiv.scrollTo({ top: messagesDiv.scrollHeight, behavior: 'smooth' });
+            window.CleoChatbot.disableInput();
+        },
+
+        hide() {
+            const ui = document.getElementById('shift-preference-ui');
+            if (ui) ui.remove();
+        }
+    };
+    // ── End ShiftPreferenceUI ─────────────────────────────────────────────────
 
     // ─────────────────────────────────────────────────────────────────────────
     //  Work Experience UI Component - Multiple Jobs Support
@@ -2749,7 +2942,7 @@ document.head.appendChild(link);
         
         // Find the chatbot container element
         const container = document.getElementById('cleo-chatbot') || 
-                         document.querySelector('[data-job-type]');
+                         document.querySelector('[data-job-type]') || document.querySelector('[data-mode="passport"]');
 
         if (!container) {
             console.error('CleoChatbot: Container element with data-job-type attribute not found');
@@ -2759,6 +2952,7 @@ document.head.appendChild(link);
         // const jobType = container.dataset.jobType;
     
         // Read Values from data attribute
+        const mode = container.getAttribute('data-mode') || 'job';
         const jobLocation = container.getAttribute('data-job-location') ||'unknown';
         const jobType = container.getAttribute('data-job-type') || 'Position';
 
@@ -2805,6 +2999,7 @@ document.head.appendChild(link);
 
             // Initialize chatbot with validated configuration
             CleoChatbot.init({
+                mode: mode,
                 jobType: jobType,  // Use jobType from data attribute
                 jobTemplateID: jobTemplateID, // Pass jobTemplate
                 jobLocation: jobLocation,
@@ -2832,8 +3027,8 @@ document.head.appendChild(link);
 
     // Initialize when DOM is ready
     function tryInit() {
-        const container = document.getElementById('cleo-chatbot') || document.querySelector('[data-job-type]');
-        if (container && container.getAttribute('data-job-id')) {
+        const container = document.getElementById('cleo-chatbot') || document.querySelector('[data-job-type]' ) || document.querySelector('[data-mode="passport"]');
+        if (container && (container.getAttribute('data-job-id') || container.getAttribute('data-mode') === 'passport')) {
             // Attributes already set — init immediately
             autoInitChatbot();
         } 
