@@ -534,15 +534,15 @@
 <!-- ── Passport widget config ─────────────────────────────────────────────── -->
 <script>
     // Base URLs — same as job flow
-    window.apiBaseUrl = "http://127.0.0.1:8000";
-    window.wsBaseUrl  = "ws://127.0.0.1:8000";
+    window.apiBaseUrl = "https://scanandhire.com";
+    window.wsBaseUrl  = "wss://scanandhire.com";
 
     // Signal to cleoPassportAssistant.js that this is a passport page
     window.CLEO_MODE = "passport";
 </script>
 
 <!-- Passport-specific widget script (see notes below) -->
-<script src="http://127.0.0.1:8000/cleoAssistant.js"
+<script src="https://scanandhire.com/cleoAssistant.js"
         data-mode="passport"
         data-is-live="false"
         id="cleo-passport-widget">
