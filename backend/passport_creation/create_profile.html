@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Cleo Work Passport™</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+
+    <style>
+        /* ── Tokens ─────────────────────────────────────────────────────────── */
+        :root {
+            --ink:        #0f0f11;
+            --ink-soft:   #4a4a55;
+            --surface:    #f7f7fa;
+            --white:      #ffffff;
+            --accent:     #5b4cf5;       /* violet — Cleo brand */
+            --accent-2:   #9b88ff;       /* lighter violet */
+            --gold:       #f5c842;       /* passport stamp gold */
+            --stamp-bg:   #fff8e1;
+            --radius-lg:  18px;
+            --radius-sm:  10px;
+            --shadow:     0 4px 32px rgba(91,76,245,.10);
+            --shadow-card:0 2px 16px rgba(15,15,17,.07);
+        }
+
+        /* ── Reset ───────────────────────────────────────────────────────────── */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        html { scroll-behavior: smooth; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--surface);
+            color: var(--ink);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* ── NAV ─────────────────────────────────────────────────────────────── */
+        nav {
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            z-index: 100;
+            background: rgba(247,247,250,.88);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(91,76,245,.08);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 32px;
+            height: 60px;
+        }
+
+        .nav-logo {
+            font-family: 'Syne', sans-serif;
+            font-weight: 800;
+            font-size: 1.15rem;
+            color: var(--accent);
+            letter-spacing: -0.02em;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            text-decoration: none;
+        }
+
+        .nav-logo span {
+            background: var(--accent);
+            color: #fff;
+            border-radius: 6px;
+            padding: 2px 7px;
+            font-size: .75rem;
+            font-weight: 700;
+            letter-spacing: .04em;
+        }
+
+        .nav-badge {
+            font-size: .75rem;
+            color: var(--ink-soft);
+            font-weight: 500;
+        }
+
+        /* ── HERO ─────────────────────────────────────────────────────────────── */
+        .hero {
+            padding: 120px 32px 64px;
+            max-width: 1100px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 64px;
+            align-items: center;
+        }
+
+        .hero-left h1 {
+            font-family: 'Syne', sans-serif;
+            font-size: clamp(2.2rem, 4vw, 3.4rem);
+            font-weight: 800;
+            line-height: 1.12;
+            letter-spacing: -0.03em;
+            color: var(--ink);
+            margin-bottom: 20px;
+        }
+
+        .hero-left h1 em {
+            font-style: normal;
+            color: var(--accent);
+        }
+
+        .hero-left p {
+            font-size: 1.05rem;
+            line-height: 1.7;
+            color: var(--ink-soft);
+            max-width: 420px;
+            margin-bottom: 32px;
+        }
+
+        /* Passport card — the signature element */
+        .passport-card {
+            background: var(--white);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow);
+            padding: 32px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .passport-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 5px;
+            background: linear-gradient(90deg, var(--accent), var(--accent-2), var(--gold));
+        }
+
+        .passport-stamp {
+            position: absolute;
+            top: 24px; right: 24px;
+            width: 72px; height: 72px;
+            border: 3px solid var(--gold);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            background: var(--stamp-bg);
+            transform: rotate(-12deg);
+        }
+
+        .passport-stamp .stamp-text {
+            font-family: 'Syne', sans-serif;
+            font-size: .5rem;
+            font-weight: 800;
+            color: var(--gold);
+            text-transform: uppercase;
+            letter-spacing: .08em;
+            text-align: center;
+            line-height: 1.2;
+        }
+
+        .passport-title {
+            font-family: 'Syne', sans-serif;
+            font-size: .65rem;
+            font-weight: 700;
+            letter-spacing: .12em;
+            text-transform: uppercase;
+            color: var(--ink-soft);
+            margin-bottom: 6px;
+        }
+
+        .passport-name {
+            font-family: 'Syne', sans-serif;
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--ink);
+            margin-bottom: 20px;
+            min-height: 1.8rem;
+        }
+
+        .passport-fields {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        .passport-field label {
+            display: block;
+            font-size: .65rem;
+            font-weight: 600;
+            letter-spacing: .1em;
+            text-transform: uppercase;
+            color: var(--ink-soft);
+            margin-bottom: 4px;
+        }
+
+        .passport-field .field-val {
+            font-size: .9rem;
+            font-weight: 500;
+            color: var(--ink);
+            min-height: 1.1rem;
+            border-bottom: 1px solid #ececf2;
+            padding-bottom: 4px;
+        }
+
+        .passport-skills {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 4px;
+        }
+
+        .skill-chip {
+            background: rgba(91,76,245,.08);
+            color: var(--accent);
+            border-radius: 20px;
+            padding: 3px 10px;
+            font-size: .72rem;
+            font-weight: 600;
+        }
+
+        .passport-status {
+            margin-top: 20px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: .8rem;
+            font-weight: 500;
+            color: var(--ink-soft);
+        }
+
+        .status-dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            background: #ccc;
+            flex-shrink: 0;
+        }
+
+        .status-dot.active { background: #22c55e; }
+
+        /* CTA button */
+        .cta-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            background: var(--accent);
+            color: #fff;
+            font-family: 'Syne', sans-serif;
+            font-weight: 700;
+            font-size: .95rem;
+            padding: 14px 28px;
+            border-radius: var(--radius-sm);
+            border: none;
+            cursor: pointer;
+            text-decoration: none;
+            transition: background .18s, transform .12s;
+            letter-spacing: -.01em;
+        }
+
+        .cta-btn:hover {
+            background: #4a3de0;
+            transform: translateY(-1px);
+        }
+
+        .cta-btn svg {
+            flex-shrink: 0;
+        }
+
+        /* ── HOW IT WORKS ────────────────────────────────────────────────────── */
+        .steps-section {
+            background: var(--white);
+            padding: 72px 32px;
+        }
+
+        .steps-inner {
+            max-width: 880px;
+            margin: 0 auto;
+        }
+
+        .section-label {
+            font-family: 'Syne', sans-serif;
+            font-size: .7rem;
+            font-weight: 700;
+            letter-spacing: .14em;
+            text-transform: uppercase;
+            color: var(--accent);
+            margin-bottom: 10px;
+        }
+
+        .section-title {
+            font-family: 'Syne', sans-serif;
+            font-size: clamp(1.5rem, 2.5vw, 2.1rem);
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            margin-bottom: 48px;
+        }
+
+        .steps-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 32px;
+        }
+
+        .step-card {
+            background: var(--surface);
+            border-radius: var(--radius-lg);
+            padding: 28px 24px;
+            border: 1px solid rgba(91,76,245,.07);
+        }
+
+        .step-icon {
+            width: 44px; height: 44px;
+            background: rgba(91,76,245,.1);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.3rem;
+            margin-bottom: 16px;
+        }
+
+        .step-card h3 {
+            font-family: 'Syne', sans-serif;
+            font-size: 1rem;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .step-card p {
+            font-size: .85rem;
+            line-height: 1.6;
+            color: var(--ink-soft);
+        }
+
+        /* ── TRUST BAR ───────────────────────────────────────────────────────── */
+        .trust-bar {
+            padding: 40px 32px;
+            max-width: 880px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 40px;
+            flex-wrap: wrap;
+        }
+
+        .trust-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: .82rem;
+            color: var(--ink-soft);
+            font-weight: 500;
+        }
+
+        .trust-item svg {
+            color: var(--accent);
+            flex-shrink: 0;
+        }
+
+        /* ── FOOTER ──────────────────────────────────────────────────────────── */
+        footer {
+            text-align: center;
+            padding: 32px;
+            font-size: .78rem;
+            color: var(--ink-soft);
+            border-top: 1px solid rgba(91,76,245,.07);
+        }
+
+        /* ── RESPONSIVE ──────────────────────────────────────────────────────── */
+        @media (max-width: 768px) {
+            nav { padding: 0 20px; }
+
+            .hero {
+                grid-template-columns: 1fr;
+                padding: 100px 20px 48px;
+                gap: 40px;
+            }
+
+            .hero-left p { max-width: 100%; }
+
+            .steps-grid {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+
+            .trust-bar { gap: 24px; }
+        }
+
+        /* ── Cleo widget overrides for passport page ─────────────────────────── */
+        /* The widget launches open on this page — not as a floating button */
+        #cleo-chat-widget {
+            position: fixed !important;
+            bottom: 20px !important;
+            right: 20px !important;
+        }
+    </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+    <a class="nav-logo" href="#">
+        Cleo <span>PASSPORT</span>
+    </a>
+    <span class="nav-badge">Your career identity — built once, shared everywhere</span>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+    <div class="hero-left">
+        <h1>One profile.<br/><em>Every opportunity.</em></h1>
+        <p>
+            Build your Cleo Work Passport™ in under 5 minutes.
+            It's a verified snapshot of your skills, experience, and availability —
+            ready to share instantly with any hiring manager in our network.
+        </p>
+        <a class="cta-btn" href="#" id="open-passport-btn">
+            <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+            </svg>
+            Build my Passport
+        </a>
+    </div>
+
+    <!-- Animated passport preview card -->
+    <div class="passport-card" id="passport-preview">
+        <div class="passport-stamp">
+            <div class="stamp-text">CLEO<br/>VERIFIED</div>
+        </div>
+
+        <div class="passport-title">Cleo Work Passport™</div>
+        <div class="passport-name" id="preview-name">Your Name</div>
+
+        <div class="passport-fields">
+            <div class="passport-field">
+                <label>Location</label>
+                <div class="field-val" id="preview-location">—</div>
+            </div>
+            <div class="passport-field">
+                <label>Availability</label>
+                <div class="field-val" id="preview-shifts">—</div>
+            </div>
+            <div class="passport-field">
+                <label>Experience</label>
+                <div class="field-val" id="preview-exp">—</div>
+            </div>
+            <div class="passport-field">
+                <label>Fit Score</label>
+                <div class="field-val" id="preview-score">—</div>
+            </div>
+        </div>
+
+        <div class="passport-field">
+            <label>Top Skills</label>
+            <div class="passport-skills" id="preview-skills">
+                <span class="skill-chip">Customer Service</span>
+                <span class="skill-chip">Food Safety</span>
+                <span class="skill-chip">Team Player</span>
+            </div>
+        </div>
+
+        <div class="passport-status">
+            <div class="status-dot" id="preview-status-dot"></div>
+            <span id="preview-status-text">Complete the chat to activate your Passport</span>
+        </div>
+    </div>
+</section>
+
+    <div id="cleo-chatbot"
+     data-mode="passport"
+     data-isLive="false">
+    </div>
+
+<!-- HOW IT WORKS -->
+<section class="steps-section">
+    <div class="steps-inner">
+        <div class="section-label">How it works</div>
+        <h2 class="section-title">From chat to career-ready in 5 minutes</h2>
+
+        <div class="steps-grid">
+            <div class="step-card">
+                <div class="step-icon">💬</div>
+                <h3>Answer a few questions</h3>
+                <p>Cleo asks about your experience, skills, and schedule through a natural chat — no form-filling, no uploads.</p>
+            </div>
+            <div class="step-card">
+                <div class="step-icon">🛡️</div>
+                <h3>Verify your identity</h3>
+                <p>A quick 30-second ID check secures your Passport so hiring managers can trust what they see.</p>
+            </div>
+            <div class="step-card">
+                <div class="step-icon">🚀</div>
+                <h3>Share with one tap</h3>
+                <p>Your verified Passport link goes directly to any hiring manager. No re-filling the same form for every job.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+
+
+<!-- TRUST BAR -->
+<div class="trust-bar">
+    <div class="trust-item">
+        <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+        </svg>
+        Your data stays private
+    </div>
+    <div class="trust-item">
+        <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+        </svg>
+        Never shared without your permission
+    </div>
+    <div class="trust-item">
+        <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        Takes less than 5 minutes
+    </div>
+    <div class="trust-item">
+        <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
+        </svg>
+        Free — always
+    </div>
+</div>
+
+<footer>
+    © 2026 ScanAndHire · Powered by Cleo · <a href="#" style="color:var(--accent);text-decoration:none;">Privacy Policy</a>
+</footer>
+
+<!-- ── Passport widget config ─────────────────────────────────────────────── -->
+<script>
+    // Base URLs — same as job flow
+    window.apiBaseUrl = "http://127.0.0.1:8000";
+    window.wsBaseUrl  = "ws://127.0.0.1:8000";
+
+    // Signal to cleoPassportAssistant.js that this is a passport page
+    window.CLEO_MODE = "passport";
+</script>
+
+<!-- Passport-specific widget script (see notes below) -->
+<script src="http://127.0.0.1:8000/cleoAssistant.js"
+        data-mode="passport"
+        data-is-live="false"
+        id="cleo-passport-widget">
+</script>
+
+<script>
+    // ── CTA button triggers widget open ──────────────────────────────────────
+    document.getElementById('open-passport-btn').addEventListener('click', function(e) {
+        e.preventDefault();
+        if (window.CleoPassport && typeof window.CleoPassport.open === 'function') {
+            window.CleoPassport.open();
+        }
+    });
+
+    // ── Live passport preview updates from widget events ─────────────────────
+    // The widget dispatches 'passportUpdate' custom events as fields are filled
+    window.addEventListener('passportUpdate', function(e) {
+        const detail = e.detail || {};
+
+        if (detail.name) {
+            document.getElementById('preview-name').textContent = detail.name;
+        }
+        if (detail.location) {
+            document.getElementById('preview-location').textContent = detail.location;
+        }
+        if (detail.shifts && detail.shifts.length) {
+            document.getElementById('preview-shifts').textContent = detail.shifts.join(', ');
+        }
+        if (detail.experience) {
+            document.getElementById('preview-exp').textContent = detail.experience;
+        }
+        if (detail.score) {
+            document.getElementById('preview-score').textContent = detail.score + ' / 100';
+        }
+        if (detail.skills && detail.skills.length) {
+            const skillsEl = document.getElementById('preview-skills');
+            skillsEl.innerHTML = detail.skills.map(s =>
+                `<span class="skill-chip">${s}</span>`
+            ).join('');
+        }
+        if (detail.activated) {
+            document.getElementById('preview-status-dot').classList.add('active');
+            document.getElementById('preview-status-text').textContent = 'Passport Active ✓';
+            document.getElementById('preview-name').textContent = detail.name || document.getElementById('preview-name').textContent;
+        }
+    });
+</script>
+
+</body>
+</html>
