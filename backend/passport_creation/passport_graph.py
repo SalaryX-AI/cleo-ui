@@ -1045,10 +1045,10 @@ def store_military_node(state: PassportState) -> PassportState:
     return state
 
 
-def military_router(state: PassportState) -> Literal["ask_military", "ask_id_verification"]:
+def military_router(state: PassportState) -> Literal["ask_military", "ask_id_verification", "passport_summary"]:
     if state.get("military_served") and not state.get("military_follow_up_done"):
         return "ask_military"
-    return "ask_id_verification"
+    return "passport_summary"
 
 
 # ==================== ID VERIFICATION ====================
