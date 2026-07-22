@@ -63,6 +63,7 @@ from passport_creation.passport_prompts import (
     PASSPORT_PROFILE_PROMPT,
 )
 from passport_creation.xano_passport import create_passport_record, update_passport_section
+from graph import interpret_response, generate_reask_message
 
 load_dotenv()
 
@@ -106,7 +107,8 @@ class PassportState(MessagesState):
     passport_profile: Dict = {}
 
     # ── Privacy consent ───────────────────────────────────────────────────────
-    privacy_consented: bool = False
+    privacy_consented:        bool = False
+    show_privacy_consent_ui:  bool = False
 
     # ── Personal details ──────────────────────────────────────────────────────
     personal_details: Dict[str, str] = {}
@@ -177,8 +179,9 @@ class PassportState(MessagesState):
     show_id_verify_ui:    bool = False
 
     # ── Re-ask tracking ───────────────────────────────────────────────────────
-    re_ask_attempts:      Dict[str, int] = {}
-    answer_reask_reason:  str            = ""
+    re_ask_attempts: Dict[str, int] = {}
+    answer_reask_reason: str = ""
+    kq_reask_reason: str = ""
 
 
 # ==================== XANO PATCH HELPER ====================
@@ -187,6 +190,8 @@ def passport_patch(state: PassportState, section: str, data: dict):
     """Fire-and-forget PATCH to Xano passport table. Never crashes the graph."""
     passport_id = state.get("passport_id", 0)
     is_live     = state.get("is_live", False)
+
+    print(f"[PASSPORT] PATCH '{section}': {data}")
     if passport_id:
         update_passport_section(passport_id, section, data, is_live)
     else:
@@ -196,12 +201,13 @@ def passport_patch(state: PassportState, section: str, data: dict):
 # ==================== GREETING ====================
 
 def passport_greeting_node(state: PassportState) -> PassportState:
-    """Send 3 staggered greeting bubbles. Third bubble includes privacy consent checkbox."""
+    """Send 3 staggered greeting bubbles. Third bubble triggers privacy consent checkbox UI."""
     print("passport_greeting_node called")
 
     state["messages"].append(AIMessage(content=PASSPORT_GREETING_BUBBLE_1))
     state["messages"].append(AIMessage(content=PASSPORT_GREETING_BUBBLE_2))
     state["messages"].append(AIMessage(content=PASSPORT_GREETING_BUBBLE_3))
+    state["show_privacy_consent_ui"] = True
 
     return state
 
@@ -223,7 +229,7 @@ def store_privacy_consent_node(state: PassportState) -> PassportState:
         if result.content.strip().lower() == "yes":
             state["privacy_consented"] = True
             state["messages"].append(AIMessage(
-                content="Awesome, let's get started! First things first — what is your full name?"
+                content="Let's get started! First things first — what is your full name?"
             ))
         else:
             state["messages"].append(AIMessage(
@@ -243,7 +249,23 @@ def privacy_router(state: PassportState) -> Literal["ask_name", "__end__"]:
 
 def ask_name_node(state: PassportState) -> PassportState:
     print("ask_name_node called")
-    # Message already sent by greeting or privacy consent node
+
+    # ── Re-ask if previous attempt was invalid ────────────────────────────────
+    if state.get("re_ask_attempts", {}).get("name", 0) > 0:
+        last_human = next(
+            (m for m in reversed(state["messages"]) if isinstance(m, HumanMessage)),
+            None
+        )
+        user_input = last_human.content if last_human else ""
+        reask = generate_reask_message(
+            "What is your full name?",
+            user_input,
+            reason="gibberish",
+            conversation_history=state["messages"]
+        )
+        state["messages"].append(AIMessage(content=reask))
+
+    # First visit — message already sent by store_privacy_consent_node
     return state
 
 
@@ -253,17 +275,56 @@ def store_name_node(state: PassportState) -> PassportState:
     messages     = state["messages"]
     last_message = messages[-1] if messages else None
 
-    if isinstance(last_message, HumanMessage):
-        name = last_message.content.strip()
-        state["personal_details"]["name"] = name
+    if not isinstance(last_message, HumanMessage):
+        return state
 
-        # Warm acknowledgement using first name
-        first_name = name.split()[0] if name else "there"
-        prompt     = PASSPORT_POST_NAME_PROMPT.format(first_name=first_name)
-        response   = llm.invoke(prompt)
-        state["messages"].append(AIMessage(content=response.content))
+    user_input = last_message.content.strip()
+
+    # ── Validate name ─────────────────────────────────────────────────────────
+    prompt = f"""Is this a valid full name (first name + last name)?
+
+Input: "{user_input}"
+
+Rules for VALID:
+- Has at least two separate words
+- Contains only letters, spaces, hyphens, or apostrophes
+- Is NOT gibberish or random characters
+
+Return ONLY "YES" or "NO". Nothing else."""
+
+    response = evaluation_llm.invoke(prompt)
+    is_valid = response.content.strip().upper() == "YES"
+
+    if not is_valid:
+        attempts = state["re_ask_attempts"].get("name", 0) + 1
+        state["re_ask_attempts"]["name"] = attempts
+        print(f"[NAME] Invalid name, attempt {attempts}: {user_input}")
+
+        if attempts >= 3:
+            state["re_ask_attempts"].pop("name", None)
+            state["messages"].append(AIMessage(
+                content="Thank you so much for taking the time to apply! We're unable to complete your application right now, but one of our team members will reach out to you shortly. 😊"
+            ))
+            state["privacy_consented"] = False   # used as generic end flag
+        return state
+
+    print(f"[NAME] Valid name: {user_input}")
+    state["personal_details"]["name"] = user_input
+    state["re_ask_attempts"].pop("name", None)
+
+    # Warm acknowledgement
+    first_name = user_input.split()[0]
+    state["messages"].append(AIMessage(content=f"Great to meet you, {first_name}! Let's make sure we have the basics covered first."))
 
     return state
+
+
+def name_router(state: PassportState) -> Literal["ask_name", "ask_knockout_question", "__end__"]:
+    if "name" not in state.get("personal_details", {}):
+        if not state.get("privacy_consented", True):
+            return "__end__"
+        return "ask_name"
+    return "ask_knockout_question"
 
 
 # ==================== KNOCKOUT QUESTIONS ====================
@@ -271,12 +332,28 @@ def store_name_node(state: PassportState) -> PassportState:
 def ask_knockout_question_node(state: PassportState) -> PassportState:
     print("ask_knockout_question_node called")
 
-    idx = state["current_knockout_question_index"]
-    questions = state["knockout_questions"]
+    idx               = state["current_knockout_question_index"]
+    knockout_questions = state["knockout_questions"]
 
-    if idx < len(questions):
-        state["messages"].append(AIMessage(content=questions[idx]))
+    if idx >= len(knockout_questions):
+        return state
 
+    knockout_question = knockout_questions[idx]
+
+    # ── Re-ask with dynamic message ───────────────────────────────────────────
+    if knockout_question in state.get("re_ask_attempts", {}):
+        last_human = next(
+            (m for m in reversed(state["messages"]) if isinstance(m, HumanMessage)),
+            None
+        )
+        user_input = last_human.content if last_human else ""
+        reason     = state.get("kq_reask_reason", "gibberish")
+        reask      = generate_reask_message(knockout_question, user_input, reason, conversation_history=state["messages"])
+        state["messages"].append(AIMessage(content=reask))
+        return state
+
+    # ── Initial ask ───────────────────────────────────────────────────────────
+    state["messages"].append(AIMessage(content=knockout_question))
     return state
 
 
@@ -286,67 +363,72 @@ def store_kq_answer_node(state: PassportState) -> PassportState:
     messages     = state["messages"]
     last_message = messages[-1] if messages else None
 
-    if isinstance(last_message, HumanMessage):
-        idx = state["current_knockout_question_index"]
-        if idx < len(state["knockout_questions"]):
-            question = state["knockout_questions"][idx]
-            state["knockout_answers"][question] = last_message.content
-            state["current_knockout_question_index"] += 1
-
     return state
 
 
 def evaluate_single_knockout_node(state: PassportState) -> PassportState:
     print("evaluate_single_knockout_node called")
 
-    knockout_questions = state["knockout_questions"]
-    knockout_answers   = state["knockout_answers"]
-    current_index      = state["current_knockout_question_index"] - 1
+    messages     = state["messages"]
+    last_message = messages[-1] if messages else None
 
-    if current_index < 0 or current_index >= len(knockout_questions):
+    if not isinstance(last_message, HumanMessage):
         return state
 
-    current_question = knockout_questions[current_index]
-    current_answer   = knockout_answers.get(current_question, "")
-    normalized       = current_answer.strip()
+    idx = state["current_knockout_question_index"]
+    if idx >= len(state["knockout_questions"]):
+        return state
 
-    # Fast path for single-letter answers
-    if normalized.upper() == "Y":
-        decision = "YES"
-    elif normalized.upper() == "N":
-        decision = "NO"
-    else:
-        prompt = f"""Evaluate if this answer is YES or NO.
-Question: {current_question}
-Answer: "{normalized}"
-Rules for YES: "yes", "yeah", "yep", "sure", "okay", "I am", "I have", "I can", "absolutely"
-Rules for NO: "no", "nope", "not", "don't", "can't", "unavailable"
-Return ONLY "YES" or "NO"."""
-        response = evaluation_llm.invoke(prompt)
-        decision = response.content.strip().upper()
+    knockout_question = state["knockout_questions"][idx]
 
-    print(f"[KQ] Q{current_index + 1} decision: {decision}")
+    # ── Use interpret_response for robust evaluation ──────────────────────────
+    result   = interpret_response(knockout_question, last_message.content, "yes_no")
+    resolved = result["resolved_intent"]
+    print(f"[KQ] interpret result: {result}")
 
-    if decision == "NO":
+    if resolved == "ambiguous":
+        attempts = state["re_ask_attempts"].get(knockout_question, 0) + 1
+        state["re_ask_attempts"][knockout_question] = attempts
+        state["kq_reask_reason"] = result["reask_reason"]
+        print(f"[KQ] Ambiguous attempt {attempts}")
+
+        if attempts >= 3:
+            print(f"[KQ] 3 ambiguous attempts — defaulting to no")
+            state["knockout_answers"][knockout_question] = "no"
+            state["current_knockout_failed"] = True
+            state["re_ask_attempts"].pop(knockout_question, None)
+            state["current_knockout_question_index"] += 1
+            end_message = PASSPORT_CONFIG["knockout_end_messages"].get(
+                knockout_question,
+                "Thank you for your time! Unfortunately we're unable to proceed at this stage."
+            )
+            state["messages"].append(AIMessage(content=end_message))
+        return state
+
+    # ── Clear answer ──────────────────────────────────────────────────────────
+    state["knockout_answers"][knockout_question] = result["clean"]
+    state["re_ask_attempts"].pop(knockout_question, None)
+    state["current_knockout_question_index"] += 1
+
+    if resolved == "no":
         state["current_knockout_failed"] = True
-        # Use passport-specific end message from config
         end_message = PASSPORT_CONFIG["knockout_end_messages"].get(
-            current_question,
+            knockout_question,
             "Thank you for your time! Unfortunately we're unable to proceed at this stage."
         )
         state["messages"].append(AIMessage(content=end_message))
     else:
         state["current_knockout_failed"] = False
-        ack_messages = [
-            "Got it, thank you. ✅",
-            "Great. Let's keep going!"
-        ]
-        ack = ack_messages[current_index] if current_index < len(ack_messages) else ""
+        # Flag caveats for record
+        if result.get("should_flag") and result.get("flag_note"):
+            print(f"[KQ] Caveat noted: {result['flag_note']}")
+
+        ack_messages = ["Got it, thank you. ✅", "Great. Let's keep going!"]
+        ack = ack_messages[idx] if idx < len(ack_messages) else ""
         if ack:
             state["messages"].append(AIMessage(content=ack))
 
     return state
-
 
 def single_knockout_router(state: PassportState) -> Literal["ask_knockout_question", "ask_shift_preference", "__end__"]:
     print("single_knockout_router called")
@@ -500,41 +582,81 @@ def ask_question_node(state: PassportState) -> PassportState:
     idx       = state["current_question_index"]
     questions = state["questions"]
 
-    if idx < len(questions):
-        question   = questions[idx]
-        first_name = state["personal_details"].get("name", "").split()[0] or "there"
+    if idx >= len(questions):
+        return state
 
-        if idx == 0:
-            # First question — no previous answer to acknowledge
-            state["messages"].append(AIMessage(content=question))
-        else:
-            prev_question = questions[idx - 1]
-            prev_answer   = state["answers"].get(prev_question, "")
-            prompt = PASSPORT_SCREENING_ACK_PROMPT.format(
-                question=prev_question,
-                answer=prev_answer,
-                first_name=first_name
-            )
-            ack = llm.invoke(prompt)
-            state["messages"].append(AIMessage(content=ack.content))
-            state["messages"].append(AIMessage(content=question))
+    question   = questions[idx]
+    first_name = state["personal_details"].get("name", "").split()[0] or "there"
+
+    # ── Re-ask with dynamic message ───────────────────────────────────────────
+    if question in state.get("re_ask_attempts", {}):
+        last_human = next(
+            (m for m in reversed(state["messages"]) if isinstance(m, HumanMessage)),
+            None
+        )
+        user_input = last_human.content if last_human else ""
+        reason     = state.get("answer_reask_reason", "gibberish")
+        reask      = generate_reask_message(question, user_input, reason, conversation_history=state["messages"])
+        state["messages"].append(AIMessage(content=reask))
+        return state
+
+    # ── Initial ask ───────────────────────────────────────────────────────────
+    if idx == 0:
+        state["messages"].append(AIMessage(content=question))
+    else:
+        prev_question = questions[idx - 1]
+        prev_answer   = state["answers"].get(prev_question, "")
+        prompt = PASSPORT_SCREENING_ACK_PROMPT.format(
+            question=prev_question,
+            answer=prev_answer,
+            first_name=first_name
+        )
+        ack = llm.invoke(prompt)
+        state["messages"].append(AIMessage(content=ack.content))
+        state["messages"].append(AIMessage(content=question))
 
     return state
 
 
 def store_answer_node(state: PassportState) -> PassportState:
-    """Store screening question answer and increment index."""
+    """Store screening question answer using interpret_response."""
     print("store_answer_node called")
 
     messages     = state["messages"]
     last_message = messages[-1] if messages else None
 
-    if isinstance(last_message, HumanMessage):
-        idx = state["current_question_index"]
-        if idx < len(state["questions"]):
-            question = state["questions"][idx]
-            state["answers"][question] = last_message.content
+    if not isinstance(last_message, HumanMessage):
+        return state
+
+    idx = state["current_question_index"]
+    if idx >= len(state["questions"]):
+        return state
+
+    question = state["questions"][idx]
+
+    # ── Interpret response ────────────────────────────────────────────────────
+    result   = interpret_response(question, last_message.content, "free_text")
+    resolved = result["resolved_intent"]
+    print(f"[ANSWER] interpret result: {result}")
+
+    # ── Ambiguous path ────────────────────────────────────────────────────────
+    if resolved == "ambiguous":
+        state["answer_reask_reason"] = result["reask_reason"]
+        attempts = state["re_ask_attempts"].get(question, 0) + 1
+        state["re_ask_attempts"][question] = attempts
+
+        if attempts >= 3:
+            print(f"[ANSWER] 3 ambiguous attempts — moving on")
+            state["answers"][question] = "unclear"
             state["current_question_index"] += 1
+            state["re_ask_attempts"].pop(question, None)
+
+        return state
+
+    # ── Clear answer ──────────────────────────────────────────────────────────
+    state["answers"][question] = result["clean"]
+    state["current_question_index"] += 1
+    state["re_ask_attempts"].pop(question, None)
 
     return state
 
@@ -546,18 +668,6 @@ def question_router(state: PassportState) -> Literal["ask_question", "ask_email"
     if state["current_question_index"] < len(state["questions"]):
         return "ask_question"
 
-    # All screening Qs done → transition message then email
-    state["messages"].append(AIMessage(content=PASSPORT_PRE_CONTACT_MESSAGE))
-
-    # ── PATCH: screening answers ──────────────────────────────────────────────
-    state["passport_profile"].update({
-        "screening_answers": state.get("answers", {}),
-    })
-    passport_patch(state, "screening_complete", {
-        "PassportProfile": state["passport_profile"]
-    })
-    # ─────────────────────────────────────────────────────────────────────────
-
     return "ask_email"
 
 
@@ -565,6 +675,18 @@ def question_router(state: PassportState) -> Literal["ask_question", "ask_email"
 
 def ask_email_node(state: PassportState) -> PassportState:
     print("ask_email_node called")
+
+    # ── First time here — send transition message + PATCH screening answers ───
+    if not state.get("email_otp_sent") and not state.get("email_validation_failed") and "email_refusal" not in state.get("re_ask_attempts", {}):
+        if not state.get("personal_details", {}).get("email"):
+            state["passport_profile"].update({
+                "screening_answers": state.get("answers", {}),
+            })
+            passport_patch(state, "screening_complete", {
+                "PassportProfile": state["passport_profile"]
+            })
+            state["messages"].append(AIMessage(content=PASSPORT_PRE_CONTACT_MESSAGE))
+    # ─────────────────────────────────────────────────────────────────────────
 
     if state.get("email_validation_failed"):
         if state.get("email_attempt_count", 0) >= 3:
@@ -609,7 +731,6 @@ def store_email_node(state: PassportState) -> PassportState:
 
         # Skip refusal detection if input looks like an email
         if not extract_email_from_text(user_text):
-            from candidate_helpers import interpret_response  # shared utility
             result = interpret_response("Can you provide your email address?", user_text, "yes_no")
             print(f"[EMAIL] Intent: {result['intent']}")
         else:
@@ -903,11 +1024,11 @@ def verify_phone_otp_node(state: PassportState) -> PassportState:
     return state
 
 
-def phone_otp_router(state: PassportState) -> Literal["ask_work_experience", "send_phone_otp", "ask_phone", "ask_phone_otp"]:
+def phone_otp_router(state: PassportState) -> Literal["store_work_experience_response", "send_phone_otp", "ask_phone", "ask_phone_otp"]:
     print("phone_otp_router called")
 
     if state.get("phone_verified"):
-        return "ask_work_experience"
+        return "store_work_experience_response"
 
     messages     = state["messages"]
     last_message = messages[-1] if messages else None
@@ -926,35 +1047,20 @@ def phone_otp_router(state: PassportState) -> Literal["ask_work_experience", "se
 
 # ==================== WORK HISTORY ====================
 
-def ask_work_experience_node(state: PassportState) -> PassportState:
-    print("ask_work_experience_node called")
-    state["messages"].append(AIMessage(content=PASSPORT_ASK_WORK_HISTORY))
-    return state
+# def ask_work_experience_node(state: PassportState) -> PassportState:
+#     print("ask_work_experience_node called")
+#     state["messages"].append(AIMessage(content=PASSPORT_ASK_WORK_HISTORY))
+#     state["show_work_experience_ui"] = True
+#     return state
 
 
 def store_work_experience_response_node(state: PassportState) -> PassportState:
-    """Ask yes/no — if yes, trigger work experience UI."""
+    """trigger work experience UI."""
     print("store_work_experience_response_node called")
+    
+    state["messages"].append(AIMessage(content=PASSPORT_ASK_WORK_HISTORY))
 
-    messages     = state["messages"]
-    last_message = messages[-1] if messages else None
-
-    if isinstance(last_message, HumanMessage):
-        user_input = last_message.content.strip()
-
-        prompt = f"""Evaluate if this answer indicates YES (has work experience) or NO (no/skipping).
-Answer: "{user_input}"
-Return ONLY "YES" or "NO"."""
-        response = llm.invoke(prompt)
-        decision = response.content.strip().upper()
-
-        if decision == "YES":
-            state["show_work_experience_ui"] = True
-            state["messages"].append(AIMessage(
-                content="Please provide your most recent work experience details below."
-            ))
-        else:
-            state["show_work_experience_ui"] = False
+    state["show_work_experience_ui"] = True
 
     return state
 
@@ -1007,13 +1113,12 @@ def store_military_node(state: PassportState) -> PassportState:
         user_text = last_message.content.strip().lower()
 
         if not state.get("military_served"):
-            if any(word in user_text for word in [
-                "yes", "yeah", "yep", "served", "veteran",
-                "army", "navy", "marines", "air force", "coast guard", "national guard"
-            ]):
+            result   = interpret_response(PASSPORT_ASK_MILITARY, last_message.content, "yes_no")
+            resolved = result["resolved_intent"]
+            if resolved == "yes":
                 state["military_served"] = True
             else:
-                state["military_served"]       = False
+                state["military_served"]         = False
                 state["military_follow_up_done"] = True
         else:
             state["military_follow_up_done"] = True
@@ -1236,7 +1341,7 @@ def build_passport_graph(checkpointer):
     workflow.add_node("ask_phone_otp",              ask_phone_otp_node)
     workflow.add_node("verify_phone_otp",           verify_phone_otp_node)
 
-    workflow.add_node("ask_work_experience",        ask_work_experience_node)
+    # workflow.add_node("ask_work_experience",        ask_work_experience_node)
     workflow.add_node("store_work_experience_response", store_work_experience_response_node)
 
     workflow.add_node("ask_education",              ask_education_node)
@@ -1261,7 +1366,7 @@ def build_passport_graph(checkpointer):
 
     # Name
     workflow.add_edge("ask_name", "store_name")
-    workflow.add_edge("store_name", "ask_knockout_question")
+    workflow.add_conditional_edges("store_name", name_router)
 
     # Knockout loop
     workflow.add_edge("ask_knockout_question", "store_kq_answer")
@@ -1295,7 +1400,7 @@ def build_passport_graph(checkpointer):
     workflow.add_conditional_edges("verify_phone_otp", phone_otp_router)
 
     # Work history
-    workflow.add_edge("ask_work_experience", "store_work_experience_response")
+    # workflow.add_edge("ask_work_experience", "store_work_experience_response")
     workflow.add_edge("store_work_experience_response", "ask_education")
 
     # Education
@@ -1328,7 +1433,6 @@ def build_passport_graph(checkpointer):
             "ask_phone",
             "ask_phone_otp",
             "ask_id_verification",
-            "ask_work_experience",
             "store_work_experience_response",
             "ask_education",
             "ask_military",

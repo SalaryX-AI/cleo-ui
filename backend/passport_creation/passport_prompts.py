@@ -18,8 +18,7 @@ PASSPORT_GREETING_BUBBLE_2 = (
 
 PASSPORT_GREETING_BUBBLE_3 = (
     "Before we start, your privacy is our priority: Your Work Passport remains completely private. "
-    "Nothing is shared with any employer unless you give explicit permission.\n\n"
-    "☐ I understand and agree that my information will only be shared with employers I authorize."
+    "Nothing is shared with any employer unless you give explicit permission."
 )
 
 # ── Post-name acknowledgement ─────────────────────────────────────────────────
@@ -53,8 +52,7 @@ PASSPORT_SHIFT_NONE_SELECTED = (
 
 PASSPORT_ASK_LOCATION = (
     "Let's make sure we find opportunities close to home. "
-    "What is your current city/state or ZIP code, and what is your preferred way to commute? "
-    "(e.g., driving, public transit, or other)"
+    "What is your current city/state or ZIP code, "
 )
 
 PASSPORT_LOCATION_CONFIRMED_PROMPT = PromptTemplate(

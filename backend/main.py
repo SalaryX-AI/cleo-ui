@@ -722,27 +722,32 @@ async def passport_websocket_endpoint(websocket: WebSocket, session_id: str):
                 show_id_verify_ui               = False,
                 re_ask_attempts                 = {},
                 answer_reask_reason             = "",
+                kq_reask_reason                 = "",
+                show_privacy_consent_ui         = False
             )
 
             # Stream initial graph run (greeting bubbles)
             async for event in passport_graph_app.astream(initial_state, config=config, stream_mode="updates"):
                 for node_name, node_data in event.items():
-                    if node_name in {"ask_name", "store_privacy_consent"}:
+                    if node_name in {"ask_name"}:
                         continue
                     if node_data and "messages" in node_data:
                         messages = node_data["messages"]
 
                         # Greeting: send all 3 bubbles with stagger
                         if node_name == "passport_greeting":
-                            for msg in messages[-3:]:
+                            bubbles = messages[-3:]
+                            for i, msg in enumerate(bubbles):
                                 if isinstance(msg, AIMessage):
                                     await websocket.send_json({"type": "typing"})
                                     await asyncio.sleep(0.8)
                                     await asyncio.sleep(1.2)
+                                    is_last = (i == len(bubbles) - 1)
                                     await websocket.send_json({
-                                        "type":        "ai_message",
-                                        "content":     msg.content,
-                                        "messageType": "intro",
+                                        "type":                   "ai_message",
+                                        "content":                msg.content,
+                                        "messageType":            "intro",
+                                        "show_privacy_consent_ui": is_last and node_data.get("show_privacy_consent_ui", False),
                                     })
                         else:
                             msg = messages[-1]
@@ -955,7 +960,7 @@ async def passport_websocket_endpoint(websocket: WebSocket, session_id: str):
                     print(f"[PASSPORT NODE] {node_name}")
 
                     # Nodes that don't add new messages — skip
-                    if node_name in {"ask_name", "privacy_router"}:
+                    if node_name in {"privacy_router", "name_router"}:
                         continue
 
                     if node_data and "messages" in node_data:
@@ -975,6 +980,20 @@ async def passport_websocket_endpoint(websocket: WebSocket, session_id: str):
                                         "messageType":      "body",
                                         "show_id_verify_ui": is_last,
                                         "id_verify_link":   node_data.get("id_verify_link", "") if is_last else "",
+                                    })
+                            continue
+
+                        # passport_summary sends 4 wrap-up bubbles — send all
+                        if node_name == "passport_summary":
+                            for msg in messages[-4:]:
+                                if isinstance(msg, AIMessage):
+                                    await websocket.send_json({"type": "typing"})
+                                    await asyncio.sleep(0.8)
+                                    await asyncio.sleep(1.0)
+                                    await websocket.send_json({
+                                        "type":        "ai_message",
+                                        "content":     msg.content,
+                                        "messageType": "body",
                                     })
                             continue
 

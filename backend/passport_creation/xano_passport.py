@@ -30,6 +30,8 @@ def create_passport_record(session_id: str, is_live: bool) -> int:
     Name/email/phone are empty at this point — PATCHed after phone OTP verified.
     Returns passport_id (int) or 0 on failure.
     """
+
+    
     payload = {
         "Name":             "",
         "Email":            "",
@@ -74,6 +76,8 @@ def update_passport_section(
     PassportProfile is always the full accumulated dict — never partial.
     Returns True on success, False on failure.
     """
+
+    print(f"[PASSPORT] PATCH '{section}' for passport_id {passport_id} — data: {data}")
     if not passport_id:
         print(f"[PASSPORT] PATCH skipped — no passport_id")
         return False

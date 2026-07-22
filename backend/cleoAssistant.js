@@ -689,6 +689,10 @@ document.head.appendChild(link);
                 {
                     ShiftPreferenceUI.show();
                 }
+                else if (data.show_privacy_consent_ui)
+                {
+                    PrivacyConsentUI.show();
+                }
                 // Show GPS verification button
                 else if (data.show_gps_ui) 
                 {
@@ -1048,6 +1052,90 @@ document.head.appendChild(link);
     };
     // ── End ShiftPreferenceUI ─────────────────────────────────────────────────
 
+
+    // ── Privacy Consent UI (passport mode) ───────────────────────────────────
+    const PrivacyConsentUI = {
+
+        show() {
+            const messagesDiv = document.getElementById('chatbot-messages');
+            const container   = document.createElement('div');
+            container.id      = 'privacy-consent-ui';
+
+            container.innerHTML = `
+                <style>
+                    #privacy-consent-ui {
+                        margin: 12px 0;
+                        padding: 16px;
+                        background: #f7f7fa;
+                        border-radius: 14px;
+                        border: 1px solid rgba(102,126,234,0.15);
+                    }
+                    .consent-label {
+                        display: flex;
+                        align-items: flex-start;
+                        gap: 12px;
+                        cursor: pointer;
+                        font-size: 13px;
+                        line-height: 1.5;
+                        color: #333;
+                        user-select: none;
+                    }
+                    .consent-checkbox {
+                        width: 18px;
+                        height: 18px;
+                        accent-color: #667eea;
+                        flex-shrink: 0;
+                        margin-top: 2px;
+                        cursor: pointer;
+                    }
+                </style>
+                <label class="consent-label">
+                    <input type="checkbox" class="consent-checkbox" id="privacy-checkbox" />
+                    I understand and agree that my information will only be shared with employers I authorize.
+                </label>
+            `;
+
+            messagesDiv.appendChild(container);
+            messagesDiv.scrollTo({ top: messagesDiv.scrollHeight, behavior: 'smooth' });
+            window.CleoChatbot.disableInput();
+
+            // Auto-submit on checkbox click
+            document.getElementById('privacy-checkbox').addEventListener('change', function() {
+                if (this.checked) {
+                    // Brief visual feedback
+                    this.disabled = true;
+                    setTimeout(() => {
+                        PrivacyConsentUI.submit();
+                    }, 300);
+                }
+            });
+        },
+
+        submit() {
+            // Show as user bubble
+            window.CleoChatbot.addMessage('✅ I agree', false, 'body');
+
+            // Send to backend
+            if (window.CleoChatbot && window.CleoChatbot.ws) {
+                window.CleoChatbot.ws.send(JSON.stringify({
+                    type:    'user_message',
+                    content: 'I agree'
+                }));
+            }
+
+            this.hide();
+            window.CleoChatbot.enableInput();
+        },
+
+        hide() {
+            const ui = document.getElementById('privacy-consent-ui');
+            if (ui) ui.remove();
+        }
+    };
+    // ── End PrivacyConsentUI ──────────────────────────────────────────────────
+
+
+    
     // ─────────────────────────────────────────────────────────────────────────
     //  Work Experience UI Component - Multiple Jobs Support
     // ─────────────────────────────────────────────────────────────────────────
