@@ -1290,11 +1290,10 @@ def passport_summary_node(state: PassportState) -> PassportState:
     )
     # ─────────────────────────────────────────────────────────────────────────
 
-    # W1–W4 wrap-up bubbles
+    # W1–W3 wrap-up bubbles
     state["messages"].append(AIMessage(content=PASSPORT_WRAP_W1))
     state["messages"].append(AIMessage(content=PASSPORT_WRAP_W2))
     state["messages"].append(AIMessage(content=PASSPORT_WRAP_W3))
-    state["messages"].append(AIMessage(content=PASSPORT_WRAP_W4))
 
     return state
 

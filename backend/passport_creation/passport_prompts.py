@@ -117,18 +117,11 @@ PASSPORT_WRAP_W1 = (
 )
 
 PASSPORT_WRAP_W2 = (
-    "I've texted a secure access link directly to your mobile phone. "
-    "When you open it, you'll see your verified skills dashboard. "
-    "You can copy-paste or text this link directly to any active Hiring Manager to apply on the spot."
+    "Here is the link to access your Candidate Passport: https://app.cleohr.com/auth\n\n"
+    "You can tap it anytime to view your verified skills dashboard, or copy and text it directly to hiring managers to apply on the spot!"
 )
 
 PASSPORT_WRAP_W3 = (
-    "Our automated matching system is already sharing your Passport data with top-tier openings "
-    "matching your schedule in your immediate area. "
-    "Keep an eye on your phone and email for direct interview invites!"
-)
-
-PASSPORT_WRAP_W4 = (
     "Thank you for letting Cleo help build your career pathway. Goodbye and good luck! 🍀"
 )
 

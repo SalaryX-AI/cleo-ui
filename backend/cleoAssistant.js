@@ -768,7 +768,12 @@ document.head.appendChild(link);
             }
             
             if (isBot) {
-                messageBubble.innerHTML = content;
+                // Convert URLs to clickable links
+                const linkedContent = content.replace(
+                    /(https?:\/\/[^\s]+)/g,
+                    '<a href="$1" target="_blank" rel="noopener noreferrer" style="color:#667eea;text-decoration:underline;word-break:break-all;">$1</a>'
+                );
+                messageBubble.innerHTML = linkedContent;
             } 
             else {
                 messageBubble.textContent = content;
