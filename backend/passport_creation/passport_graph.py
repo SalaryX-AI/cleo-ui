@@ -100,7 +100,7 @@ class PassportState(MessagesState):
     is_live:         bool = False
 
     # ── Passport record ───────────────────────────────────────────────────────
-    passport_id:     int  = 0       # Xano passport record ID (set after POST)
+    passport_id:     str  = ""     # Xano passport record ID (set after POST)
     passport_link:   str  = ""      # Shareable link returned by Xano on POST
 
     # ── Accumulated passport profile (built section by section) ───────────────
@@ -556,17 +556,15 @@ If commute is unclear use "not specified"."""
 
         # ── PATCH: KQ answers + shift preferences + location ─────────────────
         state["passport_profile"].update({
-            "eligibility": {
-                q: a for q, a in state.get("knockout_answers", {}).items()
-            },
-            "shift_preferences": state.get("shift_preferences", []),
-            "location": state["address"],
-            "commute_method": state["commute_method"],
+                    "eligibility":     {q: a for q, a in state.get("knockout_answers", {}).items()},
+                    "shift_prefrence": state.get("shift_preferences", []),
+                    "location":        state["address"],
+                    "commute_method":  state["commute_method"],
         })
         passport_patch(state, "location_complete", {
-            "ShiftPreferences": state["shift_preferences"],
-            "Location":         state["address"],
-            "PassportProfile":  state["passport_profile"],
+                    "shift_prefrence":  state["shift_preferences"],
+                    "location":         state["address"],
+                    "passport_profile": state["passport_profile"],
         })
         # ─────────────────────────────────────────────────────────────────────
 
@@ -683,7 +681,7 @@ def ask_email_node(state: PassportState) -> PassportState:
                 "screening_answers": state.get("answers", {}),
             })
             passport_patch(state, "screening_complete", {
-                "PassportProfile": state["passport_profile"]
+                "passport_profile": state["passport_profile"]
             })
             state["messages"].append(AIMessage(content=PASSPORT_PRE_CONTACT_MESSAGE))
     # ─────────────────────────────────────────────────────────────────────────
@@ -1001,9 +999,9 @@ def verify_phone_otp_node(state: PassportState) -> PassportState:
 
             # ── PATCH: name, email, phone now confirmed ───────────────────────
             passport_patch(state, "contact_details", {
-                "Name":  state["personal_details"].get("name", ""),
-                "Email": state["personal_details"].get("email", ""),
-                "Phone": state["personal_details"].get("phone", ""),
+                "name":  state["personal_details"].get("name", ""),
+                "email": state["personal_details"].get("email", ""),
+                "phone": state["personal_details"].get("phone", ""),
             })
             # ─────────────────────────────────────────────────────────────────
         else:
@@ -1143,7 +1141,7 @@ def store_military_node(state: PassportState) -> PassportState:
                 "military_details": state.get("military_details", {}),
             })
             passport_patch(state, "work_history_complete", {
-                "PassportProfile": state["passport_profile"]
+                "passport_profile": state["passport_profile"]
             })
         # ─────────────────────────────────────────────────────────────────────
 
@@ -1282,13 +1280,11 @@ def passport_summary_node(state: PassportState) -> PassportState:
 
     # ── Final PATCH ───────────────────────────────────────────────────────────
     update_passport_section(
-        passport_id = state.get("passport_id", 0),
+        passport_id = state.get("passport_id", ""),
         section     = "final",
         data        = {
-            "Score":          int(fit_score),
-            "Status":         "Active",
-            "PassportProfile": state["passport_profile"],
-            "passport_link":  state.get("passport_link", ""),
+            "score":           int(fit_score),
+            "passport_profile": state["passport_profile"],
         },
         is_live = state.get("is_live", False)
     )

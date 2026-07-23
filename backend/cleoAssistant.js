@@ -334,16 +334,16 @@ document.head.appendChild(link);
             chatContainer.className = 'chat-container';
             
             const positions = {
-                'bottom-right': 'bottom: 90px; right: 20px;',
-                'bottom-left': 'bottom: 90px; left: 20px;'
+                'bottom-right': 'top: 50%; right: 20px; transform: translateY(-50%);',
+                'bottom-left': 'top: 50%; left: 20px; transform: translateY(-50%);'
             };
             
             // Position and size need to be inline (dynamic)
             chatContainer.style.cssText = `
                 position: fixed;
                 ${positions[this.config.position]}
-                width: 500px;
-                height: 540px;
+                width: 520px;
+                height: 590px;
                 border-radius: 16px;
                 box-shadow: 0 12px 48px rgba(0,0,0,0.3);
                 z-index: 999998;
@@ -444,9 +444,9 @@ document.head.appendChild(link);
                     }
                 </style>
                     
-                <div style="height: 100%; display: flex; flex-direction: column; background: white; border-radius: 16px; overflow: hidden;">
+                <div style="height: 100%; display: flex; flex-direction: column; background: white; border-radius: 10px; overflow: hidden;">
                     <!-- Header -->
-                    <div id="cleo-chat-header">
+                    <div id="cleo-chat-header" style="height: 9%;">
                         <div style="flex: 1;">
                             <div class="title">Cleo Assistant</div>
                             <div id="chatbot-status-text" class="status">Connecting...</div>
@@ -458,7 +458,7 @@ document.head.appendChild(link);
                     <div id="chatbot-messages"></div>
                     
                     <!-- Input Area -->
-                    <div style="padding: 16px; background: white; border-top: 1px solid #e5e7eb; display: flex; gap: 10px; align-items: center;">
+                    <div style="padding: 8px 12px; background: white; border-top: 1px solid #e5e7eb; display: flex; gap: 8px; align-items: center;">
                         <input type="text" id="chatbot-input" placeholder="Type your message..." disabled>
                         <button id="chatbot-send" disabled>Send</button>
                     </div>
@@ -774,14 +774,15 @@ document.head.appendChild(link);
                 messageBubble.textContent = content;
             }
             
-            // Create timestamp
-            const timestamp = document.createElement('div');
-            timestamp.className = 'message-timestamp';
-            timestamp.textContent = timeString;
+            // // Create timestamp
+            // const timestamp = document.createElement('div');
+            // timestamp.className = 'message-timestamp';
+            // timestamp.textContent = timeString;
             
             // Append elements
             messageContainer.appendChild(messageBubble);
-            messageContainer.appendChild(timestamp);
+            // messageContainer.appendChild(timestamp);
+            
             messagesDiv.appendChild(messageContainer);
             
             if (messageType === 'intro' || messageType === 'questions') 
@@ -1135,7 +1136,7 @@ document.head.appendChild(link);
     // ── End PrivacyConsentUI ──────────────────────────────────────────────────
 
 
-    
+
     // ─────────────────────────────────────────────────────────────────────────
     //  Work Experience UI Component - Multiple Jobs Support
     // ─────────────────────────────────────────────────────────────────────────

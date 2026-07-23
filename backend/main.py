@@ -670,7 +670,7 @@ async def passport_websocket_endpoint(websocket: WebSocket, session_id: str):
                 messages                        = [],
                 session_id                      = session_id,
                 is_live                         = is_live,
-                passport_id                     = 0,
+                passport_id                     = "",
                 passport_link                   = "",
                 passport_profile                = {},
                 privacy_consented               = False,

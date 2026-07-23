@@ -8,8 +8,8 @@ import requests
 
 # ── Endpoints ─────────────────────────────────────────────────────────────────
 # CTO to confirm final URL once passport table is created in Xano
-XANO_PASSPORT_POST_URL  = "https://xoho-w3ng-km3o.n7e.xano.io/api:6skoiMBa/passport_api"
-XANO_PASSPORT_PATCH_URL = "https://xoho-w3ng-km3o.n7e.xano.io/api:6skoiMBa/passport/{passport_id}"
+XANO_PASSPORT_POST_URL  = "https://xoho-w3ng-km3o.n7e.xano.io/api:J0eY2LVM/passport_profiles"
+XANO_PASSPORT_PATCH_URL = "https://xoho-w3ng-km3o.n7e.xano.io/api:J0eY2LVM/passport_profiles/{passport_profiles_id}"
 
 
 # ── Headers ───────────────────────────────────────────────────────────────────
@@ -17,32 +17,29 @@ XANO_PASSPORT_PATCH_URL = "https://xoho-w3ng-km3o.n7e.xano.io/api:6skoiMBa/passp
 def _passport_headers(is_live: bool) -> dict:
     return {
         "Content-Type": "application/json",
-        "x-api-key": "sk_test_51QxA9F7C2E8B4D1A6F9C3E7B2A",
-        "X-Data-Source": "live" if is_live else "test",
+        "X-Data-Source": "live",
     }
 
 
 # ── POST — Create passport record ─────────────────────────────────────────────
 
-def create_passport_record(session_id: str, is_live: bool) -> int:
+def create_passport_record(session_id: str, is_live: bool) -> str:
     """
     POST initial passport record at ask_address_node.
     Name/email/phone are empty at this point — PATCHed after phone OTP verified.
-    Returns passport_id (int) or 0 on failure.
+    Returns passport_id (str) or "" on failure.
     """
 
-    
     payload = {
-        "Name":             "",
-        "Email":            "",
-        "Phone":            "",
-        "session_id":       100,
-        "my_session_id":    session_id,
-        "Status":           "Passport Created",
-        "Score":            0,
-        "PassportProfile":  {},
-        "ShiftPreferences": [],
-        "Location":         {},
+        "name":            "",
+        "email":           "",
+        "phone":           "",
+        "session_id":      100,
+        "my_session_id":   session_id,
+        "score":           0,
+        "passport_profile": {},
+        "shift_prefrence": [],
+        "location":        {},
     }
 
     try:
@@ -51,21 +48,25 @@ def create_passport_record(session_id: str, is_live: bool) -> int:
             json=payload,
             headers=_passport_headers(is_live)
         )
+        print(f"[PASSPORT] POST response: {resp.status_code} — {resp.text}")
         if resp.status_code == 200:
-            passport_id = resp.json().get("id", 0)
+            response_data = resp.json()
+            print(f"[PASSPORT] POST response data: {response_data}")
+            passport_id = response_data.get("id", response_data.get("_id", 0))
             print(f"[PASSPORT] Record created — ID: {passport_id}")
             return passport_id
+        
         print(f"[PASSPORT] POST failed: {resp.status_code} — {resp.text}")
-        return 0
+        return ""
     except Exception as e:
         print(f"[PASSPORT] POST error: {e}")
-        return 0
+        return ""
 
 
 # ── PATCH — Update passport section ──────────────────────────────────────────
 
 def update_passport_section(
-    passport_id: int,
+    passport_id: str,
     section: str,
     data: dict,
     is_live: bool
@@ -82,8 +83,8 @@ def update_passport_section(
         print(f"[PASSPORT] PATCH skipped — no passport_id")
         return False
 
-    url = XANO_PASSPORT_PATCH_URL.format(passport_id=passport_id)
-    payload = {"passport_id": passport_id, **data}
+    url = XANO_PASSPORT_PATCH_URL.format(passport_profiles_id=passport_id)
+    payload = {"passport_profiles_id": passport_id, **data}
 
     try:
         resp = requests.patch(
@@ -94,6 +95,7 @@ def update_passport_section(
         if resp.status_code == 200:
             print(f"[PASSPORT] Section '{section}' saved — passport {passport_id}")
             return True
+        
         print(f"[PASSPORT] PATCH failed ({section}): {resp.status_code} — {resp.text}")
         return False
     except Exception as e:
