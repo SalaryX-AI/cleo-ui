@@ -682,7 +682,11 @@ document.head.appendChild(link);
                 // Show address autocomplete UI
                 else if (data.show_address_ui) 
                 {
-                    AddressUI.show();
+                    if (data.passport_address_mode) {
+                        PassportLocationUI.show();
+                    } else {
+                        AddressUI.show();
+                    }
                 }
                 // Show shift preference checkboxes (passport mode only)
                 else if (data.show_shift_ui)
@@ -885,6 +889,251 @@ document.head.appendChild(link);
         }
     };
 
+    // ── Passport Location UI (ZIP / city only) ────────────────────────────────
+    const PassportLocationUI = {
+
+        render() {
+            const container = document.createElement('div');
+            container.id = 'passport-location-ui';
+
+            container.innerHTML = `
+                <style>
+                    #passport-location-ui {
+                        margin: 8px 0;
+                        padding: 10px;
+                        background: #f7f7fa;
+                        border-radius: 14px;
+                        border: 1px solid rgba(102,126,234,0.15);
+                    }
+                    .ploc-label {
+                        font-size: 12px;
+                        font-weight: 600;
+                        color: #4a4a55;
+                        margin-bottom: 8px;
+                        display: block;
+                    }
+                    .ploc-input {
+                        width: 100%;
+                        padding: 8px 12px;
+                        border: 1.5px solid #e0e0e8;
+                        border-radius: 10px;
+                        font-size: 13px;
+                        font-family: inherit;
+                        outline: none;
+                        margin-bottom: 8px;
+                        box-sizing: border-box;
+                        transition: border-color 0.15s;
+                    }
+                    .ploc-input:focus {
+                        border-color: #667eea;
+                    }
+                    .ploc-confirm-btn {
+                        width: 100%;
+                        padding: 8px;
+                        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+                        color: #ffffff !important;
+                        border: none;
+                        border-radius: 10px;
+                        font-size: 13px;
+                        font-weight: 600;
+                        cursor: pointer;
+                        font-family: inherit;
+                        transition: opacity 0.2s;
+                        -webkit-text-fill-color: #ffffff;
+                    }
+                    .ploc-confirm-btn:disabled {
+                        background: #ccc;
+                        cursor: not-allowed;
+                    }
+                    .ploc-confirm-btn:hover:not(:disabled) {
+                        opacity: 0.9;
+                    }
+                    .ploc-suggestion {
+                        padding: 8px 12px;
+                        font-size: 12px;
+                        cursor: pointer;
+                        border-bottom: 1px solid #f0f0f5;
+                        color: #333;
+                        transition: background 0.1s;
+                    }
+                    .ploc-suggestion:last-child {
+                        border-bottom: none;
+                    }
+                    .ploc-suggestion:hover {
+                        background: rgba(102,126,234,0.08);
+                    }
+                </style>
+
+                <span class="ploc-label">Enter your city/state or ZIP code 📍</span>
+                <input
+                    type="text"
+                    class="ploc-input"
+                    id="ploc-input"
+                    placeholder="e.g. Miami, FL or 33101"
+                    maxlength="100"
+                    autocomplete="off"
+                />
+                <div id="ploc-suggestions" style="
+                    display: none;
+                    background: #fff;
+                    border: 1.5px solid #e0e0e8;
+                    border-radius: 10px;
+                    margin-bottom: 8px;
+                    overflow: hidden;
+                    max-height: 160px;
+                    overflow-y: auto;
+                "></div>
+                <button class="ploc-confirm-btn" id="ploc-confirm-btn" disabled>
+                    Confirm Location
+                </button>
+            `;
+
+            return container;
+        },
+
+        attachEventListeners() {
+            const input         = document.getElementById('ploc-input');
+            const confirmBtn    = document.getElementById('ploc-confirm-btn');
+            const suggBox       = document.getElementById('ploc-suggestions');
+            const sessionToken  = crypto.randomUUID();
+            let selectedPlace   = null;
+
+            input.addEventListener('input', async () => {
+                const query = input.value.trim();
+                confirmBtn.disabled = query.length < 2;
+                selectedPlace = null;
+
+                if (query.length < 2) {
+                    suggBox.innerHTML = '';
+                    suggBox.style.display = 'none';
+                    return;
+                }
+
+                try {
+                    const resp = await fetch(
+                        `${window.apiBaseUrl}/places/autocomplete?input=${encodeURIComponent(query)}&session_token=${sessionToken}&types=(cities)`
+                    );
+                    const data = await resp.json();
+                    const predictions = data.predictions || [];
+
+                    if (!predictions.length) {
+                        suggBox.style.display = 'none';
+                        return;
+                    }
+
+                    // Format display: show only city, state/country — not full street
+                    const formatLocation = (description) => {
+                        const parts = description.split(',').map(p => p.trim());
+                        // Return first 2-3 parts (city, state, country)
+                        return parts.slice(0, 3).join(', ');
+                    };
+
+                    suggBox.innerHTML = predictions.map(p => `
+                        <div class="ploc-suggestion" data-place-id="${p.place_id}" data-description="${formatLocation(p.description)}">
+                            📍 ${formatLocation(p.description)}
+                        </div>
+                    `).join('');
+                    
+                    suggBox.style.display = 'block';
+
+                    suggBox.querySelectorAll('.ploc-suggestion').forEach(item => {
+                        item.addEventListener('click', async () => {
+                            const placeId     = item.getAttribute('data-place-id');
+                            const description = item.getAttribute('data-description');
+                            input.value       = description;
+                            suggBox.innerHTML  = '';
+                            suggBox.style.display = 'none';
+                            confirmBtn.disabled   = false;
+
+                            // Fetch place details for lat/lng
+                            try {
+                                const detResp = await fetch(
+                                    `${window.apiBaseUrl}/places/details?place_id=${placeId}`
+                                );
+                                selectedPlace = await detResp.json();
+                            } catch {
+                                selectedPlace = { full: description };
+                            }
+                        });
+                    });
+                } catch {
+                    suggBox.style.display = 'none';
+                }
+            });
+
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && !confirmBtn.disabled) this.submit(selectedPlace, input.value);
+            });
+
+            confirmBtn.addEventListener('click', () => this.submit(selectedPlace, input.value));
+        },
+
+        submit(selectedPlace, rawInput) {
+            const location = (rawInput || document.getElementById('ploc-input')?.value || '').trim();
+
+            if (!location) return;
+
+            // Show as user bubble
+            window.CleoChatbot.addMessage(location, false, 'body');
+
+            // Build address payload from selected place or raw text
+            const addressData = selectedPlace ? {
+                full:   selectedPlace.full   || location,
+                city:   selectedPlace.city   || location,
+                state:  selectedPlace.state  || '',
+                zip:    selectedPlace.zip    || '',
+                street: '',
+                lat:    selectedPlace.lat    || 0,
+                lng:    selectedPlace.lng    || 0,
+            } : {
+                full:   location,
+                city:   location,
+                street: '',
+                state:  '',
+                zip:    '',
+                lat:    0,
+                lng:    0,
+            };
+
+            if (window.CleoChatbot && window.CleoChatbot.ws) {
+                window.CleoChatbot.ws.send(JSON.stringify({
+                    type: 'address_data',
+                    data: addressData,
+                }));
+            }
+
+            window.dispatchEvent(new CustomEvent('passportUpdate', {
+                detail: { location: location }
+            }));
+
+            this.hide();
+        },
+
+        show() {
+            const messagesDiv = document.getElementById('chatbot-messages');
+            const ui          = this.render();
+            messagesDiv.appendChild(ui);
+            this.attachEventListeners();
+            messagesDiv.scrollTo({
+                top:      messagesDiv.scrollTop + (messagesDiv.clientHeight / 2),
+                behavior: 'smooth'
+            });
+            window.CleoChatbot.disableInput();
+
+            // Auto-focus input
+            setTimeout(() => {
+                const input = document.getElementById('ploc-input');
+                if (input) input.focus();
+            }, 100);
+        },
+
+        hide() {
+            const ui = document.getElementById('passport-location-ui');
+            if (ui) ui.remove();
+            window.CleoChatbot.enableInput();
+        }
+    };
+    // ── End PassportLocationUI ────────────────────────────────────────────────
 
     // ── Shift Preference UI (passport mode) ──────────────────────────────────
     const ShiftPreferenceUI = {
@@ -896,8 +1145,8 @@ document.head.appendChild(link);
             container.innerHTML = `
                 <style>
                     #shift-preference-ui {
-                        margin: 12px 0;
-                        padding: 16px;
+                        margin: 8px 0;
+                        padding: 10px;
                         background: #f7f7fa;
                         border-radius: 14px;
                         border: 1px solid rgba(102,126,234,0.15);
@@ -921,8 +1170,8 @@ document.head.appendChild(link);
                     .shift-option {
                         display: flex;
                         align-items: center;
-                        gap: 8px;
-                        padding: 10px 14px;
+                        gap: 6px;
+                        padding: 7px 10px;
                         background: #fff;
                         border: 2px solid #e0e0e8;
                         border-radius: 10px;
@@ -949,12 +1198,12 @@ document.head.appendChild(link);
 
                     .shift-confirm-btn {
                         width: 100%;
-                        padding: 12px;
+                        padding: 8px;
                         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
                         color: white;
                         border: none;
                         border-radius: 12px;
-                        font-size: 14px;
+                        font-size: 13px;
                         font-weight: 600;
                         cursor: pointer;
                         transition: opacity 0.2s, transform 0.12s;
@@ -1072,8 +1321,8 @@ document.head.appendChild(link);
             container.innerHTML = `
                 <style>
                     #privacy-consent-ui {
-                        margin: 12px 0;
-                        padding: 16px;
+                        margin: 8px 0;
+                        padding: 10px;
                         background: #f7f7fa;
                         border-radius: 14px;
                         border: 1px solid rgba(102,126,234,0.15);
@@ -1081,9 +1330,9 @@ document.head.appendChild(link);
                     .consent-label {
                         display: flex;
                         align-items: flex-start;
-                        gap: 12px;
+                        gap: 8px;
                         cursor: pointer;
-                        font-size: 13px;
+                        font-size: 12px;
                         line-height: 1.5;
                         color: #333;
                         user-select: none;
@@ -1177,8 +1426,8 @@ document.head.appendChild(link);
                     .work-exp-container {
                         background: #f0f0f5;
                         border-radius: 16px;
-                        padding: 20px;
-                        margin: 16px 0;
+                        padding: 12px;
+                        margin: 8px 0;
                         animation: slideDown 0.3s ease-out;
                     }
                     
@@ -1231,9 +1480,9 @@ document.head.appendChild(link);
                     .work-exp-card {
                         position: relative;
                         background: white;
-                        border-radius: 12px;
-                        padding: 12px;
-                        margin-bottom: 10px;
+                        border-radius: 10px;
+                        padding: 8px;
+                        margin-bottom: 6px;
                         display: flex;
                         align-items: center;
                         gap: 12px;
@@ -1242,7 +1491,7 @@ document.head.appendChild(link);
                     
                     .work-exp-logo {
                         width: 40px;
-                        height: 40px;
+                        height: 28px;
                         background: #667eea;
                         border-radius: 50%;
                         display: flex;
@@ -1250,7 +1499,7 @@ document.head.appendChild(link);
                         justify-content: center;
                         color: white;
                         font-weight: bold;
-                        font-size: 18px;
+                        font-size: 14px;
                         flex-shrink: 0;
                     }
                     
@@ -1276,9 +1525,9 @@ document.head.appendChild(link);
                     
                     .work-exp-form {
                         background: white;
-                        border-radius: 12px;
-                        padding: 16px;
-                        margin-bottom: 16px;
+                        border-radius: 10px;
+                        padding: 10px;
+                        margin-bottom: 10px;
                     }
 
                     .work-exp-form-heading {
@@ -1296,7 +1545,7 @@ document.head.appendChild(link);
                     
                     .work-exp-label {
                         display: block;
-                        font-size: 13px;
+                        font-size: 12px;
                         font-weight: 500;
                         color: #555;
                         margin-bottom: 6px;
@@ -1312,10 +1561,10 @@ document.head.appendChild(link);
                     .work-exp-input,
                     .work-exp-select {
                         width: 100%;
-                        padding: 10px 12px;
+                        padding: 7px 10px;
                         border: 1px solid #ddd;
                         border-radius: 8px;
-                        font-size: 14px;
+                        font-size: 12px;
                         font-family: inherit;
                         transition: border-color 0.2s;
                     }
@@ -1328,7 +1577,7 @@ document.head.appendChild(link);
                     
                     .work-exp-voice-btn {
                         width: 36px;
-                        height: 36px;
+                        height: 28px;
                         background: #f5f5f5;
                         border: 1px solid #ddd;
                         border-radius: 8px;
@@ -1347,7 +1596,7 @@ document.head.appendChild(link);
                     .work-exp-date-group {
                         display: grid;
                         grid-template-columns: 1fr 1fr;
-                        gap: 12px;
+                        gap: 8px;
                     }
                     
                     .work-exp-buttons {
@@ -1358,10 +1607,10 @@ document.head.appendChild(link);
                     
                     .work-exp-btn {
                         flex: 1;
-                        padding: 12px;
+                        padding: 8px;
                         border: none;
                         border-radius: 10px;
-                        font-size: 14px;
+                        font-size: 12px;
                         font-weight: 600;
                         cursor: pointer;
                         transition: all 0.2s;
@@ -1724,9 +1973,9 @@ document.head.appendChild(link);
             messagesDiv.appendChild(ui);
             this.attachEventListeners();
             
-            // Scroll to show UI
+            // Scroll halfway to show UI without going to bottom
             messagesDiv.scrollTo({
-                top: messagesDiv.scrollHeight,
+                top: messagesDiv.scrollTop + (messagesDiv.clientHeight / 2),
                 behavior: 'smooth'
             });
             
@@ -1785,8 +2034,8 @@ document.head.appendChild(link);
                     .education-container {
                         background: #f0f0f5;
                         border-radius: 16px;
-                        padding: 20px;
-                        margin: 16px 0;
+                        padding: 12px;
+                        margin: 8px 0;
                         animation: slideDown 0.3s ease-out;
                     }
                     @keyframes slideDown {
@@ -1795,9 +2044,9 @@ document.head.appendChild(link);
                     }
                     .edu-option {
                         background: white;
-                        border-radius: 12px;
-                        padding: 14px 16px;
-                        margin-bottom: 10px;
+                        border-radius: 10px;
+                        padding: 8px 12px;
+                        margin-bottom: 6px;
                         display: flex;
                         align-items: center;
                         gap: 12px;
@@ -1816,7 +2065,7 @@ document.head.appendChild(link);
                     }
                     .edu-checkbox {
                         width: 20px;
-                        height: 20px;
+                        height: 16px;
                         border: 2px solid #999;
                         border-radius: 4px;
                         display: flex;
@@ -1831,7 +2080,7 @@ document.head.appendChild(link);
                     }
                     .edu-checkbox-icon {
                         color: white;
-                        font-size: 14px;
+                        font-size: 12px;
                         font-weight: bold;
                         display: none;
                     }
@@ -1840,7 +2089,7 @@ document.head.appendChild(link);
                     }
                     .edu-label {
                         flex: 1;
-                        font-size: 15px;
+                        font-size: 13px;
                         color: #333;
                     }
                     .edu-year-section {
@@ -1880,7 +2129,7 @@ document.head.appendChild(link);
                     }
                     .edu-confirm-btn {
                         width: 40px;
-                        height: 40px;
+                        height: 32px;
                         background: #667eea;
                         color: white;
                         border: none;
@@ -1889,8 +2138,8 @@ document.head.appendChild(link);
                         display: flex;
                         align-items: center;
                         justify-content: center;
-                        margin: 16px auto 0;
-                        font-size: 20px;
+                        margin: 10px auto 0;
+                        font-size: 16px;
                         transition: all 0.2s ease;
                     }
                     .edu-confirm-btn:hover:not(:disabled) {
@@ -2024,7 +2273,11 @@ document.head.appendChild(link);
 
             this.attachEventListeners();
 
-            messagesDiv.scrollTo({ top: messagesDiv.scrollHeight, behavior: 'smooth' });
+            // Scroll halfway to show UI without going to bottom
+            messagesDiv.scrollTo({
+                top: messagesDiv.scrollTop + (messagesDiv.clientHeight / 2),
+                behavior: 'smooth'
+            });
 
             if (window.CleoChatbot) window.CleoChatbot.disableInput();
         },
@@ -2068,8 +2321,8 @@ document.head.appendChild(link);
                     .address-container {
                         background: #f0f0f5;
                         border-radius: 16px;
-                        padding: 20px;
-                        margin: 16px 0;
+                        padding: 12px;
+                        margin: 8px 0;
                         animation: slideDown 0.3s ease-out;
                     }
 
@@ -2079,10 +2332,10 @@ document.head.appendChild(link);
 
                     .address-input {
                         width: 100%;
-                        padding: 12px 16px;
+                        padding: 8px 12px;
                         border: 2px solid #ddd;
                         border-radius: 12px;
-                        font-size: 15px;
+                        font-size: 13px;
                         font-family: inherit;
                         box-sizing: border-box;
                         transition: border-color 0.2s;
@@ -2104,14 +2357,14 @@ document.head.appendChild(link);
                         border-radius: 12px;
                         box-shadow: 0 8px 24px rgba(0,0,0,0.12);
                         z-index: 9999;
-                        max-height: 220px;
+                        max-height: 160px;
                         overflow-y: auto;
                     }
 
                     .address-suggestion-item {
-                        padding: 12px 16px;
+                        padding: 8px 12px;
                         cursor: pointer;
-                        font-size: 14px;
+                        font-size: 12px;
                         color: #333;
                         display: flex;
                         align-items: center;
@@ -2130,14 +2383,14 @@ document.head.appendChild(link);
 
                     .address-pin-icon {
                         color: #667eea;
-                        font-size: 16px;
+                        font-size: 13px;
                         flex-shrink: 0;
                     }
 
                     .address-confirm-btn {
                         width: 100%;
                         margin-top: 14px;
-                        padding: 13px;
+                        padding: 9px;
                         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
                         color: white;
                         border: none;
@@ -2612,7 +2865,11 @@ document.head.appendChild(link);
             messagesDiv.appendChild(ui);
             this.attachEventListeners();
 
-            messagesDiv.scrollTo({ top: messagesDiv.scrollHeight, behavior: 'smooth' });
+            // Scroll halfway to show UI without going to bottom
+            messagesDiv.scrollTo({
+                top: messagesDiv.scrollTop + (messagesDiv.clientHeight / 2),
+                behavior: 'smooth'
+            });
             window.CleoChatbot.disableInput();
         },
 
@@ -3007,7 +3264,12 @@ document.head.appendChild(link);
             messagesDiv.appendChild(ui);
             this.attachEventListeners();
 
-            messagesDiv.scrollTo({ top: messagesDiv.scrollHeight, behavior: "smooth" });
+            // Scroll halfway to show UI without going to bottom
+            messagesDiv.scrollTo({
+                top: messagesDiv.scrollTop + (messagesDiv.clientHeight / 2),
+                behavior: 'smooth'
+            });
+            
             window.CleoChatbot.disableInput();
         },
 

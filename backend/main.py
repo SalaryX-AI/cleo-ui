@@ -202,15 +202,10 @@ async def reverse_geocode_coords(lat: float = Query(...), lng: float = Query(...
 
 
 @app.get("/places/autocomplete")
-async def places_autocomplete(input: str = Query(...), session_token: str = Query("")):
-    """
-    Proxy for Google Places Autocomplete.
-    Keeps the API key on the server (never exposed to frontend).
-    """
+async def places_autocomplete(input: str = Query(...), session_token: str = Query(""), types: str = Query("")):
     if len(input.strip()) < 3:
         return {"predictions": []}
-
-    suggestions = get_address_autocomplete(input.strip(), session_token)
+    suggestions = get_address_autocomplete(input.strip(), session_token, types=types)
     return {"predictions": suggestions}
 
 
@@ -723,7 +718,8 @@ async def passport_websocket_endpoint(websocket: WebSocket, session_id: str):
                 re_ask_attempts                 = {},
                 answer_reask_reason             = "",
                 kq_reask_reason                 = "",
-                show_privacy_consent_ui         = False
+                show_privacy_consent_ui         = False,
+                passport_address_mode           = False
             )
 
             # Stream initial graph run (greeting bubbles)
@@ -853,8 +849,12 @@ async def passport_websocket_endpoint(websocket: WebSocket, session_id: str):
                             msg      = messages[-1]
                             if isinstance(msg, AIMessage):
                                 show_address_ui = (
+                                node_name == "ask_address" and
+                                node_data.get("show_address_ui", False)
+                                )
+                                passport_address_mode = (
                                     node_name == "ask_address" and
-                                    node_data.get("show_address_ui", False)
+                                    node_data.get("passport_address_mode", False)
                                 )
                                 await websocket.send_json({"type": "typing"})
                                 await asyncio.sleep(0.7)
@@ -863,6 +863,7 @@ async def passport_websocket_endpoint(websocket: WebSocket, session_id: str):
                                     "content":         msg.content,
                                     "messageType":     "body",
                                     "show_address_ui": show_address_ui,
+                                    "passport_address_mode":   passport_address_mode,
                                 })
                 continue
 

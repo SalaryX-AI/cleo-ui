@@ -182,6 +182,8 @@ class PassportState(MessagesState):
     answer_reask_reason: str = ""
     kq_reask_reason: str = ""
 
+    passport_address_mode: bool = False
+
 
 # ==================== XANO PATCH HELPER ====================
 
@@ -512,6 +514,7 @@ def ask_address_node(state: PassportState) -> PassportState:
 
     state["messages"].append(AIMessage(content=PASSPORT_ASK_LOCATION))
     state["show_address_ui"] = True
+    state["passport_address_mode"] = True   # signals frontend: ZIP/city only
 
     return state
 

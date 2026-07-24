@@ -125,7 +125,9 @@ def reverse_geocode(lat: float, lng: float) -> dict | None:
 
 # ==================== Places Autocomplete ====================
 
-def get_address_autocomplete(input_text: str, session_token: str = "") -> list:
+
+
+def get_address_autocomplete(input_text: str, session_token: str = "", types: str = "") -> list:
     """
     Get address suggestions from Google Places Autocomplete API
 
@@ -135,9 +137,9 @@ def get_address_autocomplete(input_text: str, session_token: str = "") -> list:
     try:
         url = "https://maps.googleapis.com/maps/api/place/autocomplete/json"
         params = {
-            "input": input_text,
-            "types": "address",
-            "key": GOOGLE_API_KEY,
+            "input":        input_text,
+            "types":        types if types else "address",
+            "key":          GOOGLE_API_KEY,
             "sessiontoken": session_token
         }
 

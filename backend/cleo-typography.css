@@ -68,7 +68,7 @@ body,
 
 /* Assistant (AI) message bubble */
 .cleo-bubble {
-    max-width: 75%;
+    max-width: 90%;
     background-color: #EFEFF0;
     padding: 8px 12px;
     border-radius: 14px;
