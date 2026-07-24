@@ -59,10 +59,9 @@ from passport_creation.passport_prompts import (
     PASSPORT_WRAP_W1,
     PASSPORT_WRAP_W2,
     PASSPORT_WRAP_W3,
-    PASSPORT_WRAP_W4,
     PASSPORT_PROFILE_PROMPT,
 )
-from passport_creation.xano_passport import create_passport_record, update_passport_section
+from passport_creation.xano_passport import create_candidate_account, create_passport_record, update_passport_section
 from graph import interpret_response, generate_reask_message
 
 load_dotenv()
@@ -1277,6 +1276,14 @@ def passport_summary_node(state: PassportState) -> PassportState:
 
     # Calculate fit score from profile
     fit_score = passport_profile.get("fit_score", {}).get("total_score", 0)
+
+    # ── Create candidate auth account ─────────────────────────────────────────
+    create_candidate_account(
+        name    = name,
+        email   = email,
+        is_live = state.get("is_live", False),
+    )
+    # ─────────────────────────────────────────────────────────────────────────
 
     # ── Final PATCH ───────────────────────────────────────────────────────────
     update_passport_section(

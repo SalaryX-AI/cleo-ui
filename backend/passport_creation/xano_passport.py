@@ -10,6 +10,7 @@ import requests
 # CTO to confirm final URL once passport table is created in Xano
 XANO_PASSPORT_POST_URL  = "https://xoho-w3ng-km3o.n7e.xano.io/api:J0eY2LVM/passport_profiles"
 XANO_PASSPORT_PATCH_URL = "https://xoho-w3ng-km3o.n7e.xano.io/api:J0eY2LVM/passport_profiles/{passport_profiles_id}"
+XANO_AUTH_URL = "https://xoho-w3ng-km3o.n7e.xano.io/api:LNn6-rP8/auth/signupcandidate"
 
 
 # ── Headers ───────────────────────────────────────────────────────────────────
@@ -20,7 +21,7 @@ def _passport_headers(is_live: bool) -> dict:
         "X-Data-Source": "live",
     }
 
-
+    
 # ── POST — Create passport record ─────────────────────────────────────────────
 
 def create_passport_record(session_id: str, is_live: bool) -> str:
@@ -101,6 +102,35 @@ def update_passport_section(
     except Exception as e:
         print(f"[PASSPORT] PATCH error ({section}): {e}")
         return False
+
+
+# ── Auth — Create candidate account ──────────────────────────────────────────
+
+def create_candidate_account(name: str, email: str, is_live: bool) -> dict:
+    """
+    POST to create candidate auth account after passport is complete.
+    Returns response dict with authToken etc, or {} on failure.
+    """
+    payload = {
+        "full_name": name,
+        "email":     email,
+    }
+
+    try:
+        resp = requests.post(
+            XANO_AUTH_URL,
+            json=payload,
+            headers=_passport_headers(is_live)
+        )
+        if resp.status_code == 200:
+            data = resp.json()
+            print(f"[PASSPORT] Candidate account created for {email}")
+            return data
+        print(f"[PASSPORT] Auth signup failed: {resp.status_code} — {resp.text}")
+        return {}
+    except Exception as e:
+        print(f"[PASSPORT] Auth signup error: {e}")
+        return {}
 
 
 # ── Timeline of Xano writes ───────────────────────────────────────────────────
