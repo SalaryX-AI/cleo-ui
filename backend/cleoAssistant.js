@@ -772,11 +772,13 @@ document.head.appendChild(link);
             }
             
             if (isBot) {
-                // Convert newlines to <br> and URLs to clickable anchor text
+                
+                // Convert newlines to <br>
+                // Only convert URLs that are NOT already inside an anchor tag
                 const linkedContent = content
                     .replace(/\n/g, '<br>')
                     .replace(
-                        /(https?:\/\/[^\s<]+)/g,
+                        /(?<!href="|">)(https?:\/\/[^\s<"]+)/g,
                         '<a href="$1" target="_blank" rel="noopener noreferrer" style="color:#667eea;font-weight:600;text-decoration:underline;">My Passport</a>'
                     );
                 messageBubble.innerHTML = linkedContent;

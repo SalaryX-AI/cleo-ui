@@ -497,6 +497,11 @@ REASK_INSTRUCTIONS = {
         "Briefly and naturally reference the applicant's response without quoting or repeating it verbatim"
         "Politely encourage them to provide the answer that best reflects their current situation."
     ),
+    "off_topic": (
+        "The candidate's response did not address the question asked."
+        "Gently acknowledge what they said and redirect them back to the question."
+        "Must Reference what the applicant said in their response"
+    ),
 }
 
 def generate_reask_message(
@@ -581,6 +586,72 @@ def interpret_response(question: str, answer: str, expected_type: str = "yes_no"
             "clean": answer.strip(), "caveat": "",
             "should_flag": False, "flag_note": "", "reask_reason": "gibberish"
         }
+
+    if expected_type == "open_ended":
+        # ── Fast path: clearly too short or gibberish ─────────────────────────
+        stripped = answer.strip()
+        if len(stripped) < 3 or not any(c.isalpha() for c in stripped):
+            return {
+                "intent": "gibberish", "resolved_intent": "ambiguous",
+                "clean": stripped, "caveat": "",
+                "should_flag": False, "flag_note": "", "reask_reason": "gibberish"
+            }
+
+        # ── LLM relevance check ───────────────────────────────────────────────
+        open_ended_prompt = f"""You are evaluating a job applicant's response to an open-ended screening question.
+
+Question: "{question}"
+Applicant's response: "{answer}"
+
+Classify the response into exactly one of these 3 classes:
+
+- "relevant"    The response meaningfully addresses the question, even partially or briefly.
+                Examples: describing experience, mentioning tools, naming a job, saying they have no experience.
+                Even short but on-topic answers count ("I've worked in restaurants", "No certifications yet", "yes I can lift 50 lbs").
+
+- "off_topic"   The response does not relate to the question at all.
+                Examples: answering a completely different topic, talking about something unrelated.
+                ("I like pizza", "What time does the interview start?", "Can I call you instead?")
+
+- "gibberish"   Completely unreadable, random characters, or makes no sense at all.
+                Examples: ("asdfgh", "???", "jbvfewfv", "123456")
+
+Return ONLY valid JSON, no markdown:
+{{"intent": "<class>"}}"""
+
+        try:
+            import json as _json
+            resp = evaluation_llm.invoke(open_ended_prompt)
+            raw  = resp.content.strip().replace("```json", "").replace("```", "").strip()
+            data = _json.loads(raw)
+            intent = data.get("intent", "relevant")
+
+            if intent == "relevant":
+                return {
+                    "intent": "relevant", "resolved_intent": "yes",
+                    "clean": answer.strip(), "caveat": "",
+                    "should_flag": False, "flag_note": "", "reask_reason": "none"
+                }
+            elif intent == "off_topic":
+                return {
+                    "intent": "off_topic", "resolved_intent": "ambiguous",
+                    "clean": answer.strip(), "caveat": "",
+                    "should_flag": False, "flag_note": "", "reask_reason": "off_topic"
+                }
+            else:  # gibberish
+                return {
+                    "intent": "gibberish", "resolved_intent": "ambiguous",
+                    "clean": answer.strip(), "caveat": "",
+                    "should_flag": False, "flag_note": "", "reask_reason": "gibberish"
+                }
+
+        except Exception as e:
+            print(f"[INTERPRET open_ended] Error: {e} — treating as relevant")
+            return {
+                "intent": "relevant", "resolved_intent": "yes",
+                "clean": answer.strip(), "caveat": "",
+                "should_flag": False, "flag_note": "", "reask_reason": "none"
+            }
 
     # ── Fast path: unambiguous single-word answers ────────────────────────────
     lower = answer.strip().lower().rstrip(".,!? ")

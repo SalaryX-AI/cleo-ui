@@ -18,7 +18,8 @@ What is your phone number?"""
 
 
 
-otp_failure_message = "We're currently unable to send an OTP to your phone number."
+phone_otp_failure_message = "We're currently unable to send an OTP to your phone number. Please check your number and try again."
+email_otp_failure_message = "We're currently unable to send an OTP to your email address. Please check your email and try again."
 
 ask_email_otp = "Please enter the 6-digit code from your email:"
 

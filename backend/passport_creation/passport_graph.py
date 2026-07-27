@@ -635,7 +635,7 @@ def store_answer_node(state: PassportState) -> PassportState:
     question = state["questions"][idx]
 
     # ── Interpret response ────────────────────────────────────────────────────
-    result   = interpret_response(question, last_message.content, "free_text")
+    result   = interpret_response(question, last_message.content, "open_ended")
     resolved = result["resolved_intent"]
     print(f"[ANSWER] interpret result: {result}")
 
@@ -805,7 +805,7 @@ def send_email_otp_node(state: PassportState) -> PassportState:
         ))
     else:
         state["email_otp_sent_failed"] = True
-        state["messages"].append(AIMessage(content=cleo_engagement.otp_failure_message))
+        state["messages"].append(AIMessage(content=cleo_engagement.email_otp_failure_message))
 
     return state
 
@@ -1281,11 +1281,15 @@ def passport_summary_node(state: PassportState) -> PassportState:
     fit_score = passport_profile.get("fit_score", {}).get("total_score", 0)
 
     # ── Create candidate auth account ─────────────────────────────────────────
-    create_candidate_account(
+    auth_response = create_candidate_account(
         name    = name,
         email   = email,
         is_live = state.get("is_live", False),
     )
+    # Extract onboard ID from response — share the log to confirm the exact key
+    onboard_id   = auth_response.get("user", {}).get("id", "")
+    passport_url = f"https://app.cleohr.com/onboard/{onboard_id}" if onboard_id else "https://app.cleohr.com/auth"
+    print(f"[PASSPORT] Onboard URL: {passport_url}")
     # ─────────────────────────────────────────────────────────────────────────
 
     # ── Final PATCH ───────────────────────────────────────────────────────────
@@ -1300,9 +1304,13 @@ def passport_summary_node(state: PassportState) -> PassportState:
     )
     # ─────────────────────────────────────────────────────────────────────────
 
-    # W1–W3 wrap-up bubbles
+    wrap_w2 = (
+        f"Here is the link to access your Candidate Passport: {passport_url}\n\n"
+        "You can tap it anytime to view your verified skills dashboard, or copy and text it directly to hiring managers to apply on the spot!"
+    )
+
     state["messages"].append(AIMessage(content=PASSPORT_WRAP_W1))
-    state["messages"].append(AIMessage(content=PASSPORT_WRAP_W2))
+    state["messages"].append(AIMessage(content=wrap_w2))
     state["messages"].append(AIMessage(content=PASSPORT_WRAP_W3))
 
     return state

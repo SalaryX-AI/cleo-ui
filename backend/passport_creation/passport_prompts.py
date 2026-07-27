@@ -189,7 +189,7 @@ Generate a JSON passport profile with the following exact structure:
     "years_experience": "Calculate or estimate from work history — null if not provided",
     "top_skills": ["List 4-6 specific skills mentioned by candidate"],
     "tools_and_equipment": ["List specific tools/equipment mentioned"],
-    "certifications": ["List certifications mentioned — empty array if none"],
+    "certifications": ["List certifications mentioned — null if none"],
     "physical_capability": true/false based on Q8 answer,
     "work_history": [
       {{

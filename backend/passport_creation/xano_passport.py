@@ -124,8 +124,9 @@ def create_candidate_account(name: str, email: str, is_live: bool) -> dict:
         )
         if resp.status_code == 200:
             data = resp.json()
-            print(f"[PASSPORT] Candidate account created for {email}")
+            print(f"[PASSPORT] Candidate account created for {email} — response: {data}")
             return data
+       
         print(f"[PASSPORT] Auth signup failed: {resp.status_code} — {resp.text}")
         return {}
     except Exception as e:
