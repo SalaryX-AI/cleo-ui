@@ -7,7 +7,7 @@ PASSPORT_CONFIG = {
     "knockout_questions": [
         "To ensure your Passport is legally ready to send to employers, are you legally authorized to work in the United States?",
         "Are you 18 years of age or older?",
-        "What is your preferred way to commute (e.g., driving, public transit, or other)?"
+        "What is your preferred way to commute (e.g., drive, public transit, or other)?"
     ],
 
     "knockout_end_messages": {
@@ -19,7 +19,7 @@ PASSPORT_CONFIG = {
             "To activate a Universal Candidate Passport across our employer networks, applicants must meet "
             "the minimum safety age requirement of 18. Thank you for your time today!"
         ),
-        "What is your preferred way to commute (e.g., driving, public transit, or other)?": (
+        "What is your preferred way to commute (e.g., drive, public transit, or other)?": (
             "To ensure we can match you with the right opportunities, we need to know your preferred way to commute. "
             "Please reach out to our support team if you have any questions!"
         ),
