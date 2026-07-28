@@ -532,20 +532,23 @@
 </footer>
 
 <!-- ── Passport widget config ─────────────────────────────────────────────── -->
-<script>
-    // Base URLs — same as job flow
-    window.apiBaseUrl = "http://127.0.0.1:8000";
-    window.wsBaseUrl  = "ws://127.0.0.1:8000";
+<script src="../config.js"></script>
 
-    // Signal to cleoPassportAssistant.js that this is a passport page
+<script>
     window.CLEO_MODE = "passport";
 </script>
 
-<!-- Passport-specific widget script (see notes below) -->
-<script src="http://127.0.0.1:8000/cleoAssistant.js"
+<script id="cleo-passport-widget"
         data-mode="passport"
-        data-is-live="false"
-        id="cleo-passport-widget">
+        data-is-live="false">
+</script>
+
+<script>
+    // Load cleoAssistant.js dynamically after config is ready
+    const s = document.createElement('script');
+    s.src = window.apiBaseUrl + '/cleoAssistant.js';
+    s.id  = 'cleo-assistant-script';
+    document.head.appendChild(s);
 </script>
 
 <script>

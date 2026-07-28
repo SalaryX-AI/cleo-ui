@@ -28,7 +28,7 @@ PASSPORT_CONFIG = {
 
     # ── Role-agnostic screening questions (Q5–Q8) ─────────────────────────────
     "questions": [
-        "Let’s dive into your work background! Which area do you have the most hands-on experience in? (e.g., Warehousing & Logistics, Food & Hospitality, Retail & Customer Service, Trades & Maintenance, or something else?)",
+        "Let's dive into your work background! Which area do you have the most hands-on experience in? (e.g., Warehousing & Logistics, Food & Hospitality, Retail & Customer Service, Trades & Maintenance, or something else?)",
         "Nice! What specific equipment, tools, or hands-on tasks did you handle most often in those roles? (Feel free to list a few!)",
         "To help your Passport stand out to hiring managers, do you hold any specialized licenses or safety certifications? (e.g., OSHA, Forklift, ServSafe, CPR, or Heavy Equipment)",
         "Lastly, some roles require active on-your-feet work. Are you comfortable with physical tasks, like standing for most of a shift or lifting up to 50 lbs?",
