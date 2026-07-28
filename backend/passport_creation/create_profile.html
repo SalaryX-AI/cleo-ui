@@ -534,26 +534,26 @@
 <!-- ── Passport widget config ─────────────────────────────────────────────── -->
 <script>
     // Base URLs — same as job flow
-    window.apiBaseUrl = "https://scanandhire.com";
-    window.wsBaseUrl  = "wss://scanandhire.com";
+    window.apiBaseUrl = "http://127.0.0.1:8000";
+    window.wsBaseUrl  = "ws://127.0.0.1:8000";
 
     // Signal to cleoPassportAssistant.js that this is a passport page
     window.CLEO_MODE = "passport";
 </script>
 
 <!-- Passport-specific widget script (see notes below) -->
-<script src="https://scanandhire.com/cleoAssistant.js"
+<script src="http://127.0.0.1:8000/cleoAssistant.js"
         data-mode="passport"
         data-is-live="false"
         id="cleo-passport-widget">
 </script>
 
 <script>
-    // ── CTA button triggers widget open ──────────────────────────────────────
+    
     document.getElementById('open-passport-btn').addEventListener('click', function(e) {
         e.preventDefault();
-        if (window.CleoPassport && typeof window.CleoPassport.open === 'function') {
-            window.CleoPassport.open();
+        if (window.CleoChatbot && typeof window.CleoChatbot.openChat === 'function') {
+            window.CleoChatbot.openChat();
         }
     });
 

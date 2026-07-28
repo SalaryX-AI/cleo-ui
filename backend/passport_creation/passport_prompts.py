@@ -189,7 +189,12 @@ Generate a JSON passport profile with the following exact structure:
     "years_experience": "Calculate or estimate from work history — null if not provided",
     "top_skills": ["List 4-6 specific skills mentioned by candidate"],
     "tools_and_equipment": ["List specific tools/equipment mentioned"],
-    "certifications": ["List certifications mentioned — null if none"],
+    "certifications": [
+              {{
+                "certificate_name": "Name of certification mentioned",
+                "expiry_date": null
+              }}
+            ],
     "physical_capability": true/false based on Q8 answer,
     "work_history": [
       {{
@@ -235,6 +240,7 @@ IMPORTANT:
 5. Ensure all boolean values are lowercase (true/false not True/False)
 6. If work_experience, education, military, or any field is null or empty — state "not provided" in the relevant field. NEVER assume the candidate lacks experience or education
 7. Never say "No prior work experience" or "lacks education" — if the field is empty it simply means data was not collected
+8. For certifications, always use the object format with "certificate_name" and "expiry_date". Set "expiry_date" to null always since we do not collect it. Empty array if no certifications mentioned.
 
 Generate the passport profile JSON now:
 """
