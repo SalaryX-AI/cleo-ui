@@ -719,7 +719,8 @@ async def passport_websocket_endpoint(websocket: WebSocket, session_id: str):
                 answer_reask_reason             = "",
                 kq_reask_reason                 = "",
                 show_privacy_consent_ui         = False,
-                passport_address_mode           = False
+                passport_address_mode           = False,
+                professional_summary           = "",
             )
 
             # Stream initial graph run (greeting bubbles)

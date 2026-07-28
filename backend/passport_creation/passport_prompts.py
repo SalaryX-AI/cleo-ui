@@ -125,6 +125,36 @@ PASSPORT_WRAP_W3 = (
     "Thank you for letting Cleo help build your career pathway. Goodbye and good luck! 🍀"
 )
 
+# ── Professional summary prompt ───────────────────────────────────────────────
+
+PASSPORT_SUMMARY_PROMPT = PromptTemplate(
+    input_variables=[
+        "years_experience", "industries", "skills",
+        "tools", "certifications", "work_ethic"
+    ],
+    template="""You are writing a professional summary paragraph for a candidate's Work Passport.
+
+Write a single, punchy 2-3 sentence paragraph that combines:
+- Years/level of experience: {years_experience}
+- Primary industries/roles: {industries}
+- Key skills and tools: {skills} | {tools}
+- Certifications: {certifications}
+- Standout trait or work ethic: {work_ethic}
+
+Rules:
+- Write in third person ("Versatile professional with...", "Experienced worker...")
+- Be specific — use the actual skills, tools, and industries provided
+- Sound confident and professional, not generic
+- If any field is empty or null, skip it naturally — do NOT mention it is missing
+- Maximum 3 sentences, under 80 words total
+- Return ONLY the paragraph, no labels, no markdown
+
+Example output:
+"Versatile frontline professional with 3+ years of experience in warehouse operations and facility maintenance. Proficient with inventory scanners, hand/power tools, and commercial paint sprayers. Known for strong adaptability, reliability across varied shift schedules, and clean safety records."
+"""
+)
+
+
 # ── Passport profile generation prompt ───────────────────────────────────────
 
 PASSPORT_PROFILE_PROMPT = PromptTemplate(

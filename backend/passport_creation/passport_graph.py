@@ -60,6 +60,7 @@ from passport_creation.passport_prompts import (
     PASSPORT_WRAP_W2,
     PASSPORT_WRAP_W3,
     PASSPORT_PROFILE_PROMPT,
+    PASSPORT_SUMMARY_PROMPT
 )
 from passport_creation.xano_passport import create_candidate_account, create_passport_record, update_passport_section
 from graph import interpret_response, generate_reask_message
@@ -183,6 +184,7 @@ class PassportState(MessagesState):
     kq_reask_reason: str = ""
 
     passport_address_mode: bool = False
+    professional_summary:  str  = ""
 
 
 # ==================== XANO PATCH HELPER ====================
@@ -1133,8 +1135,8 @@ def store_military_node(state: PassportState) -> PassportState:
                     {
                         "position":   exp.get("role", ""),
                         "employer":   exp.get("company", ""),
-                        "start_date": exp.get("startDate", ""),
-                        "end_date":   exp.get("endDate", ""),
+                        "startDate": exp.get("startDate", ""),
+                        "endDate":   exp.get("endDate", ""),
                     }
                     for exp in work_experiences
                 ],
@@ -1280,6 +1282,69 @@ def passport_summary_node(state: PassportState) -> PassportState:
     # Calculate fit score from profile
     fit_score = passport_profile.get("fit_score", {}).get("total_score", 0)
 
+    # ── Generate professional summary paragraph ───────────────────────────────
+    try:
+        # Extract data from generated passport profile
+        exp_profile   = passport_profile.get("experience_profile", {})
+        fit_score     = passport_profile.get("fit_score", {})
+
+        years_exp = exp_profile.get("years_experience", "")
+        if not years_exp:
+            # Calculate from work_experience dates in state
+            work_exps = state.get("work_experience", [])
+            if work_exps:
+                total_months = 0
+                for exp in work_exps:
+                    try:
+                        start = datetime.strptime(exp.get("startDate", ""), "%Y-%m")
+                        end   = datetime.strptime(exp.get("endDate",   ""), "%Y-%m")
+                        total_months += (end.year - start.year) * 12 + (end.month - start.month)
+                    except Exception:
+                        pass
+                if total_months > 0:
+                    years  = total_months // 12
+                    months = total_months % 12
+                    if years > 0 and months > 0:
+                        years_exp = f"{years} year{'s' if years > 1 else ''} and {months} month{'s' if months > 1 else ''}"
+                    elif years > 0:
+                        years_exp = f"{years} year{'s' if years > 1 else ''}"
+                    else:
+                        years_exp = f"{months} month{'s' if months > 1 else ''}"
+
+
+        industries    = ", ".join(exp_profile.get("primary_industries", []))
+        skills        = ", ".join(exp_profile.get("top_skills", []))
+        tools         = ", ".join(exp_profile.get("tools_and_equipment", []))
+        
+        raw_certs = exp_profile.get("certifications", [])
+        if raw_certs and isinstance(raw_certs[0], dict):
+            certs = ", ".join(c.get("certificate_name", "") for c in raw_certs if c.get("certificate_name"))
+        else:
+            certs = ", ".join(raw_certs)
+        work_ethic    = fit_score.get("explanation", "")
+
+        summary_prompt = PASSPORT_SUMMARY_PROMPT.format(
+            years_experience = years_exp   or "Not specified",
+            industries       = industries  or "General frontline work",
+            skills           = skills      or "Not specified",
+            tools            = tools       or "Not specified",
+            certifications   = certs       or "None mentioned",
+            work_ethic       = work_ethic  or "Not specified",
+        )
+
+        summary_response      = llm.invoke(summary_prompt)
+        professional_summary  = summary_response.content.strip()
+        state["professional_summary"] = professional_summary
+        print(f"[PASSPORT] Professional summary: {professional_summary}")
+
+        # Add to passport profile
+        state["passport_profile"]["professional_summary"] = professional_summary
+
+    except Exception as e:
+        print(f"[PASSPORT] Summary generation error: {e}")
+        professional_summary = ""
+    # ─────────────────────────────────────────────────────────────────────────
+
     # ── Create candidate auth account ─────────────────────────────────────────
     auth_response = create_candidate_account(
         name    = name,
@@ -1297,7 +1362,7 @@ def passport_summary_node(state: PassportState) -> PassportState:
         passport_id = state.get("passport_id", ""),
         section     = "final",
         data        = {
-            "score":           int(fit_score),
+            "score":           int(fit_score.get("total_score", 0)),
             "passport_profile": state["passport_profile"],
         },
         is_live = state.get("is_live", False)
