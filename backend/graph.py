@@ -502,6 +502,12 @@ REASK_INSTRUCTIONS = {
         "Gently acknowledge what they said and redirect them back to the question."
         "Must Reference what the applicant said in their response"
     ),
+    "insufficient": (
+        "The candidate gave a vague or incomplete answer that lacks the specific details needed."
+        "Acknowledge what they shared, then ask them to elaborate with more specifics."
+        "Give a brief example of what kind of detail you are looking for."
+        "Must Reference what the applicant said in their response"
+    ),
 }
 
 def generate_reask_message(
@@ -603,18 +609,29 @@ def interpret_response(question: str, answer: str, expected_type: str = "yes_no"
 Question: "{question}"
 Applicant's response: "{answer}"
 
-Classify the response into exactly one of these 3 classes:
+Classify the response into exactly one of these 4 classes:
 
-- "relevant"    The response meaningfully addresses the question, even partially or briefly.
-                Examples: describing experience, mentioning tools, naming a job, saying they have no experience.
-                Even short but on-topic answers count ("I've worked in restaurants", "No certifications yet", "yes I can lift 50 lbs").
+- "relevant"      The response is on-topic AND provides enough detail to be useful.
+                  Examples: naming specific tools, describing actual tasks, mentioning job titles, explaining experience level.
+                  ("I worked as a crew member at McDonald's using POS systems and fryers for 2 years")
 
-- "off_topic"   The response does not relate to the question at all.
-                Examples: answering a completely different topic, talking about something unrelated.
-                ("I like pizza", "What time does the interview start?", "Can I call you instead?")
+- "insufficient"  The response is on-topic BUT lacks meaningful detail — too vague, or misses key information the question is asking for.
+                  Examples: ("yes", "I have experience", "I know how to do that", "some tools", "a few years")
+                  The answer technically relates to the question but doesn't tell us anything specific or useful.
 
-- "gibberish"   Completely unreadable, random characters, or makes no sense at all.
-                Examples: ("asdfgh", "???", "jbvfewfv", "123456")
+- "off_topic"     The response does not relate to the question at all.
+                  Examples: ("I like pizza", "What time is the interview?", "Can you call me instead?")
+
+- "gibberish"     Completely unreadable, random characters, or makes no sense.
+                  Examples: ("asdfgh", "???", "jbvfewfv", "123456")
+
+Key distinctions:
+- "yes I have experience" → "insufficient" (on-topic but zero detail)
+- "I worked with fryers and POS at McDonald's" → "relevant" (specific and useful)
+- "some certifications" → "insufficient" (doesn't name them)
+- "ServSafe and TIPS certified" → "relevant" (specific)
+- "I can lift things" → "insufficient" (vague, no confirmation of 50 lbs)
+- "yes I'm comfortable lifting 50 lbs and standing all shift" → "relevant"
 
 Return ONLY valid JSON, no markdown:
 {{"intent": "<class>"}}"""
@@ -631,6 +648,12 @@ Return ONLY valid JSON, no markdown:
                     "intent": "relevant", "resolved_intent": "yes",
                     "clean": answer.strip(), "caveat": "",
                     "should_flag": False, "flag_note": "", "reask_reason": "none"
+                }
+            elif intent == "insufficient":
+                return {
+                    "intent": "insufficient", "resolved_intent": "ambiguous",
+                    "clean": answer.strip(), "caveat": "",
+                    "should_flag": False, "flag_note": "", "reask_reason": "insufficient"
                 }
             elif intent == "off_topic":
                 return {

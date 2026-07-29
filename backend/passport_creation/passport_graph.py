@@ -652,9 +652,13 @@ def store_answer_node(state: PassportState) -> PassportState:
         attempts = state["re_ask_attempts"].get(question, 0) + 1
         state["re_ask_attempts"][question] = attempts
 
+        # Accumulate partial answers across attempts
+        existing = state["answers"].get(question, "")
+        combined = f"{existing} {last_message.content}".strip() if existing else last_message.content
+        state["answers"][question] = combined
+
         if attempts >= 3:
-            print(f"[ANSWER] 3 ambiguous attempts — moving on")
-            state["answers"][question] = "unclear"
+            print(f"[ANSWER] 3 ambiguous attempts — moving on with combined: {combined}")
             state["current_question_index"] += 1
             state["re_ask_attempts"].pop(question, None)
 
