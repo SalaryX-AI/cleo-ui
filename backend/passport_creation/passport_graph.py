@@ -284,14 +284,18 @@ def store_name_node(state: PassportState) -> PassportState:
     user_input = last_message.content.strip()
 
     # ── Validate name ─────────────────────────────────────────────────────────
-    prompt = f"""Is this a valid full name (first name + last name)?
+    prompt = f"""Does this input look like a human name?
 
 Input: "{user_input}"
 
-Rules for VALID:
-- Has at least two separate words
-- Contains only letters, spaces, hyphens, or apostrophes
-- Is NOT gibberish or random characters
+Return YES if:
+- It has at least two words
+- The words contain mostly letters (spaces, hyphens, apostrophes allowed)
+
+Return NO only if:
+- It is clearly random characters (e.g. "asdfgh", "123abc")
+- It is a single word with no last name AND it looks like gibberish
+- Single common first names like "John" or "Maria" alone are NO (need last name)
 
 Return ONLY "YES" or "NO". Nothing else."""
 
@@ -299,17 +303,17 @@ Return ONLY "YES" or "NO". Nothing else."""
     is_valid = response.content.strip().upper() == "YES"
 
     if not is_valid:
-        attempts = state["re_ask_attempts"].get("name", 0) + 1
-        state["re_ask_attempts"]["name"] = attempts
-        print(f"[NAME] Invalid name, attempt {attempts}: {user_input}")
+            attempts = state["re_ask_attempts"].get("name", 0) + 1
+            state["re_ask_attempts"]["name"] = attempts
+            print(f"[NAME] Invalid name, attempt {attempts}: {user_input}")
 
-        if attempts >= 3:
-            state["re_ask_attempts"].pop("name", None)
-            state["messages"].append(AIMessage(
-                content="Thank you so much for taking the time to apply! We're unable to complete your application right now, but one of our team members will reach out to you shortly. 😊"
-            ))
-            state["privacy_consented"] = False   # used as generic end flag
-        return state
+            if attempts >= 3:
+                state["re_ask_attempts"].pop("name", None)
+                state["personal_details"]["name"] = "__end__"  # signal name_router to end
+                state["messages"].append(AIMessage(
+                    content="Thank you so much for taking the time to apply! We're unable to complete your application right now, but one of our team members will reach out to you shortly. 😊"
+                ))
+            return state
 
     print(f"[NAME] Valid name: {user_input}")
     state["personal_details"]["name"] = user_input
@@ -323,9 +327,10 @@ Return ONLY "YES" or "NO". Nothing else."""
 
 
 def name_router(state: PassportState) -> Literal["ask_name", "ask_knockout_question", "__end__"]:
-    if "name" not in state.get("personal_details", {}):
-        if not state.get("privacy_consented", True):
-            return "__end__"
+    name = state.get("personal_details", {}).get("name", "")
+    if name == "__end__":
+        return "__end__"
+    if not name:
         return "ask_name"
     return "ask_knockout_question"
 
