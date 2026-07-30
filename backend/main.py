@@ -731,7 +731,7 @@ async def passport_websocket_endpoint(websocket: WebSocket, session_id: str):
                     if node_data and "messages" in node_data:
                         messages = node_data["messages"]
 
-                        # Greeting: send all 3 bubbles with stagger
+                        # Greeting: send all 3 bubbles with stagger 
                         if node_name == "passport_greeting":
                             bubbles = messages[-3:]
                             for i, msg in enumerate(bubbles):
@@ -741,10 +741,11 @@ async def passport_websocket_endpoint(websocket: WebSocket, session_id: str):
                                     await asyncio.sleep(1.2)
                                     is_last = (i == len(bubbles) - 1)
                                     await websocket.send_json({
-                                        "type":                   "ai_message",
-                                        "content":                msg.content,
-                                        "messageType":            "intro",
+                                        "type":                    "ai_message",
+                                        "content":                 msg.content,
+                                        "messageType":             "intro",
                                         "show_privacy_consent_ui": is_last and node_data.get("show_privacy_consent_ui", False),
+                                        "disable_input":           True,
                                     })
                         else:
                             msg = messages[-1]

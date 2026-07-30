@@ -29,7 +29,7 @@ email_success_message = "Success! Your email address is confirmed."
 
 otp_expired_message = "That code has expired. Let me send you a fresh one."
 
-email_otp_failure_message = "Hmm, that code didn't work after 3 tries. Let's start over with your email address."
-phone_otp_failure_message = "Hmm, that code didn't work after 3 tries. Let's start over with your phone number."
+email_otp_failure_message = "Hmm, that code didn't work after 3 tries."
+phone_otp_failure_message = "Hmm, that code didn't work after 3 tries."
 
 end_message = "Great Job! You've successfully completed the application. Your information has been securely saved and submitted."

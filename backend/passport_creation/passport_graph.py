@@ -231,9 +231,9 @@ def store_privacy_consent_node(state: PassportState) -> PassportState:
         )
         if result.content.strip().lower() == "yes":
             state["privacy_consented"] = True
-            state["messages"].append(AIMessage(
-                content="Let's get started! First things first — what is your full name?"
-            ))
+            # state["messages"].append(AIMessage(
+            #     content="Let's get started! First things first — what is your full name?"
+            # ))
         else:
             state["messages"].append(AIMessage(
                 content="No problem at all! Your privacy is important to us. Feel free to come back anytime. 😊"
@@ -253,7 +253,6 @@ def privacy_router(state: PassportState) -> Literal["ask_name", "__end__"]:
 def ask_name_node(state: PassportState) -> PassportState:
     print("ask_name_node called")
 
-    # ── Re-ask if previous attempt was invalid ────────────────────────────────
     if state.get("re_ask_attempts", {}).get("name", 0) > 0:
         last_human = next(
             (m for m in reversed(state["messages"]) if isinstance(m, HumanMessage)),
@@ -267,8 +266,11 @@ def ask_name_node(state: PassportState) -> PassportState:
             conversation_history=state["messages"]
         )
         state["messages"].append(AIMessage(content=reask))
+    else:
+        state["messages"].append(AIMessage(
+            content="Let's get started! First things first — what is your full name?"
+        ))
 
-    # First visit — message already sent by store_privacy_consent_node
     return state
 
 
@@ -283,7 +285,6 @@ def store_name_node(state: PassportState) -> PassportState:
 
     user_input = last_message.content.strip()
 
-    # ── Validate name ─────────────────────────────────────────────────────────
     prompt = f"""Does this input look like a human name?
 
 Input: "{user_input}"
@@ -300,38 +301,37 @@ Return NO only if:
 Return ONLY "YES" or "NO". Nothing else."""
 
     response = evaluation_llm.invoke(prompt)
-    is_valid = response.content.strip().upper() == "YES"
+    is_valid  = response.content.strip().upper() == "YES"
 
     if not is_valid:
-            attempts = state["re_ask_attempts"].get("name", 0) + 1
-            state["re_ask_attempts"]["name"] = attempts
-            print(f"[NAME] Invalid name, attempt {attempts}: {user_input}")
+        attempts = state["re_ask_attempts"].get("name", 0) + 1
+        state["re_ask_attempts"]["name"] = attempts
+        print(f"[NAME] Invalid name, attempt {attempts}: {user_input}")
 
-            if attempts >= 3:
-                state["re_ask_attempts"].pop("name", None)
-                state["personal_details"]["name"] = "__end__"  # signal name_router to end
-                state["messages"].append(AIMessage(
-                    content="Thank you so much for taking the time to apply! We're unable to complete your application right now, but one of our team members will reach out to you shortly. 😊"
-                ))
-            return state
+        if attempts >= 3:
+            state["re_ask_attempts"].pop("name", None)
+            state["personal_details"]["name"] = "__end__"
+            state["messages"].append(AIMessage(
+                content="Thank you so much for taking the time to apply! We're unable to complete your application right now, but one of our team members will reach out to you shortly. 😊"
+            ))
+
+        return state
 
     print(f"[NAME] Valid name: {user_input}")
     state["personal_details"]["name"] = user_input
     state["re_ask_attempts"].pop("name", None)
-
-    # Warm acknowledgement
-    first_name = user_input.split()[0]
-    state["messages"].append(AIMessage(content=f"Great to meet you, {first_name}! Let's make sure we have the basics covered first."))
-
     return state
 
 
 def name_router(state: PassportState) -> Literal["ask_name", "ask_knockout_question", "__end__"]:
     name = state.get("personal_details", {}).get("name", "")
+    
     if name == "__end__":
         return "__end__"
+    
     if not name:
         return "ask_name"
+    
     return "ask_knockout_question"
 
 
@@ -709,6 +709,15 @@ def ask_email_node(state: PassportState) -> PassportState:
     # ─────────────────────────────────────────────────────────────────────────
 
     if state.get("email_validation_failed"):
+        
+        # OTP failure — email was valid but OTP failed 3 times
+        if not state.get("invalid_email_attempt"):
+            state["messages"].append(AIMessage(
+                content="No worries! Let's try again — what's the best email address for your Passport?"
+            ))
+            return state
+
+        # Invalid email format
         if state.get("email_attempt_count", 0) >= 3:
             prompt = PERSONAL_DETAIL_REASK_WITH_EXAMPLE_PROMPT.format(
                 detail_type="email",
@@ -810,11 +819,13 @@ def send_email_otp_node(state: PassportState) -> PassportState:
     print("send_email_otp_node called")
 
     email     = state["personal_details"].get("email", "")
-    user_name = state["personal_details"].get("name", "")
+    user_name = state["personal_details"].get("name", "john")
     otp_code  = generate_otp()
 
     state["email_otp_code"]      = otp_code
     state["email_otp_timestamp"] = time.time()
+    state["email_validation_failed"] = False
+    state["email_otp_attempts"]      = 0
 
     success = send_email_otp(email, otp_code, "Cleo Work Passport™", user_name)
 
@@ -864,10 +875,17 @@ def verify_email_otp_node(state: PassportState) -> PassportState:
                 state["messages"].append(AIMessage(content=cleo_engagement.otp_expired_message))
                 state["email_otp_attempts"] = 0
             elif error == "invalid_format":
-                state["messages"].append(AIMessage(content="Please enter a 6-digit code (numbers only)."))
+                state["messages"].append(AIMessage(content="Your input is invalid (numbers only)."))
             elif error == "incorrect":
                 if attempts >= 3:
                     state["messages"].append(AIMessage(content=cleo_engagement.email_otp_failure_message))
+                    # Reset here in the node — not in the router
+                    state["email_otp_attempts"]        = 0
+                    state["email_otp_sent"]            = False
+                    state["email_otp_code"]            = ""
+                    state["email_otp_timestamp"]       = 0
+                    state["email_validation_failed"]   = True
+                    state["personal_details"]["email"] = ""
                 else:
                     state["messages"].append(AIMessage(
                         content=f"Hmm, that code didn't work. Please try again. (Attempt {attempts}/3)"
@@ -886,17 +904,21 @@ def email_otp_router(state: PassportState) -> Literal["ask_phone", "send_email_o
 
     messages     = state["messages"]
     last_message = messages[-1] if messages else None
+
+    if state.get("email_validation_failed") and not state.get("email_otp_sent"):
+        return "ask_email"
+
+    if is_otp_expired(state.get("email_otp_timestamp", 0), "email"):
+        return "send_email_otp"
+
     if isinstance(last_message, HumanMessage):
         user_input = last_message.content.strip().lower()
         if "resend" in user_input or "send again" in user_input:
             return "send_email_otp"
 
-    if is_otp_expired(state.get("email_otp_timestamp", 0), "email"):
-        return "send_email_otp"
-    if state.get("email_otp_attempts", 0) >= 3:
-        state["email_otp_attempts"]    = 0
-        state["email_validation_failed"] = True
-        return "ask_email"
+    # If last message is AI (OTP just sent or re-ask) — wait for user input
+    if isinstance(last_message, AIMessage):
+        return "ask_email_otp"
 
     return "ask_email_otp"
 
@@ -907,6 +929,15 @@ def ask_phone_node(state: PassportState) -> PassportState:
     print("ask_phone_node called")
 
     if state.get("phone_validation_failed"):
+
+        # OTP failure — phone was valid but OTP failed 3 times
+        if not state.get("invalid_phone_attempt"):
+            state["messages"].append(AIMessage(
+                content="No worries! Let's try again — what's your phone number?"
+            ))
+            return state
+
+        # Invalid phone format
         if state.get("phone_attempt_count", 0) >= 3:
             prompt = PERSONAL_DETAIL_REASK_WITH_EXAMPLE_PROMPT.format(
                 detail_type="phone number",
@@ -922,7 +953,9 @@ def ask_phone_node(state: PassportState) -> PassportState:
         response = llm.invoke(messages)
         state["messages"].append(AIMessage(content=response.content))
     else:
-        state["messages"].append(AIMessage(content=f"What is your phone number for hiring managers to call you for an interview?"))
+        state["messages"].append(AIMessage(
+            content="What is your phone number for hiring managers to call you for an interview?"
+        ))
 
     return state
 
@@ -950,15 +983,15 @@ def store_phone_node(state: PassportState) -> PassportState:
                 phone = '+1' + phone
 
         if validate_phone(phone):
-            state["personal_details"]["phone"]  = phone
-            state["phone_validation_failed"]    = False
-            state["invalid_phone_attempt"]      = ""
-            state["phone_attempt_count"]        = 0
+            state["personal_details"]["phone"] = phone
+            state["phone_validation_failed"]   = False
+            state["invalid_phone_attempt"]     = ""
+            state["phone_attempt_count"]       = 0
             print("Valid phone stored:", phone)
         else:
-            state["phone_validation_failed"]  = True
-            state["invalid_phone_attempt"]    = phone
-            state["phone_attempt_count"]     += 1
+            state["phone_validation_failed"] = True
+            state["invalid_phone_attempt"]   = phone
+            state["phone_attempt_count"]    += 1
             print("Invalid phone detected:", phone)
 
     return state
@@ -978,7 +1011,9 @@ def send_phone_otp_node(state: PassportState) -> PassportState:
 
     phone    = state["personal_details"].get("phone", "")
     otp_code = "123456"   # Testing mode — replace with Plivo in production
-    state["phone_otp_code"] = otp_code
+    state["phone_otp_code"]          = otp_code
+    state["phone_validation_failed"] = False
+    state["phone_otp_attempts"]      = 0
 
     state["messages"].append(AIMessage(
         content=f"I'm sending a verification text with a 6-digit code to {phone} now. Please check your messages."
@@ -986,15 +1021,14 @@ def send_phone_otp_node(state: PassportState) -> PassportState:
     return state
 
 
-def ask_phone_otp_node(state: PassportState) -> PassportState:
-    print("ask_phone_otp_node called")
+def ask_phone_otp_node(state: PassportState) -> PassportState: 
 
-    if state.get("phone_otp_attempts", 0) >= 1:
-        state["messages"].append(AIMessage(
-            content="I can also resend the text. Just type 'resend' if needed."
-        ))
-    else:
-        state["messages"].append(AIMessage(content=cleo_engagement.ask_phone_otp))
+    print("ask_phone_otp_node called") 
+
+    if state.get("phone_otp_attempts", 0) >= 1: 
+        state["messages"].append(AIMessage(content="I can also resend the text. Just type 'resend' if needed.")) 
+    else: 
+        state["messages"].append(AIMessage(content=cleo_engagement.ask_phone_otp)) 
 
     return state
 
@@ -1030,12 +1064,15 @@ def verify_phone_otp_node(state: PassportState) -> PassportState:
             state["phone_otp_attempts"] += 1
             attempts = state["phone_otp_attempts"]
 
-            if error == "expired":
-                state["messages"].append(AIMessage(content=cleo_engagement.otp_expired_message))
-                state["phone_otp_attempts"] = 0
-            elif error == "incorrect":
+            if error == "incorrect":
                 if attempts >= 3:
                     state["messages"].append(AIMessage(content=cleo_engagement.phone_otp_failure_message))
+                    # ── Reset in node — not in router ─────────────────────────
+                    state["phone_otp_attempts"]        = 0
+                    state["phone_otp_code"]            = ""
+                    state["phone_validation_failed"]   = True
+                    state["personal_details"]["phone"] = ""
+                    # ─────────────────────────────────────────────────────────
                 else:
                     state["messages"].append(AIMessage(
                         content=f"The code was incorrect. Please try again. (Attempt {attempts}/3)"
@@ -1052,18 +1089,21 @@ def phone_otp_router(state: PassportState) -> Literal["store_work_experience_res
 
     messages     = state["messages"]
     last_message = messages[-1] if messages else None
+
+    # ── Check failure condition FIRST ─────────────────────────────────────────
+    if state.get("phone_validation_failed") and not state.get("phone_otp_code"):
+        return "ask_phone"
+
     if isinstance(last_message, HumanMessage):
         user_input = last_message.content.strip().lower()
         if "resend" in user_input or "send again" in user_input:
             return "send_phone_otp"
 
-    if state.get("phone_otp_attempts", 0) >= 3:
-        state["phone_otp_attempts"]    = 0
-        state["phone_validation_failed"] = True
-        return "ask_phone"
+    # OTP just sent — wait for user input
+    if isinstance(last_message, AIMessage):
+        return "ask_phone_otp"
 
-    return "ask_phone_otp"
-
+    return "ask_phone_otp"    
 
 # ==================== WORK HISTORY ====================
 
@@ -1519,7 +1559,7 @@ def build_passport_graph(checkpointer):
         checkpointer=checkpointer,
         interrupt_after=[
             "passport_greeting",
-            "store_privacy_consent",
+            "ask_name",
             "ask_knockout_question",
             "ask_shift_preference",
             "ask_address",

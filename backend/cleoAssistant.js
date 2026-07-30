@@ -697,6 +697,10 @@ document.head.appendChild(link);
                 {
                     PrivacyConsentUI.show();
                 }
+                // Disable input during greeting bubbles
+                if (data.disable_input) {
+                    window.CleoChatbot.disableInput();
+                }
                 // Show GPS verification button
                 else if (data.show_gps_ui) 
                 {
@@ -1371,6 +1375,7 @@ document.head.appendChild(link);
         },
 
         submit() {
+            window.CleoChatbot.enableInput();
             // Show as user bubble
             window.CleoChatbot.addMessage('✅ I agree', false, 'body');
 

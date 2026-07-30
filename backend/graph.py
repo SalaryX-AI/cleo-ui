@@ -619,7 +619,7 @@ Classify the response into exactly one of these 4 classes:
                   Examples: ("yes", "I have experience", "I know how to do that", "some tools", "a few years")
                   The answer technically relates to the question but doesn't tell us anything specific or useful.
                   IMPORTANT: A specific name (certification, tool, job title, company) counts as "relevant" even if short.
-                  ("ServSafe", "McDonald's", "forklift", "OSHA 10") are all "relevant" — they are specific answers.
+                  ("ServSafe", "McDonald's", "forklift") are all "relevant" — they are specific answers.
                   Only flag "insufficient" when the answer is genuinely vague with no specifics at all.
 
 - "off_topic"     The response does not relate to the question at all.
