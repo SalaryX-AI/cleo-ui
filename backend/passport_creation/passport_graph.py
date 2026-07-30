@@ -642,7 +642,16 @@ def store_answer_node(state: PassportState) -> PassportState:
     question = state["questions"][idx]
 
     # ── Interpret response ────────────────────────────────────────────────────
-    result   = interpret_response(question, last_message.content, "open_ended")
+    # Questions that are essentially yes/no use yes_no type not open_ended
+    YES_NO_TRIGGERS = [
+        "are you comfortable", "are you able",
+        "are you willing", "are you available",
+        "are you okay"
+    ]
+    question_lower  = question.lower()
+    response_type   = "yes_no" if any(t in question_lower for t in YES_NO_TRIGGERS) else "open_ended"
+    result          = interpret_response(question, last_message.content, response_type)
+    
     resolved = result["resolved_intent"]
     print(f"[ANSWER] interpret result: {result}")
 

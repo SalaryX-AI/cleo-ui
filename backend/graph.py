@@ -615,9 +615,12 @@ Classify the response into exactly one of these 4 classes:
                   Examples: naming specific tools, describing actual tasks, mentioning job titles, explaining experience level.
                   ("I worked as a crew member at McDonald's using POS systems and fryers for 2 years")
 
-- "insufficient"  The response is on-topic BUT lacks meaningful detail — too vague, or misses key information the question is asking for.
+- "insufficient"  The response is on-topic BUT lacks meaningful detail — too vague or misses key information.
                   Examples: ("yes", "I have experience", "I know how to do that", "some tools", "a few years")
                   The answer technically relates to the question but doesn't tell us anything specific or useful.
+                  IMPORTANT: A specific name (certification, tool, job title, company) counts as "relevant" even if short.
+                  ("ServSafe", "McDonald's", "forklift", "OSHA 10") are all "relevant" — they are specific answers.
+                  Only flag "insufficient" when the answer is genuinely vague with no specifics at all.
 
 - "off_topic"     The response does not relate to the question at all.
                   Examples: ("I like pizza", "What time is the interview?", "Can you call me instead?")
