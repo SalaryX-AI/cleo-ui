@@ -562,36 +562,36 @@
 
     // ── Live passport preview updates from widget events ─────────────────────
     // The widget dispatches 'passportUpdate' custom events as fields are filled
-    window.addEventListener('passportUpdate', function(e) {
-        const detail = e.detail || {};
+    // window.addEventListener('passportUpdate', function(e) {
+    //     const detail = e.detail || {};
 
-        if (detail.name) {
-            document.getElementById('preview-name').textContent = detail.name;
-        }
-        if (detail.location) {
-            document.getElementById('preview-location').textContent = detail.location;
-        }
-        if (detail.shifts && detail.shifts.length) {
-            document.getElementById('preview-shifts').textContent = detail.shifts.join(', ');
-        }
-        if (detail.experience) {
-            document.getElementById('preview-exp').textContent = detail.experience;
-        }
-        if (detail.score) {
-            document.getElementById('preview-score').textContent = detail.score + ' / 100';
-        }
-        if (detail.skills && detail.skills.length) {
-            const skillsEl = document.getElementById('preview-skills');
-            skillsEl.innerHTML = detail.skills.map(s =>
-                `<span class="skill-chip">${s}</span>`
-            ).join('');
-        }
-        if (detail.activated) {
-            document.getElementById('preview-status-dot').classList.add('active');
-            document.getElementById('preview-status-text').textContent = 'Passport Active ✓';
-            document.getElementById('preview-name').textContent = detail.name || document.getElementById('preview-name').textContent;
-        }
-    });
+    //     if (detail.name) {
+    //         document.getElementById('preview-name').textContent = detail.name;
+    //     }
+    //     if (detail.location) {
+    //         document.getElementById('preview-location').textContent = detail.location;
+    //     }
+    //     if (detail.shifts && detail.shifts.length) {
+    //         document.getElementById('preview-shifts').textContent = detail.shifts.join(', ');
+    //     }
+    //     if (detail.experience) {
+    //         document.getElementById('preview-exp').textContent = detail.experience;
+    //     }
+    //     if (detail.score) {
+    //         document.getElementById('preview-score').textContent = detail.score + ' / 100';
+    //     }
+    //     if (detail.skills && detail.skills.length) {
+    //         const skillsEl = document.getElementById('preview-skills');
+    //         skillsEl.innerHTML = detail.skills.map(s =>
+    //             `<span class="skill-chip">${s}</span>`
+    //         ).join('');
+    //     }
+    //     if (detail.activated) {
+    //         document.getElementById('preview-status-dot').classList.add('active');
+    //         document.getElementById('preview-status-text').textContent = 'Passport Active ✓';
+    //         document.getElementById('preview-name').textContent = detail.name || document.getElementById('preview-name').textContent;
+    //     }
+    // });
 </script>
 
 </body>
