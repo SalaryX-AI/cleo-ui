@@ -28,7 +28,7 @@ PASSPORT_CONFIG = {
 
     # ── Role-agnostic screening questions (Q5–Q8) ─────────────────────────────
     "questions": [
-        "Let's dive into your work experience! Which area have you gained the most hands-on experience in?\n\nFor example: Warehousing & Logistics, Food & Hospitality, Retail & Customer Service, Trades & Maintenance, etc.\n\nBe specific! Mention your job titles, industries, and the type of work you did. For example: \"I worked as a crew member at McDonald's for 2 years and also spent 1 year stocking inventory in a warehouse.\"",
+        "Let me help you craft a strong summary for your profile! Tell me a bit about yourself and your work background.\n\nTo get started, let me know:\n\n- What roles have you worked in? (e.g., Warehouse Associate, Line Cook, Cashier)\n- How long have you been doing this kind of work? (e.g., 2 years, 5+ years)\n- What are your top strengths on the job? (e.g., reliable, great with customers, fast worker, forklift certified)\n\nExample: \"I’ve worked for 3 years in retail and 1 year in food service. I’m reliable, handle busy shifts well, and enjoy helping customers.\"",
         "Nice! What specific equipment, tools, or hands-on tasks did you handle most often in those roles? (Feel free to list a few!)",
         "To help your Passport stand out to hiring managers, do you hold any specialized licenses or safety certifications? (e.g., OSHA, Forklift, ServSafe, CPR, or Heavy Equipment)",
         "Lastly, some roles require active on-your-feet work. Are you comfortable with physical tasks, like standing for most of a shift or lifting up to 50 lbs?",

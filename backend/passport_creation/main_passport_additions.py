@@ -379,11 +379,18 @@ async def passport_websocket_endpoint(websocket: WebSocket, session_id: str):
                         print(f"[PASSPORT NODE] {node_name}")
                         if node_data and "messages" in node_data:
                             messages = node_data["messages"]
+                            # Show a special passport-building typing state once before the final wrap-up bubbles.
+                            if messages and isinstance(messages[-4], AIMessage):
+                                await websocket.send_json({
+                                    "type": "typing",
+                                    "message": "Building your Passport..."
+                                })
+                                await asyncio.sleep(0.8)
+                                await asyncio.sleep(1.0)
                             for msg in messages[-4:]:   # W1-W4 wrap-up bubbles
                                 if isinstance(msg, AIMessage):
                                     await websocket.send_json({"type": "typing"})
                                     await asyncio.sleep(0.8)
-                                    await asyncio.sleep(1.0)
                                     await websocket.send_json({
                                         "type":        "ai_message",
                                         "content":     msg.content,
