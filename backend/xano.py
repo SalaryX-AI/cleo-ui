@@ -27,8 +27,7 @@ XANO_PATCH_URL  = "https://xoho-w3ng-km3o.n7e.xano.io/api:6skoiMBa/candidate/{ca
 
 def get_xano_headers(is_live: bool) -> dict:
     return {
-        "Content-Type": "application/json",
-        "x-api-key":    "sk_test_51QxA9F7C2E8B4D1A6F9C3E7B2A",
+        "x-api-key":     "sk_test_51QxA9F7C2E8B4D1A6F9C3E7B2A",
         "X-Data-Source": "live" if is_live else "test"
     }
 
@@ -62,11 +61,18 @@ def create_candidate_record(
     }
 
     try:
+        print(f"[XANO] POST payload: {payload}")
         response = requests.post(
             XANO_API_URL,
             json=payload,
-            headers=get_xano_headers(is_live)
+            headers={
+                "Content-Type":  "application/json",
+                "x-api-key":     "sk_test_51QxA9F7C2E8B4D1A6F9C3E7B2A",
+                "X-Data-Source": "live" if is_live else "test",
+            }
         )
+        print(f"[XANO] POST response: {response.status_code} — {response.text}")
+
         if response.status_code == 200:
             candidate_id = response.json().get("id", 0)
             print(f"[XANO] Candidate created — ID: {candidate_id}")
@@ -95,13 +101,25 @@ def update_candidate_section(
 
     url = XANO_PATCH_URL.format(candidate_id=candidate_id)
 
-    payload = {"candidate_id": candidate_id, **data}
+    # Serialize any dict/list values to JSON strings for form data
+    serialized = {}
+    for k, v in data.items():
+        if isinstance(v, (dict, list)):
+            serialized[k] = json.dumps(v)
+        else:
+            serialized[k] = v
+
+    payload = {"candidate_id": candidate_id, **serialized}
 
     try:
         response = requests.patch(
             url,
             json=payload,
-            headers=get_xano_headers(is_live)
+            headers={
+                "Content-Type":  "application/json",
+                "x-api-key":     "sk_test_51QxA9F7C2E8B4D1A6F9C3E7B2A",
+                "X-Data-Source": "live" if is_live else "test",
+            }
         )
         if response.status_code == 200:
             print(f"[XANO] Section '{section}' saved — candidate {candidate_id}")
