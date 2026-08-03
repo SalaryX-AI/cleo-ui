@@ -397,6 +397,7 @@ document.head.appendChild(link);
                     .typing-indicator {
                         display: flex;
                         align-items: center;
+                        gap: 12px;
                         padding: 12px 16px;
                         background-color: #EFEFF0;
                         border-radius: 18px;
@@ -404,21 +405,32 @@ document.head.appendChild(link);
                         margin: 8px 0;
                     }
 
-                    .typing-indicator span {
+                    .typing-message {
+                        color: #3c3f52;
+                        font-size: 0.95rem;
+                        font-weight: 600;
+                    }
+
+                    .typing-dots {
+                        display: flex;
+                        align-items: center;
+                        gap: 4px;
+                    }
+
+                    .typing-dots span {
                         height: 8px;
                         width: 8px;
                         background-color: #999;
                         border-radius: 50%;
                         display: inline-block;
-                        margin: 0 2px;
                         animation: typing 1.2s infinite;
                     }
 
-                    .typing-indicator span:nth-child(2) {
+                    .typing-dots span:nth-child(2) {
                         animation-delay: 0.2s;
                     }
 
-                    .typing-indicator span:nth-child(3) {
+                    .typing-dots span:nth-child(3) {
                         animation-delay: 0.4s;
                     }
 
@@ -506,7 +518,7 @@ document.head.appendChild(link);
             this.isOpen = false;
         },
 
-        showTypingIndicator() {
+        showTypingIndicator(message = '') {
             const messagesDiv = document.getElementById('chatbot-messages');
             
             // Remove any existing typing indicator
@@ -518,9 +530,12 @@ document.head.appendChild(link);
             typingDiv.className = 'message-container ai';
             typingDiv.innerHTML = `
                 <div class="typing-indicator">
-                    <span></span>
-                    <span></span>
-                    <span></span>
+                    ${message ? `<div class="typing-message">${message}</div>` : ''}
+                    <div class="typing-dots">
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                    </div>
                 </div>
             `;
             
@@ -658,7 +673,7 @@ document.head.appendChild(link);
             
             // Handle typing event
             if (data.type === 'typing') {
-                this.showTypingIndicator();
+                this.showTypingIndicator(data.message || '');
                 return;
             }
             

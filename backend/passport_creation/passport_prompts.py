@@ -6,14 +6,14 @@ from langchain.prompts import PromptTemplate
 # ── Greeting bubbles (staggered) ─────────────────────────────────────────────
 
 PASSPORT_GREETING_BUBBLE_1 = (
-    "Hello! I'm Cleo, your smart career assistant. Thank you for opening up your application "
-    "journey with us today! 🚀 Welcome to your Cleo Work Passport™"
+    "Hi, I’m Cleo — your work passport helper. "
+    "Let’s turn your experience, skills, and availability into a ready-to-share "
+    "Cleo Work Passport™ in just a few easy steps."
 )
 
 PASSPORT_GREETING_BUBBLE_2 = (
-    "Instead of making you fill out a tedious form for a single job, we're going to build your "
-    "official Candidate Passport in less than 5 minutes. Once active, your Passport will highlight "
-    "your unique strengths so you can share it with multiple Hiring Managers instantly!"
+    "No more long forms for one job. I’ll gather your work history, skills, and availability in under "
+    "5 minutes, then build a Candidate Passport you can share with many hiring managers right away."
 )
 
 PASSPORT_GREETING_BUBBLE_3 = (
