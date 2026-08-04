@@ -109,7 +109,7 @@ def update_candidate_section(
         else:
             serialized[k] = v
 
-    payload = {"candidate_id": candidate_id, **serialized}
+    payload = {"candidate_id": candidate_id, "email_number": serialized.pop("email_number", 0), **serialized}
 
     try:
         response = requests.patch(

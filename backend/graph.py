@@ -2137,6 +2137,7 @@ def verify_phone_otp_node(state: ChatbotState) -> ChatbotState:
                 "Name":  state["personal_details"].get("name", ""),
                 "Email": state["personal_details"].get("email", ""),
                 "Phone": state["personal_details"].get("phone", ""),
+                "email_number": 1,
             })
             build_json_report(state)  # Update profile_summary with latest answers
         else:
