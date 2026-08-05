@@ -2654,29 +2654,6 @@ def ask_background_check_node(state: ChatbotState) -> ChatbotState:
     # Re-ask — message already sent by store_background_check_node
     if "background_check" in state.get("re_ask_attempts", {}):
         return {}
-    
-    # ── Build profile_summary and PATCH ──────────────────────────────────
-    # work_experiences = state.get("work_experience", [])
-    # state["profile_summary"].update({
-    #     "work_experience": [
-    #         {
-    #             "position":   exp.get("role", ""),
-    #             "employer":   exp.get("company", ""),
-    #             "start_date": exp.get("startDate", ""),
-    #             "end_date":   exp.get("endDate", ""),
-    #         }
-    #         for exp in work_experiences
-    #     ],
-    #     "education_level":  state.get("education_level", ""),
-    #     "certifications":   state.get("certifications", []),
-    #     "referral_source":  state.get("referral_source", ""),
-    #     "military_served":  state.get("military_served", False),
-    #     "military_details": state.get("military_details", {}),
-    # })
-    # xano_patch(state, "work_history_complete", {
-    #     "ProfileSummary": state["profile_summary"]
-    # })
-    # ─────────────────────────────────────────────────────────────────────
 
     build_json_report(state)  # Update profile_summary with latest answers
 
@@ -2716,6 +2693,7 @@ def store_background_check_node(state: ChatbotState) -> ChatbotState:
     if resolved == "no":
         state["background_check_consented"] = False
         state["re_ask_attempts"].pop("background_check", None)
+        state["incomplete_application"] = True
         state["messages"].append(AIMessage(
             content="That's a state requirement for all employees here. I'll end the application here for now — thank you so much for your time! 🙏"
         ))
@@ -2730,6 +2708,7 @@ def store_background_check_node(state: ChatbotState) -> ChatbotState:
         print(f"[BGC] 3 attempts — ending conversation")
         state["re_ask_attempts"].pop("background_check", None)
         state["background_check_consented"] = False
+        state["incomplete_application"] = True
         state["messages"].append(AIMessage(content="This check is required by Florida state law for all employees. Thank you for your time! 🙏"))
         return state
 
@@ -2761,7 +2740,7 @@ def background_check_router(state: ChatbotState) -> Literal["ask_background_chec
     if state.get("background_check_consented"):
         return "ask_id_verification"
 
-    # Declined or 3 ambiguous — route to score (as per your design)
+    # Declined or 3 ambiguous — route to score
     return "score"
 
 
@@ -3115,7 +3094,7 @@ def end_node(state: ChatbotState) -> ChatbotState:
     print("end_node called")
 
     if state.get("incomplete_application"):
-        state["messages"].append(AIMessage(content="One of our support team members will reach out to you shortly. It is difficult to complete the application at this time. Thanks! 🙏"))
+        state["messages"].append(AIMessage(content="One of our support team members will reach out to you shortly. Your progress has been saved, but your application isn't complete yet. We'll help you finish the remaining steps. Thanks! 🙏"))
         return state
         
     state["messages"].append(AIMessage(content=f"Great job! You've successfully completed the application. Your information has been securely saved and submitted to {state.get('brand_name')}."))
