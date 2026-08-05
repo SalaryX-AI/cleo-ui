@@ -3,14 +3,14 @@
 
 JOB_CONFIGS = {
     "null": {
-        "knockout_questions": [
-            "Are you legally authorized to work in the U.S.?",
-            "Do you have reliable transportation to work?"
-        ],
         "questions": [
             "What is your age?",
             "Do you have any experience?",
             "How many years of experience do you have?"
+        ],
+        "knockout_questions": [
+            "Are you legally authorized to work in the U.S.?",
+            "Do you have reliable transportation to work?"
         ],
         "scoring_model": {
             "What is your age?": {"rule": "Must be >= 18", "score": 1},
@@ -19,18 +19,18 @@ JOB_CONFIGS = {
         }
     },
     "server": {
-        "knockout_questions": [
-            "Are you legally allowed to work in the United States?",
-            "Are you 18 or older?",
-            "We are currently hiring specifically for evening and weekend shifts.  Are you available to work that schedule?",
-            "Do you have reliable transportation to and from our location at {address}?"
-        ],
         "questions": [
             "We are looking for people with at least one year of server experience. Does that sound like you?",
             "Are you experienced with table service dining standards — things like setting tables for service, attention to detail, and handling multiple courses?",
             "Are you willing to provide friendly, attentive, and personalized service?",
             "Are you comfortable guiding guests through the menu and answering questions about ingredients or pairings?",
             "Our residents are at the heart of everything we do. Are you comfortable and patient when working closely with seniors?",
+        ],
+        "knockout_questions": [
+            "Are you legally allowed to work in the United States?",
+            "Are you 18 or older?",
+            "We are currently hiring specifically for evening and weekend shifts.  Are you available to work that schedule?",
+            "Do you have reliable transportation to and from our location at {address}?"
         ],
         "scoring_model": {
             # ── Basic Requirements (5 each) ──────────────────────────────────────
@@ -195,102 +195,283 @@ JOB_CONFIGS = {
     },
     
     "assistant_manager": {
-        "knockout_questions": [
-            "To work here, you must be legally eligible to work in the U.S. Can you confirm that you are?",
-            "Next, You must be at least 18 years old for this role. Are you 18 or older?",
-            "We are currently hiring specifically for evening and weekend shifts. Is your general availability a fit for that schedule?",
-            "Do you have reliable transportation to and from our store located at {address}?"
-        ],
         "questions": [
             "Have you managed P&L responsibilities before?",
             "Are you experienced in training and developing team members?"
         ],
+        "knockout_questions": [
+            "Are you legally allowed to work in the United States?",
+            "Are you 18 or older?",
+            "We are currently hiring specifically for evening and weekend shifts.  Are you available to work that schedule?",
+            "Do you have reliable transportation to and from our location at {address}?"
+        ],
         "scoring_model": {
-            "How many years of restaurant management experience do you have?": {"rule": "Score = min(years, 5) * 5"},
-            "Have you managed P&L responsibilities before?": {"rule": "Yes -> 10, No -> 0"},
-            "Are you experienced in training and developing team members?": {"rule": "Yes -> 10, No -> 0"}
-        }
+            # ── Basic Requirements (5 each) ──────────────────────────────────────
+            "Are you legally allowed to work in the United States?": {
+                "rule": "Yes -> 5, No -> 0",
+                "weight": 5,
+                "category": "Basic Requirements"
+            },
+            "Are you 18 or older?": {
+                "rule": "Yes -> 5, No -> 0",
+                "weight": 5,
+                "category": "Basic Requirements"
+            },
+
+            # ── Compliance (5) ───────────────────────────────────────────────────
+            "background_check_consent": {
+                "rule": "Yes -> 5, No -> 0",
+                "weight": 5,
+                "category": "Compliance"
+            },
+
+            # ── Commitment — Schedule (4) ─────────────────────────────────────────
+            "We are currently hiring specifically for evening and weekend shifts. Is your general availability a fit for that schedule?": {
+                "rule": "Yes -> 4, No -> 0",
+                "weight": 4,
+                "category": "Commitment"
+            },
+
+            # ── Logistics — Transportation (4) ────────────────────────────────────
+            "Do you have reliable transportation to and from our store located at {address}?": {
+                "rule": "Yes -> 4, No -> 0",
+                "weight": 4,
+                "category": "Logistics"
+            },
+
+            # ── Certifications (2) — from ask_certifications node ─────────────────
+            "certifications": {
+                "rule": "ServSafe/TIPS/Food Safety cert present -> 2, None,no -> 0",
+                "weight": 2,
+                "category": "Certifications"
+            },
+        },
     },
     "assistant_store_manager": {
-        "knockout_questions": [
-            "To work here, you must be legally eligible to work in the U.S. Can you confirm that you are?",
-            "Next, You must be at least 18 years old for this role. Are you 18 or older?",
-            "We are currently hiring specifically for evening and weekend shifts. Is your general availability a fit for that schedule?",
-            "Do you have reliable transportation to and from our store located at {address}?"
-        ],
         "questions": [
             "Have you supervised a team of 5 or more people?",
             "Are you familiar with daily store opening and closing procedures?"
         ],
+        "knockout_questions": [
+            "Are you legally allowed to work in the United States?",
+            "Are you 18 or older?",
+            "We are currently hiring specifically for evening and weekend shifts.  Are you available to work that schedule?",
+            "Do you have reliable transportation to and from our location at {address}?"
+        ],
         "scoring_model": {
-            "How many years of store operations experience do you have?": {"rule": "Score = min(years, 5) * 5"},
-            "Have you supervised a team of 5 or more people?": {"rule": "Yes -> 10, No -> 0"},
-            "Are you familiar with daily store opening and closing procedures?": {"rule": "Yes -> 10, No -> 0"}
-        }
+            # ── Basic Requirements (5 each) ──────────────────────────────────────
+            "Are you legally allowed to work in the United States?": {
+                "rule": "Yes -> 5, No -> 0",
+                "weight": 5,
+                "category": "Basic Requirements"
+            },
+            "Are you 18 or older?": {
+                "rule": "Yes -> 5, No -> 0",
+                "weight": 5,
+                "category": "Basic Requirements"
+            },
+
+            # ── Compliance (5) ───────────────────────────────────────────────────
+            "background_check_consent": {
+                "rule": "Yes -> 5, No -> 0",
+                "weight": 5,
+                "category": "Compliance"
+            },
+
+            # ── Commitment — Schedule (4) ─────────────────────────────────────────
+            "We are currently hiring specifically for evening and weekend shifts. Is your general availability a fit for that schedule?": {
+                "rule": "Yes -> 4, No -> 0",
+                "weight": 4,
+                "category": "Commitment"
+            },
+
+            # ── Logistics — Transportation (4) ────────────────────────────────────
+            "Do you have reliable transportation to and from our store located at {address}?": {
+                "rule": "Yes -> 4, No -> 0",
+                "weight": 4,
+                "category": "Logistics"
+            },
+
+            # ── Certifications (2) — from ask_certifications node ─────────────────
+            "certifications": {
+                "rule": "ServSafe/TIPS/Food Safety cert present -> 2, None,no -> 0",
+                "weight": 2,
+                "category": "Certifications"
+            },
+        },
     },
     "barista": {
-        "knockout_questions": [
-            "To work here, you must be legally eligible to work in the U.S. Can you confirm that you are?",
-            "Next, You must be at least 18 years old for this role. Are you 18 or older?",
-            "We are currently hiring specifically for evening and weekend shifts. Is your general availability a fit for that schedule?",
-            "Do you have reliable transportation to and from our store located at {address}?"
-        ],
         "questions": [
             "Are you passionate about coffee and creating quality beverages?",
             "Have you worked with espresso machines before?"
         ],
+        "knockout_questions": [
+            "Are you legally allowed to work in the United States?",
+            "Are you 18 or older?",
+            "We are currently hiring specifically for evening and weekend shifts.  Are you available to work that schedule?",
+            "Do you have reliable transportation to and from our location at {address}?"
+        ],
         "scoring_model": {
-            "How many years of barista or beverage preparation experience do you have?": {"rule": "Score = min(years, 5) * 5"},
-            "Are you passionate about coffee and creating quality beverages?": {"rule": "Yes -> 10, No -> 0"},
-            "Have you worked with espresso machines before?": {"rule": "Yes -> 10, No -> 0"}
-        }
+            # ── Basic Requirements (5 each) ──────────────────────────────────────
+            "Are you legally allowed to work in the United States?": {
+                "rule": "Yes -> 5, No -> 0",
+                "weight": 5,
+                "category": "Basic Requirements"
+            },
+            "Are you 18 or older?": {
+                "rule": "Yes -> 5, No -> 0",
+                "weight": 5,
+                "category": "Basic Requirements"
+            },
+
+            # ── Compliance (5) ───────────────────────────────────────────────────
+            "background_check_consent": {
+                "rule": "Yes -> 5, No -> 0",
+                "weight": 5,
+                "category": "Compliance"
+            },
+
+            # ── Commitment — Schedule (4) ─────────────────────────────────────────
+            "We are currently hiring specifically for evening and weekend shifts. Is your general availability a fit for that schedule?": {
+                "rule": "Yes -> 4, No -> 0",
+                "weight": 4,
+                "category": "Commitment"
+            },
+
+            # ── Logistics — Transportation (4) ────────────────────────────────────
+            "Do you have reliable transportation to and from our store located at {address}?": {
+                "rule": "Yes -> 4, No -> 0",
+                "weight": 4,
+                "category": "Logistics"
+            },
+
+            # ── Certifications (2) — from ask_certifications node ─────────────────
+            "certifications": {
+                "rule": "ServSafe/TIPS/Food Safety cert present -> 2, None,no -> 0",
+                "weight": 2,
+                "category": "Certifications"
+            },
+        },
     },
     "cashier": {
-        "knockout_questions": [
-            "To work here, you must be legally eligible to work in the U.S. Can you confirm that you are?",
-            "Next, You must be at least 18 years old for this role. Are you 18 or older?",
-            "We are currently hiring specifically for evening and weekend shifts. Is your general availability a fit for that schedule?",
-            "Do you have reliable transportation to and from our store located at {address}?"
-        ],
         "questions": [
             "Are you comfortable with basic math and giving accurate change?",
             "Have you worked with point-of-sale systems before?"
         ],
+        "knockout_questions": [
+            "Are you legally allowed to work in the United States?",
+            "Are you 18 or older?",
+            "We are currently hiring specifically for evening and weekend shifts.  Are you available to work that schedule?",
+            "Do you have reliable transportation to and from our location at {address}?"
+        ],
         "scoring_model": {
-            "Are you comfortable with basic math and giving accurate change?": {"rule": "Yes -> 10, No -> 0"},
-            "Have you worked with point-of-sale systems before?": {"rule": "Yes -> 10, No -> 0"}
-        }
+            # ── Basic Requirements (5 each) ──────────────────────────────────────
+            "Are you legally allowed to work in the United States?": {
+                "rule": "Yes -> 5, No -> 0",
+                "weight": 5,
+                "category": "Basic Requirements"
+            },
+            "Are you 18 or older?": {
+                "rule": "Yes -> 5, No -> 0",
+                "weight": 5,
+                "category": "Basic Requirements"
+            },
+
+            # ── Compliance (5) ───────────────────────────────────────────────────
+            "background_check_consent": {
+                "rule": "Yes -> 5, No -> 0",
+                "weight": 5,
+                "category": "Compliance"
+            },
+
+            # ── Commitment — Schedule (4) ─────────────────────────────────────────
+            "We are currently hiring specifically for evening and weekend shifts. Is your general availability a fit for that schedule?": {
+                "rule": "Yes -> 4, No -> 0",
+                "weight": 4,
+                "category": "Commitment"
+            },
+
+            # ── Logistics — Transportation (4) ────────────────────────────────────
+            "Do you have reliable transportation to and from our store located at {address}?": {
+                "rule": "Yes -> 4, No -> 0",
+                "weight": 4,
+                "category": "Logistics"
+            },
+
+            # ── Certifications (2) — from ask_certifications node ─────────────────
+            "certifications": {
+                "rule": "ServSafe/TIPS/Food Safety cert present -> 2, None,no -> 0",
+                "weight": 2,
+                "category": "Certifications"
+            },
+        },
     },
     "coffee_specialist": {
-        "knockout_questions": [
-            "To work here, you must be legally eligible to work in the U.S. Can you confirm that you are?",
-            "Next, You must be at least 18 years old for this role. Are you 18 or older?",
-            "We are currently hiring specifically for evening and weekend shifts. Is your general availability a fit for that schedule?",
-            "Do you have reliable transportation to and from our store located at {address}?"
-        ],
         "questions": [
             "Are you familiar with different coffee origins and flavor profiles?",
             "Have you completed any barista training or certifications?"
         ],
-        "scoring_model": {
-            "How many years of specialty coffee experience do you have?": {"rule": "Score = min(years, 5) * 5"},
-            "Are you familiar with different coffee origins and flavor profiles?": {"rule": "Yes -> 10, No -> 0"},
-            "Have you completed any barista training or certifications?": {"rule": "Yes -> 10, No -> 0"}
-        }
-    },
-    "cook": {
         "knockout_questions": [
             "Are you legally allowed to work in the United States?",
             "Are you 18 or older?",
-            "We are currently hiring specifically for evening and weekend shifts. Is your general availability a fit for that schedule?",
+            "We are currently hiring specifically for evening and weekend shifts.  Are you available to work that schedule?",
             "Do you have reliable transportation to and from our location at {address}?"
         ],
+        "scoring_model": {
+            # ── Basic Requirements (5 each) ──────────────────────────────────────
+            "Are you legally allowed to work in the United States?": {
+                "rule": "Yes -> 5, No -> 0",
+                "weight": 5,
+                "category": "Basic Requirements"
+            },
+            "Are you 18 or older?": {
+                "rule": "Yes -> 5, No -> 0",
+                "weight": 5,
+                "category": "Basic Requirements"
+            },
+
+            # ── Compliance (5) ───────────────────────────────────────────────────
+            "background_check_consent": {
+                "rule": "Yes -> 5, No -> 0",
+                "weight": 5,
+                "category": "Compliance"
+            },
+
+            # ── Commitment — Schedule (4) ─────────────────────────────────────────
+            "We are currently hiring specifically for evening and weekend shifts. Is your general availability a fit for that schedule?": {
+                "rule": "Yes -> 4, No -> 0",
+                "weight": 4,
+                "category": "Commitment"
+            },
+
+            # ── Logistics — Transportation (4) ────────────────────────────────────
+            "Do you have reliable transportation to and from our store located at {address}?": {
+                "rule": "Yes -> 4, No -> 0",
+                "weight": 4,
+                "category": "Logistics"
+            },
+
+            # ── Certifications (2) — from ask_certifications node ─────────────────
+            "certifications": {
+                "rule": "ServSafe/TIPS/Food Safety cert present -> 2, None,no -> 0",
+                "weight": 2,
+                "category": "Certifications"
+            },
+        },
+    },
+    "cook": {
         "questions": [
             "We're looking for someone with at least 3 years of experience as a cook in a professional kitchen. Does that match your background?",
             "Are you comfortable preparing soups, stocks, and sauces, and using methods like braising and roasting with minimal supervision?",
             "Are you comfortable with kitchen math, like scaling recipes and doing simple unit conversions?",
             "Do you have experience maintaining a sanitary workstation and following food safety standards (like ServSafe)?",
             "Are you familiar with preparing therapeutic diets or meals specifically modified for senior residents?",
+        ],
+        "knockout_questions": [
+            "Are you legally allowed to work in the United States?",
+            "Are you 18 or older?",
+            "We are currently hiring specifically for evening and weekend shifts. Is your general availability a fit for that schedule?",
+            "Do you have reliable transportation to and from our location at {address}?"
         ],
         "scoring_model": {
 
@@ -409,377 +590,1169 @@ JOB_CONFIGS = {
         },
     },
     "crew_member": {
-        "knockout_questions": [
-            "To work here, you must be legally eligible to work in the U.S. Can you confirm that you are?",
-            "Next, You must be at least 18 years old for this role. Are you 18 or older?",
-            "We are currently hiring specifically for evening and weekend shifts. Is your general availability a fit for that schedule?",
-            "Do you have reliable transportation to and from our store located at {address}?"
-        ],
         "questions": [
             "Are you willing to learn multiple stations?",
             "Have you worked in customer service before?"
         ],
+        "knockout_questions": [
+            "Are you legally allowed to work in the United States?",
+            "Are you 18 or older?",
+            "We are currently hiring specifically for evening and weekend shifts.  Are you available to work that schedule?",
+            "Do you have reliable transportation to and from our location at {address}?"
+        ],
         "scoring_model": {
-            "How many years of restaurant or food service experience do you have?": {"rule": "Score = min(years, 5) * 5"},
-            "Are you willing to learn multiple stations?": {"rule": "Yes -> 10, No -> 0"},
-            "Have you worked in customer service before?": {"rule": "Yes -> 10, No -> 0"}
-        }
+            # ── Basic Requirements (5 each) ──────────────────────────────────────
+            "Are you legally allowed to work in the United States?": {
+                "rule": "Yes -> 5, No -> 0",
+                "weight": 5,
+                "category": "Basic Requirements"
+            },
+            "Are you 18 or older?": {
+                "rule": "Yes -> 5, No -> 0",
+                "weight": 5,
+                "category": "Basic Requirements"
+            },
+
+            # ── Compliance (5) ───────────────────────────────────────────────────
+            "background_check_consent": {
+                "rule": "Yes -> 5, No -> 0",
+                "weight": 5,
+                "category": "Compliance"
+            },
+
+            # ── Commitment — Schedule (4) ─────────────────────────────────────────
+            "We are currently hiring specifically for evening and weekend shifts. Is your general availability a fit for that schedule?": {
+                "rule": "Yes -> 4, No -> 0",
+                "weight": 4,
+                "category": "Commitment"
+            },
+
+            # ── Logistics — Transportation (4) ────────────────────────────────────
+            "Do you have reliable transportation to and from our store located at {address}?": {
+                "rule": "Yes -> 4, No -> 0",
+                "weight": 4,
+                "category": "Logistics"
+            },
+
+            # ── Certifications (2) — from ask_certifications node ─────────────────
+            "certifications": {
+                "rule": "ServSafe/TIPS/Food Safety cert present -> 2, None,no -> 0",
+                "weight": 2,
+                "category": "Certifications"
+            },
+        },
     },
     "customer_support": {
-        "knockout_questions": [
-            "To work here, you must be legally eligible to work in the U.S. Can you confirm that you are?",
-            "Next, You must be at least 18 years old for this role. Are you 18 or older?",
-            "We are currently hiring specifically for evening and weekend shifts. Is your general availability a fit for that schedule?",
-            "Do you have reliable transportation to and from our store located at {address}?"
-        ],
         "questions": [
             "Have you worked in a customer-facing role before?",
             "Are you comfortable resolving conflicts and de-escalating situations?"
         ],
+        "knockout_questions": [
+            "Are you legally allowed to work in the United States?",
+            "Are you 18 or older?",
+            "We are currently hiring specifically for evening and weekend shifts.  Are you available to work that schedule?",
+            "Do you have reliable transportation to and from our location at {address}?"
+        ],
         "scoring_model": {
-            "How many years of customer service experience do you have?": {"rule": "Score = years * 3"},
-            "Have you worked in a customer-facing role before?": {"rule": "Yes -> 10, No -> 0"},
-            "Are you comfortable resolving conflicts and de-escalating situations?": {"rule": "Yes -> 10, No -> 0"}
-        }
+            # ── Basic Requirements (5 each) ──────────────────────────────────────
+            "Are you legally allowed to work in the United States?": {
+                "rule": "Yes -> 5, No -> 0",
+                "weight": 5,
+                "category": "Basic Requirements"
+            },
+            "Are you 18 or older?": {
+                "rule": "Yes -> 5, No -> 0",
+                "weight": 5,
+                "category": "Basic Requirements"
+            },
+
+            # ── Compliance (5) ───────────────────────────────────────────────────
+            "background_check_consent": {
+                "rule": "Yes -> 5, No -> 0",
+                "weight": 5,
+                "category": "Compliance"
+            },
+
+            # ── Commitment — Schedule (4) ─────────────────────────────────────────
+            "We are currently hiring specifically for evening and weekend shifts. Is your general availability a fit for that schedule?": {
+                "rule": "Yes -> 4, No -> 0",
+                "weight": 4,
+                "category": "Commitment"
+            },
+
+            # ── Logistics — Transportation (4) ────────────────────────────────────
+            "Do you have reliable transportation to and from our store located at {address}?": {
+                "rule": "Yes -> 4, No -> 0",
+                "weight": 4,
+                "category": "Logistics"
+            },
+
+            # ── Certifications (2) — from ask_certifications node ─────────────────
+            "certifications": {
+                "rule": "ServSafe/TIPS/Food Safety cert present -> 2, None,no -> 0",
+                "weight": 2,
+                "category": "Certifications"
+            },
+        },
     },
     "dining_room": {
-        "knockout_questions": [
-            "To work here, you must be legally eligible to work in the U.S. Can you confirm that you are?",
-            "Next, You must be at least 18 years old for this role. Are you 18 or older?",
-            "We are currently hiring specifically for evening and weekend shifts. Is your general availability a fit for that schedule?",
-            "Do you have reliable transportation to and from our store located at {address}?"
-        ],
         "questions": [
             "Are you detail-oriented when it comes to cleanliness?",
             "Have you worked in a restaurant dining area before?"
         ],
+        "knockout_questions": [
+            "Are you legally allowed to work in the United States?",
+            "Are you 18 or older?",
+            "We are currently hiring specifically for evening and weekend shifts.  Are you available to work that schedule?",
+            "Do you have reliable transportation to and from our location at {address}?"
+        ],
         "scoring_model": {
-            "How many years of cleaning or dining room experience do you have?": {"rule": "Score = min(years, 5) * 5"},
-            "Are you detail-oriented when it comes to cleanliness?": {"rule": "Yes -> 10, No -> 0"},
-            "Have you worked in a restaurant dining area before?": {"rule": "Yes -> 10, No -> 0"}
-        }
+            # ── Basic Requirements (5 each) ──────────────────────────────────────
+            "Are you legally allowed to work in the United States?": {
+                "rule": "Yes -> 5, No -> 0",
+                "weight": 5,
+                "category": "Basic Requirements"
+            },
+            "Are you 18 or older?": {
+                "rule": "Yes -> 5, No -> 0",
+                "weight": 5,
+                "category": "Basic Requirements"
+            },
+
+            # ── Compliance (5) ───────────────────────────────────────────────────
+            "background_check_consent": {
+                "rule": "Yes -> 5, No -> 0",
+                "weight": 5,
+                "category": "Compliance"
+            },
+
+            # ── Commitment — Schedule (4) ─────────────────────────────────────────
+            "We are currently hiring specifically for evening and weekend shifts. Is your general availability a fit for that schedule?": {
+                "rule": "Yes -> 4, No -> 0",
+                "weight": 4,
+                "category": "Commitment"
+            },
+
+            # ── Logistics — Transportation (4) ────────────────────────────────────
+            "Do you have reliable transportation to and from our store located at {address}?": {
+                "rule": "Yes -> 4, No -> 0",
+                "weight": 4,
+                "category": "Logistics"
+            },
+
+            # ── Certifications (2) — from ask_certifications node ─────────────────
+            "certifications": {
+                "rule": "ServSafe/TIPS/Food Safety cert present -> 2, None,no -> 0",
+                "weight": 2,
+                "category": "Certifications"
+            },
+        },
     },
     "dishwasher": {
-        "knockout_questions": [
-            "To work here, you must be legally eligible to work in the U.S. Can you confirm that you are?",
-            "Next, You must be at least 18 years old for this role. Are you 18 or older?",
-            "We are currently hiring specifically for evening and weekend shifts. Is your general availability a fit for that schedule?",
-            "Do you have reliable transportation to and from our store located at {address}?"
-        ],
         "questions": [
             "Are you comfortable working in hot and wet conditions?",
             "Have you worked in a commercial kitchen before?"
         ],
+        "knockout_questions": [
+            "Are you legally allowed to work in the United States?",
+            "Are you 18 or older?",
+            "We are currently hiring specifically for evening and weekend shifts.  Are you available to work that schedule?",
+            "Do you have reliable transportation to and from our location at {address}?"
+        ],
         "scoring_model": {
-            "How many years of dishwashing or kitchen experience do you have?": {"rule": "Score = min(years, 5) * 5"},
-            "Are you comfortable working in hot and wet conditions?": {"rule": "Yes -> 10, No -> 0"},
-            "Have you worked in a commercial kitchen before?": {"rule": "Yes -> 10, No -> 0"}
-        }
+            # ── Basic Requirements (5 each) ──────────────────────────────────────
+            "Are you legally allowed to work in the United States?": {
+                "rule": "Yes -> 5, No -> 0",
+                "weight": 5,
+                "category": "Basic Requirements"
+            },
+            "Are you 18 or older?": {
+                "rule": "Yes -> 5, No -> 0",
+                "weight": 5,
+                "category": "Basic Requirements"
+            },
+
+            # ── Compliance (5) ───────────────────────────────────────────────────
+            "background_check_consent": {
+                "rule": "Yes -> 5, No -> 0",
+                "weight": 5,
+                "category": "Compliance"
+            },
+
+            # ── Commitment — Schedule (4) ─────────────────────────────────────────
+            "We are currently hiring specifically for evening and weekend shifts. Is your general availability a fit for that schedule?": {
+                "rule": "Yes -> 4, No -> 0",
+                "weight": 4,
+                "category": "Commitment"
+            },
+
+            # ── Logistics — Transportation (4) ────────────────────────────────────
+            "Do you have reliable transportation to and from our store located at {address}?": {
+                "rule": "Yes -> 4, No -> 0",
+                "weight": 4,
+                "category": "Logistics"
+            },
+
+            # ── Certifications (2) — from ask_certifications node ─────────────────
+            "certifications": {
+                "rule": "ServSafe/TIPS/Food Safety cert present -> 2, None,no -> 0",
+                "weight": 2,
+                "category": "Certifications"
+            },
+        },
     },
     "drive_thru": {
-        "knockout_questions": [
-            "To work here, you must be legally eligible to work in the U.S. Can you confirm that you are?",
-            "Next, You must be at least 18 years old for this role. Are you 18 or older?",
-            "We are currently hiring specifically for evening and weekend shifts. Is your general availability a fit for that schedule?",
-            "Do you have reliable transportation to and from our store located at {address}?"
-        ],
         "questions": [
             "Are you able to take orders accurately while handling payments?",
             "Have you worked with headsets for customer communication?"
         ],
+        "knockout_questions": [
+            "Are you legally allowed to work in the United States?",
+            "Are you 18 or older?",
+            "We are currently hiring specifically for evening and weekend shifts.  Are you available to work that schedule?",
+            "Do you have reliable transportation to and from our location at {address}?"
+        ],
         "scoring_model": {
-            "How many years of drive-thru or customer service experience do you have?": {"rule": "Score = min(years, 5) * 5"},
-            "Are you able to take orders accurately while handling payments?": {"rule": "Yes -> 10, No -> 0"},
-            "Have you worked with headsets for customer communication?": {"rule": "Yes -> 10, No -> 0"}
-        }
+            # ── Basic Requirements (5 each) ──────────────────────────────────────
+            "Are you legally allowed to work in the United States?": {
+                "rule": "Yes -> 5, No -> 0",
+                "weight": 5,
+                "category": "Basic Requirements"
+            },
+            "Are you 18 or older?": {
+                "rule": "Yes -> 5, No -> 0",
+                "weight": 5,
+                "category": "Basic Requirements"
+            },
+
+            # ── Compliance (5) ───────────────────────────────────────────────────
+            "background_check_consent": {
+                "rule": "Yes -> 5, No -> 0",
+                "weight": 5,
+                "category": "Compliance"
+            },
+
+            # ── Commitment — Schedule (4) ─────────────────────────────────────────
+            "We are currently hiring specifically for evening and weekend shifts. Is your general availability a fit for that schedule?": {
+                "rule": "Yes -> 4, No -> 0",
+                "weight": 4,
+                "category": "Commitment"
+            },
+
+            # ── Logistics — Transportation (4) ────────────────────────────────────
+            "Do you have reliable transportation to and from our store located at {address}?": {
+                "rule": "Yes -> 4, No -> 0",
+                "weight": 4,
+                "category": "Logistics"
+            },
+
+            # ── Certifications (2) — from ask_certifications node ─────────────────
+            "certifications": {
+                "rule": "ServSafe/TIPS/Food Safety cert present -> 2, None,no -> 0",
+                "weight": 2,
+                "category": "Certifications"
+            },
+        },
     },
     "grill_cook": {
-        "knockout_questions": [
-            "To work here, you must be legally eligible to work in the U.S. Can you confirm that you are?",
-            "Next, You must be at least 18 years old for this role. Are you 18 or older?",
-            "We are currently hiring specifically for evening and weekend shifts. Is your general availability a fit for that schedule?",
-            "Do you have reliable transportation to and from our store located at {address}?"
-        ],
         "questions": [
             "Are you familiar with food safety and temperature guidelines?",
             "Have you prepared meats on a commercial grill before?"
         ],
+        "knockout_questions": [
+            "Are you legally allowed to work in the United States?",
+            "Are you 18 or older?",
+            "We are currently hiring specifically for evening and weekend shifts.  Are you available to work that schedule?",
+            "Do you have reliable transportation to and from our location at {address}?"
+        ],
         "scoring_model": {
-            "How many years of grill cooking experience do you have?": {"rule": "Score = min(years, 5) * 5"},
-            "Are you familiar with food safety and temperature guidelines?": {"rule": "Yes -> 10, No -> 0"},
-            "Have you prepared meats on a commercial grill before?": {"rule": "Yes -> 10, No -> 0"}
-        }
+            # ── Basic Requirements (5 each) ──────────────────────────────────────
+            "Are you legally allowed to work in the United States?": {
+                "rule": "Yes -> 5, No -> 0",
+                "weight": 5,
+                "category": "Basic Requirements"
+            },
+            "Are you 18 or older?": {
+                "rule": "Yes -> 5, No -> 0",
+                "weight": 5,
+                "category": "Basic Requirements"
+            },
+
+            # ── Compliance (5) ───────────────────────────────────────────────────
+            "background_check_consent": {
+                "rule": "Yes -> 5, No -> 0",
+                "weight": 5,
+                "category": "Compliance"
+            },
+
+            # ── Commitment — Schedule (4) ─────────────────────────────────────────
+            "We are currently hiring specifically for evening and weekend shifts. Is your general availability a fit for that schedule?": {
+                "rule": "Yes -> 4, No -> 0",
+                "weight": 4,
+                "category": "Commitment"
+            },
+
+            # ── Logistics — Transportation (4) ────────────────────────────────────
+            "Do you have reliable transportation to and from our store located at {address}?": {
+                "rule": "Yes -> 4, No -> 0",
+                "weight": 4,
+                "category": "Logistics"
+            },
+
+            # ── Certifications (2) — from ask_certifications node ─────────────────
+            "certifications": {
+                "rule": "ServSafe/TIPS/Food Safety cert present -> 2, None,no -> 0",
+                "weight": 2,
+                "category": "Certifications"
+            },
+        },
     },
     "guest_experience": {
-        "knockout_questions": [
-            "To work here, you must be legally eligible to work in the U.S. Can you confirm that you are?",
-            "Next, You must be at least 18 years old for this role. Are you 18 or older?",
-            "We are currently hiring specifically for evening and weekend shifts. Is your general availability a fit for that schedule?",
-            "Do you have reliable transportation to and from our store located at {address}?"
-        ],
         "questions": [
             "Have you led customer service initiatives before?",
             "Are you skilled at creating positive guest interactions?"
         ],
+        "knockout_questions": [
+            "Are you legally allowed to work in the United States?",
+            "Are you 18 or older?",
+            "We are currently hiring specifically for evening and weekend shifts.  Are you available to work that schedule?",
+            "Do you have reliable transportation to and from our location at {address}?"
+        ],
         "scoring_model": {
-            "How many years of customer experience or hospitality experience do you have?": {"rule": "Score = min(years, 5) * 5"},
-            "Have you led customer service initiatives before?": {"rule": "Yes -> 10, No -> 0"},
-            "Are you skilled at creating positive guest interactions?": {"rule": "Yes -> 10, No -> 0"}
-        }
+            # ── Basic Requirements (5 each) ──────────────────────────────────────
+            "Are you legally allowed to work in the United States?": {
+                "rule": "Yes -> 5, No -> 0",
+                "weight": 5,
+                "category": "Basic Requirements"
+            },
+            "Are you 18 or older?": {
+                "rule": "Yes -> 5, No -> 0",
+                "weight": 5,
+                "category": "Basic Requirements"
+            },
+
+            # ── Compliance (5) ───────────────────────────────────────────────────
+            "background_check_consent": {
+                "rule": "Yes -> 5, No -> 0",
+                "weight": 5,
+                "category": "Compliance"
+            },
+
+            # ── Commitment — Schedule (4) ─────────────────────────────────────────
+            "We are currently hiring specifically for evening and weekend shifts. Is your general availability a fit for that schedule?": {
+                "rule": "Yes -> 4, No -> 0",
+                "weight": 4,
+                "category": "Commitment"
+            },
+
+            # ── Logistics — Transportation (4) ────────────────────────────────────
+            "Do you have reliable transportation to and from our store located at {address}?": {
+                "rule": "Yes -> 4, No -> 0",
+                "weight": 4,
+                "category": "Logistics"
+            },
+
+            # ── Certifications (2) — from ask_certifications node ─────────────────
+            "certifications": {
+                "rule": "ServSafe/TIPS/Food Safety cert present -> 2, None,no -> 0",
+                "weight": 2,
+                "category": "Certifications"
+            },
+        },
     },
     "host": {
-        "knockout_questions": [
-            "To work here, you must be legally eligible to work in the U.S. Can you confirm that you are?",
-            "Next, You must be at least 18 years old for this role. Are you 18 or older?",
-            "We are currently hiring specifically for evening and weekend shifts. Is your general availability a fit for that schedule?",
-            "Do you have reliable transportation to and from our store located at {address}?"
-        ],
         "questions": [
             "Are you able to manage wait times and guest flow effectively?",
             "Have you worked in a restaurant front-of-house before?"
         ],
+        "knockout_questions": [
+            "Are you legally allowed to work in the United States?",
+            "Are you 18 or older?",
+            "We are currently hiring specifically for evening and weekend shifts.  Are you available to work that schedule?",
+            "Do you have reliable transportation to and from our location at {address}?"
+        ],
         "scoring_model": {
-            "How many years of hosting or front desk experience do you have?": {"rule": "Score = min(years, 5) * 5"},
-            "Are you able to manage wait times and guest flow effectively?": {"rule": "Yes -> 10, No -> 0"},
-            "Have you worked in a restaurant front-of-house before?": {"rule": "Yes -> 10, No -> 0"}
-        }
+            # ── Basic Requirements (5 each) ──────────────────────────────────────
+            "Are you legally allowed to work in the United States?": {
+                "rule": "Yes -> 5, No -> 0",
+                "weight": 5,
+                "category": "Basic Requirements"
+            },
+            "Are you 18 or older?": {
+                "rule": "Yes -> 5, No -> 0",
+                "weight": 5,
+                "category": "Basic Requirements"
+            },
+
+            # ── Compliance (5) ───────────────────────────────────────────────────
+            "background_check_consent": {
+                "rule": "Yes -> 5, No -> 0",
+                "weight": 5,
+                "category": "Compliance"
+            },
+
+            # ── Commitment — Schedule (4) ─────────────────────────────────────────
+            "We are currently hiring specifically for evening and weekend shifts. Is your general availability a fit for that schedule?": {
+                "rule": "Yes -> 4, No -> 0",
+                "weight": 4,
+                "category": "Commitment"
+            },
+
+            # ── Logistics — Transportation (4) ────────────────────────────────────
+            "Do you have reliable transportation to and from our store located at {address}?": {
+                "rule": "Yes -> 4, No -> 0",
+                "weight": 4,
+                "category": "Logistics"
+            },
+
+            # ── Certifications (2) — from ask_certifications node ─────────────────
+            "certifications": {
+                "rule": "ServSafe/TIPS/Food Safety cert present -> 2, None,no -> 0",
+                "weight": 2,
+                "category": "Certifications"
+            },
+        },
     },
     "kitchen_staff": {
-        "knockout_questions": [
-            "To work here, you must be legally eligible to work in the U.S. Can you confirm that you are?",
-            "Next, You must be at least 18 years old for this role. Are you 18 or older?",
-            "We are currently hiring specifically for evening and weekend shifts. Is your general availability a fit for that schedule?",
-            "Do you have reliable transportation to and from our store located at {address}?"
-        ],
         "questions": [
             "Are you comfortable supporting cooks and prep teams?",
             "Have you worked in a commercial kitchen environment before?"
         ],
+        "knockout_questions": [
+            "Are you legally allowed to work in the United States?",
+            "Are you 18 or older?",
+            "We are currently hiring specifically for evening and weekend shifts.  Are you available to work that schedule?",
+            "Do you have reliable transportation to and from our location at {address}?"
+        ],
         "scoring_model": {
-            "How many years of kitchen or food preparation experience do you have?": {"rule": "Score = min(years, 5) * 5"},
-            "Are you comfortable supporting cooks and prep teams?": {"rule": "Yes -> 10, No -> 0"},
-            "Have you worked in a commercial kitchen environment before?": {"rule": "Yes -> 10, No -> 0"}
-        }
+            # ── Basic Requirements (5 each) ──────────────────────────────────────
+            "Are you legally allowed to work in the United States?": {
+                "rule": "Yes -> 5, No -> 0",
+                "weight": 5,
+                "category": "Basic Requirements"
+            },
+            "Are you 18 or older?": {
+                "rule": "Yes -> 5, No -> 0",
+                "weight": 5,
+                "category": "Basic Requirements"
+            },
+
+            # ── Compliance (5) ───────────────────────────────────────────────────
+            "background_check_consent": {
+                "rule": "Yes -> 5, No -> 0",
+                "weight": 5,
+                "category": "Compliance"
+            },
+
+            # ── Commitment — Schedule (4) ─────────────────────────────────────────
+            "We are currently hiring specifically for evening and weekend shifts. Is your general availability a fit for that schedule?": {
+                "rule": "Yes -> 4, No -> 0",
+                "weight": 4,
+                "category": "Commitment"
+            },
+
+            # ── Logistics — Transportation (4) ────────────────────────────────────
+            "Do you have reliable transportation to and from our store located at {address}?": {
+                "rule": "Yes -> 4, No -> 0",
+                "weight": 4,
+                "category": "Logistics"
+            },
+
+            # ── Certifications (2) — from ask_certifications node ─────────────────
+            "certifications": {
+                "rule": "ServSafe/TIPS/Food Safety cert present -> 2, None,no -> 0",
+                "weight": 2,
+                "category": "Certifications"
+            },
+        },
     },
     "maintenance": {
-        "knockout_questions": [
-            "To work here, you must be legally eligible to work in the U.S. Can you confirm that you are?",
-            "Next, You must be at least 18 years old for this role. Are you 18 or older?",
-            "We are currently hiring specifically for evening and weekend shifts. Is your general availability a fit for that schedule?",
-            "Do you have reliable transportation to and from our store located at {address}?"
-        ],
         "questions": [
             "Are you familiar with restaurant equipment maintenance?",
             "Have you worked with HVAC, plumbing, or electrical systems?"
         ],
+        "knockout_questions": [
+            "Are you legally allowed to work in the United States?",
+            "Are you 18 or older?",
+            "We are currently hiring specifically for evening and weekend shifts.  Are you available to work that schedule?",
+            "Do you have reliable transportation to and from our location at {address}?"
+        ],
         "scoring_model": {
-            "How many years of maintenance or facilities experience do you have?": {"rule": "Score = min(years, 5) * 5"},
-            "Are you familiar with restaurant equipment maintenance?": {"rule": "Yes -> 10, No -> 0"},
-            "Have you worked with HVAC, plumbing, or electrical systems?": {"rule": "Yes -> 10, No -> 0"}
-        }
+            # ── Basic Requirements (5 each) ──────────────────────────────────────
+            "Are you legally allowed to work in the United States?": {
+                "rule": "Yes -> 5, No -> 0",
+                "weight": 5,
+                "category": "Basic Requirements"
+            },
+            "Are you 18 or older?": {
+                "rule": "Yes -> 5, No -> 0",
+                "weight": 5,
+                "category": "Basic Requirements"
+            },
+
+            # ── Compliance (5) ───────────────────────────────────────────────────
+            "background_check_consent": {
+                "rule": "Yes -> 5, No -> 0",
+                "weight": 5,
+                "category": "Compliance"
+            },
+
+            # ── Commitment — Schedule (4) ─────────────────────────────────────────
+            "We are currently hiring specifically for evening and weekend shifts. Is your general availability a fit for that schedule?": {
+                "rule": "Yes -> 4, No -> 0",
+                "weight": 4,
+                "category": "Commitment"
+            },
+
+            # ── Logistics — Transportation (4) ────────────────────────────────────
+            "Do you have reliable transportation to and from our store located at {address}?": {
+                "rule": "Yes -> 4, No -> 0",
+                "weight": 4,
+                "category": "Logistics"
+            },
+
+            # ── Certifications (2) — from ask_certifications node ─────────────────
+            "certifications": {
+                "rule": "ServSafe/TIPS/Food Safety cert present -> 2, None,no -> 0",
+                "weight": 2,
+                "category": "Certifications"
+            },
+        },
     },
     "overnight_crew": {
-        "knockout_questions": [
-            "To work here, you must be legally eligible to work in the U.S. Can you confirm that you are?",
-            "Next, You must be at least 18 years old for this role. Are you 18 or older?",
-            "We are currently hiring specifically for evening and weekend shifts. Is your general availability a fit for that schedule?",
-            "Do you have reliable transportation to and from our store located at {address}?"
-        ],
         "questions": [
             "Are you reliable and punctual for overnight hours?",
             "Have you worked in a 24-hour operation before?"
         ],
+        "knockout_questions": [
+            "Are you legally allowed to work in the United States?",
+            "Are you 18 or older?",
+            "We are currently hiring specifically for evening and weekend shifts.  Are you available to work that schedule?",
+            "Do you have reliable transportation to and from our location at {address}?"
+        ],
         "scoring_model": {
-            "How many years of overnight or late-night shift experience do you have?": {"rule": "Score = min(years, 5) * 5"},
-            "Are you reliable and punctual for overnight hours?": {"rule": "Yes -> 10, No -> 0"},
-            "Have you worked in a 24-hour operation before?": {"rule": "Yes -> 10, No -> 0"}
-        }
+            # ── Basic Requirements (5 each) ──────────────────────────────────────
+            "Are you legally allowed to work in the United States?": {
+                "rule": "Yes -> 5, No -> 0",
+                "weight": 5,
+                "category": "Basic Requirements"
+            },
+            "Are you 18 or older?": {
+                "rule": "Yes -> 5, No -> 0",
+                "weight": 5,
+                "category": "Basic Requirements"
+            },
+
+            # ── Compliance (5) ───────────────────────────────────────────────────
+            "background_check_consent": {
+                "rule": "Yes -> 5, No -> 0",
+                "weight": 5,
+                "category": "Compliance"
+            },
+
+            # ── Commitment — Schedule (4) ─────────────────────────────────────────
+            "We are currently hiring specifically for evening and weekend shifts. Is your general availability a fit for that schedule?": {
+                "rule": "Yes -> 4, No -> 0",
+                "weight": 4,
+                "category": "Commitment"
+            },
+
+            # ── Logistics — Transportation (4) ────────────────────────────────────
+            "Do you have reliable transportation to and from our store located at {address}?": {
+                "rule": "Yes -> 4, No -> 0",
+                "weight": 4,
+                "category": "Logistics"
+            },
+
+            # ── Certifications (2) — from ask_certifications node ─────────────────
+            "certifications": {
+                "rule": "ServSafe/TIPS/Food Safety cert present -> 2, None,no -> 0",
+                "weight": 2,
+                "category": "Certifications"
+            },
+        },
     },
     "prep_cook": {
-        "knockout_questions": [
-            "To work here, you must be legally eligible to work in the U.S. Can you confirm that you are?",
-            "Next, You must be at least 18 years old for this role. Are you 18 or older?",
-            "We are currently hiring specifically for evening and weekend shifts. Is your general availability a fit for that schedule?",
-            "Do you have reliable transportation to and from our store located at {address}?"
-        ],
         "questions": [
             "Are you comfortable following recipes and portion guidelines?",
             "Have you prepared ingredients in a professional kitchen?"
         ],
+        "knockout_questions": [
+            "Are you legally allowed to work in the United States?",
+            "Are you 18 or older?",
+            "We are currently hiring specifically for evening and weekend shifts.  Are you available to work that schedule?",
+            "Do you have reliable transportation to and from our location at {address}?"
+        ],
         "scoring_model": {
-            "How many years of food prep or cooking experience do you have?": {"rule": "Score = years * 3"},
-            "Are you comfortable following recipes and portion guidelines?": {"rule": "Yes -> 10, No -> 0"},
-            "Have you prepared ingredients in a professional kitchen?": {"rule": "Yes -> 10, No -> 0"}
-        }
+            # ── Basic Requirements (5 each) ──────────────────────────────────────
+            "Are you legally allowed to work in the United States?": {
+                "rule": "Yes -> 5, No -> 0",
+                "weight": 5,
+                "category": "Basic Requirements"
+            },
+            "Are you 18 or older?": {
+                "rule": "Yes -> 5, No -> 0",
+                "weight": 5,
+                "category": "Basic Requirements"
+            },
+
+            # ── Compliance (5) ───────────────────────────────────────────────────
+            "background_check_consent": {
+                "rule": "Yes -> 5, No -> 0",
+                "weight": 5,
+                "category": "Compliance"
+            },
+
+            # ── Commitment — Schedule (4) ─────────────────────────────────────────
+            "We are currently hiring specifically for evening and weekend shifts. Is your general availability a fit for that schedule?": {
+                "rule": "Yes -> 4, No -> 0",
+                "weight": 4,
+                "category": "Commitment"
+            },
+
+            # ── Logistics — Transportation (4) ────────────────────────────────────
+            "Do you have reliable transportation to and from our store located at {address}?": {
+                "rule": "Yes -> 4, No -> 0",
+                "weight": 4,
+                "category": "Logistics"
+            },
+
+            # ── Certifications (2) — from ask_certifications node ─────────────────
+            "certifications": {
+                "rule": "ServSafe/TIPS/Food Safety cert present -> 2, None,no -> 0",
+                "weight": 2,
+                "category": "Certifications"
+            },
+        },
     },
     "prep_team": {
-        "knockout_questions": [
-            "To work here, you must be legally eligible to work in the U.S. Can you confirm that you are?",
-            "Next, You must be at least 18 years old for this role. Are you 18 or older?",
-            "We are currently hiring specifically for evening and weekend shifts. Is your general availability a fit for that schedule?",
-            "Do you have reliable transportation to and from our store located at {address}?"
-        ],
         "questions": [
             "Are you comfortable with repetitive prep tasks?",
             "Have you worked in a team-based kitchen environment?"
         ],
+        "knockout_questions": [
+            "Are you legally allowed to work in the United States?",
+            "Are you 18 or older?",
+            "We are currently hiring specifically for evening and weekend shifts.  Are you available to work that schedule?",
+            "Do you have reliable transportation to and from our location at {address}?"
+        ],
         "scoring_model": {
-            "How many years of food preparation experience do you have?": {"rule": "Score = min(years, 5) * 5"},
-            "Are you comfortable with repetitive prep tasks?": {"rule": "Yes -> 10, No -> 0"},
-            "Have you worked in a team-based kitchen environment?": {"rule": "Yes -> 10, No -> 0"}
-        }
+            # ── Basic Requirements (5 each) ──────────────────────────────────────
+            "Are you legally allowed to work in the United States?": {
+                "rule": "Yes -> 5, No -> 0",
+                "weight": 5,
+                "category": "Basic Requirements"
+            },
+            "Are you 18 or older?": {
+                "rule": "Yes -> 5, No -> 0",
+                "weight": 5,
+                "category": "Basic Requirements"
+            },
+
+            # ── Compliance (5) ───────────────────────────────────────────────────
+            "background_check_consent": {
+                "rule": "Yes -> 5, No -> 0",
+                "weight": 5,
+                "category": "Compliance"
+            },
+
+            # ── Commitment — Schedule (4) ─────────────────────────────────────────
+            "We are currently hiring specifically for evening and weekend shifts. Is your general availability a fit for that schedule?": {
+                "rule": "Yes -> 4, No -> 0",
+                "weight": 4,
+                "category": "Commitment"
+            },
+
+            # ── Logistics — Transportation (4) ────────────────────────────────────
+            "Do you have reliable transportation to and from our store located at {address}?": {
+                "rule": "Yes -> 4, No -> 0",
+                "weight": 4,
+                "category": "Logistics"
+            },
+
+            # ── Certifications (2) — from ask_certifications node ─────────────────
+            "certifications": {
+                "rule": "ServSafe/TIPS/Food Safety cert present -> 2, None,no -> 0",
+                "weight": 2,
+                "category": "Certifications"
+            },
+        },
     },
     "shift_coordinator": {
-        "knockout_questions": [
-            "To work here, you must be legally eligible to work in the U.S. Can you confirm that you are?",
-            "Next, You must be at least 18 years old for this role. Are you 18 or older?",
-            "We are currently hiring specifically for evening and weekend shifts. Is your general availability a fit for that schedule?",
-            "Do you have reliable transportation to and from our store located at {address}?"
-        ],
         "questions": [
             "Have you managed restaurant operations during a shift?",
             "Are you skilled at prioritizing tasks and handling pressure?"
         ],
+        "knockout_questions": [
+            "Are you legally allowed to work in the United States?",
+            "Are you 18 or older?",
+            "We are currently hiring specifically for evening and weekend shifts.  Are you available to work that schedule?",
+            "Do you have reliable transportation to and from our location at {address}?"
+        ],
         "scoring_model": {
-            "How many years of shift coordination or supervisory experience do you have?": {"rule": "Score = min(years, 5) * 5"},
-            "Have you managed restaurant operations during a shift?": {"rule": "Yes -> 10, No -> 0"},
-            "Are you skilled at prioritizing tasks and handling pressure?": {"rule": "Yes -> 10, No -> 0"}
-        }
+            # ── Basic Requirements (5 each) ──────────────────────────────────────
+            "Are you legally allowed to work in the United States?": {
+                "rule": "Yes -> 5, No -> 0",
+                "weight": 5,
+                "category": "Basic Requirements"
+            },
+            "Are you 18 or older?": {
+                "rule": "Yes -> 5, No -> 0",
+                "weight": 5,
+                "category": "Basic Requirements"
+            },
+
+            # ── Compliance (5) ───────────────────────────────────────────────────
+            "background_check_consent": {
+                "rule": "Yes -> 5, No -> 0",
+                "weight": 5,
+                "category": "Compliance"
+            },
+
+            # ── Commitment — Schedule (4) ─────────────────────────────────────────
+            "We are currently hiring specifically for evening and weekend shifts. Is your general availability a fit for that schedule?": {
+                "rule": "Yes -> 4, No -> 0",
+                "weight": 4,
+                "category": "Commitment"
+            },
+
+            # ── Logistics — Transportation (4) ────────────────────────────────────
+            "Do you have reliable transportation to and from our store located at {address}?": {
+                "rule": "Yes -> 4, No -> 0",
+                "weight": 4,
+                "category": "Logistics"
+            },
+
+            # ── Certifications (2) — from ask_certifications node ─────────────────
+            "certifications": {
+                "rule": "ServSafe/TIPS/Food Safety cert present -> 2, None,no -> 0",
+                "weight": 2,
+                "category": "Certifications"
+            },
+        },
     },
     "shift_lead": {
-        "knockout_questions": [
-            "To work here, you must be legally eligible to work in the U.S. Can you confirm that you are?",
-            "Next, You must be at least 18 years old for this role. Are you 18 or older?",
-            "We are currently hiring specifically for evening and weekend shifts. Is your general availability a fit for that schedule?",
-            "Do you have reliable transportation to and from our store located at {address}?"
-        ],
         "questions": [
             "Have you supervised a team during restaurant shifts?",
             "Are you comfortable assigning tasks and monitoring performance?"
         ],
+        "knockout_questions": [
+            "Are you legally allowed to work in the United States?",
+            "Are you 18 or older?",
+            "We are currently hiring specifically for evening and weekend shifts.  Are you available to work that schedule?",
+            "Do you have reliable transportation to and from our location at {address}?"
+        ],
         "scoring_model": {
-            "How many years of shift leadership experience do you have?": {"rule": "Score = min(years, 5) * 5"},
-            "Have you supervised a team during restaurant shifts?": {"rule": "Yes -> 10, No -> 0"},
-            "Are you comfortable assigning tasks and monitoring performance?": {"rule": "Yes -> 10, No -> 0"}
-        }
+            # ── Basic Requirements (5 each) ──────────────────────────────────────
+            "Are you legally allowed to work in the United States?": {
+                "rule": "Yes -> 5, No -> 0",
+                "weight": 5,
+                "category": "Basic Requirements"
+            },
+            "Are you 18 or older?": {
+                "rule": "Yes -> 5, No -> 0",
+                "weight": 5,
+                "category": "Basic Requirements"
+            },
+
+            # ── Compliance (5) ───────────────────────────────────────────────────
+            "background_check_consent": {
+                "rule": "Yes -> 5, No -> 0",
+                "weight": 5,
+                "category": "Compliance"
+            },
+
+            # ── Commitment — Schedule (4) ─────────────────────────────────────────
+            "We are currently hiring specifically for evening and weekend shifts. Is your general availability a fit for that schedule?": {
+                "rule": "Yes -> 4, No -> 0",
+                "weight": 4,
+                "category": "Commitment"
+            },
+
+            # ── Logistics — Transportation (4) ────────────────────────────────────
+            "Do you have reliable transportation to and from our store located at {address}?": {
+                "rule": "Yes -> 4, No -> 0",
+                "weight": 4,
+                "category": "Logistics"
+            },
+
+            # ── Certifications (2) — from ask_certifications node ─────────────────
+            "certifications": {
+                "rule": "ServSafe/TIPS/Food Safety cert present -> 2, None,no -> 0",
+                "weight": 2,
+                "category": "Certifications"
+            },
+        },
     },
     "shift_leader": {
-        "knockout_questions": [
-            "To work here, you must be legally eligible to work in the U.S. Can you confirm that you are?",
-            "Next, You must be at least 18 years old for this role. Are you 18 or older?",
-            "We are currently hiring specifically for evening and weekend shifts. Is your general availability a fit for that schedule?",
-            "Do you have reliable transportation to and from our store located at {address}?"
-        ],
         "questions": [
             "Have you led restaurant operations during busy periods?",
             "Are you comfortable handling customer issues and team conflicts?"
         ],
+        "knockout_questions": [
+            "Are you legally allowed to work in the United States?",
+            "Are you 18 or older?",
+            "We are currently hiring specifically for evening and weekend shifts.  Are you available to work that schedule?",
+            "Do you have reliable transportation to and from our location at {address}?"
+        ],
         "scoring_model": {
-            "How many years of team leadership experience do you have?": {"rule": "Score = min(years, 5) * 5"},
-            "Have you led restaurant operations during busy periods?": {"rule": "Yes -> 10, No -> 0"},
-            "Are you comfortable handling customer issues and team conflicts?": {"rule": "Yes -> 10, No -> 0"}
-        }
+            # ── Basic Requirements (5 each) ──────────────────────────────────────
+            "Are you legally allowed to work in the United States?": {
+                "rule": "Yes -> 5, No -> 0",
+                "weight": 5,
+                "category": "Basic Requirements"
+            },
+            "Are you 18 or older?": {
+                "rule": "Yes -> 5, No -> 0",
+                "weight": 5,
+                "category": "Basic Requirements"
+            },
+
+            # ── Compliance (5) ───────────────────────────────────────────────────
+            "background_check_consent": {
+                "rule": "Yes -> 5, No -> 0",
+                "weight": 5,
+                "category": "Compliance"
+            },
+
+            # ── Commitment — Schedule (4) ─────────────────────────────────────────
+            "We are currently hiring specifically for evening and weekend shifts. Is your general availability a fit for that schedule?": {
+                "rule": "Yes -> 4, No -> 0",
+                "weight": 4,
+                "category": "Commitment"
+            },
+
+            # ── Logistics — Transportation (4) ────────────────────────────────────
+            "Do you have reliable transportation to and from our store located at {address}?": {
+                "rule": "Yes -> 4, No -> 0",
+                "weight": 4,
+                "category": "Logistics"
+            },
+
+            # ── Certifications (2) — from ask_certifications node ─────────────────
+            "certifications": {
+                "rule": "ServSafe/TIPS/Food Safety cert present -> 2, None,no -> 0",
+                "weight": 2,
+                "category": "Certifications"
+            },
+        },
     },
     "shift_manager": {
-        "knockout_questions": [
-            "To work here, you must be legally eligible to work in the U.S. Can you confirm that you are?",
-            "Next, You must be at least 18 years old for this role. Are you 18 or older?",
-            "We are currently hiring specifically for evening and weekend shifts. Is your general availability a fit for that schedule?",
-            "Do you have reliable transportation to and from our store located at {address}?"
-        ],
         "questions": [
             "Have you managed inventory and labor during shifts?",
             "Are you experienced in training and coaching team members?"
         ],
+        "knockout_questions": [
+            "Are you legally allowed to work in the United States?",
+            "Are you 18 or older?",
+            "We are currently hiring specifically for evening and weekend shifts.  Are you available to work that schedule?",
+            "Do you have reliable transportation to and from our location at {address}?"
+        ],
         "scoring_model": {
-            "How many years of restaurant management experience do you have?": {"rule": "Score = min(years, 5) * 5"},
-            "Have you managed inventory and labor during shifts?": {"rule": "Yes -> 10, No -> 0"},
-            "Are you experienced in training and coaching team members?": {"rule": "Yes -> 10, No -> 0"}
-        }
+            # ── Basic Requirements (5 each) ──────────────────────────────────────
+            "Are you legally allowed to work in the United States?": {
+                "rule": "Yes -> 5, No -> 0",
+                "weight": 5,
+                "category": "Basic Requirements"
+            },
+            "Are you 18 or older?": {
+                "rule": "Yes -> 5, No -> 0",
+                "weight": 5,
+                "category": "Basic Requirements"
+            },
+
+            # ── Compliance (5) ───────────────────────────────────────────────────
+            "background_check_consent": {
+                "rule": "Yes -> 5, No -> 0",
+                "weight": 5,
+                "category": "Compliance"
+            },
+
+            # ── Commitment — Schedule (4) ─────────────────────────────────────────
+            "We are currently hiring specifically for evening and weekend shifts. Is your general availability a fit for that schedule?": {
+                "rule": "Yes -> 4, No -> 0",
+                "weight": 4,
+                "category": "Commitment"
+            },
+
+            # ── Logistics — Transportation (4) ────────────────────────────────────
+            "Do you have reliable transportation to and from our store located at {address}?": {
+                "rule": "Yes -> 4, No -> 0",
+                "weight": 4,
+                "category": "Logistics"
+            },
+
+            # ── Certifications (2) — from ask_certifications node ─────────────────
+            "certifications": {
+                "rule": "ServSafe/TIPS/Food Safety cert present -> 2, None,no -> 0",
+                "weight": 2,
+                "category": "Certifications"
+            },
+        },
     },
     "shift_supervisor": {
-        "knockout_questions": [
-            "To work here, you must be legally eligible to work in the U.S. Can you confirm that you are?",
-            "Next, You must be at least 18 years old for this role. Are you 18 or older?",
-            "We are currently hiring specifically for evening and weekend shifts. Is your general availability a fit for that schedule?",
-            "Do you have reliable transportation to and from our store located at {address}?"
-        ],
         "questions": [
             "Have you managed a team in a restaurant setting?",
             "Are you comfortable handling customer complaints and team conflicts?"
         ],
+        "knockout_questions": [
+            "Are you legally allowed to work in the United States?",
+            "Are you 18 or older?",
+            "We are currently hiring specifically for evening and weekend shifts.  Are you available to work that schedule?",
+            "Do you have reliable transportation to and from our location at {address}?"
+        ],
         "scoring_model": {
-            "How many years of team leadership experience do you have?": {"rule": "Score = min(years, 5) * 5"},
-            "Have you managed a team in a restaurant setting?": {"rule": "Yes -> 10, No -> 3"},
-            "Are you comfortable handling customer complaints and team conflicts?": {"rule": "Yes -> 10, No -> 0"}
-        }
+            # ── Basic Requirements (5 each) ──────────────────────────────────────
+            "Are you legally allowed to work in the United States?": {
+                "rule": "Yes -> 5, No -> 0",
+                "weight": 5,
+                "category": "Basic Requirements"
+            },
+            "Are you 18 or older?": {
+                "rule": "Yes -> 5, No -> 0",
+                "weight": 5,
+                "category": "Basic Requirements"
+            },
+
+            # ── Compliance (5) ───────────────────────────────────────────────────
+            "background_check_consent": {
+                "rule": "Yes -> 5, No -> 0",
+                "weight": 5,
+                "category": "Compliance"
+            },
+
+            # ── Commitment — Schedule (4) ─────────────────────────────────────────
+            "We are currently hiring specifically for evening and weekend shifts. Is your general availability a fit for that schedule?": {
+                "rule": "Yes -> 4, No -> 0",
+                "weight": 4,
+                "category": "Commitment"
+            },
+
+            # ── Logistics — Transportation (4) ────────────────────────────────────
+            "Do you have reliable transportation to and from our store located at {address}?": {
+                "rule": "Yes -> 4, No -> 0",
+                "weight": 4,
+                "category": "Logistics"
+            },
+
+            # ── Certifications (2) — from ask_certifications node ─────────────────
+            "certifications": {
+                "rule": "ServSafe/TIPS/Food Safety cert present -> 2, None,no -> 0",
+                "weight": 2,
+                "category": "Certifications"
+            },
+        },
     },
     "store_support": {
-        "knockout_questions": [
-            "To work here, you must be legally eligible to work in the U.S. Can you confirm that you are?",
-            "Next, You must be at least 18 years old for this role. Are you 18 or older?",
-            "We are currently hiring specifically for evening and weekend shifts. Is your general availability a fit for that schedule?",
-            "Do you have reliable transportation to and from our store located at {address}?"
-        ],
         "questions": [
             "Are you detail-oriented when organizing inventory?",
             "Have you worked in a customer-facing retail environment?"
         ],
+        "knockout_questions": [
+            "Are you legally allowed to work in the United States?",
+            "Are you 18 or older?",
+            "We are currently hiring specifically for evening and weekend shifts.  Are you available to work that schedule?",
+            "Do you have reliable transportation to and from our location at {address}?"
+        ],
         "scoring_model": {
-            "How many years of retail or stocking experience do you have?": {"rule": "Score = min(years, 5) * 5"},
-            "Are you detail-oriented when organizing inventory?": {"rule": "Yes -> 10, No -> 0"},
-            "Have you worked in a customer-facing retail environment?": {"rule": "Yes -> 10, No -> 0"}
-        }
+            # ── Basic Requirements (5 each) ──────────────────────────────────────
+            "Are you legally allowed to work in the United States?": {
+                "rule": "Yes -> 5, No -> 0",
+                "weight": 5,
+                "category": "Basic Requirements"
+            },
+            "Are you 18 or older?": {
+                "rule": "Yes -> 5, No -> 0",
+                "weight": 5,
+                "category": "Basic Requirements"
+            },
+
+            # ── Compliance (5) ───────────────────────────────────────────────────
+            "background_check_consent": {
+                "rule": "Yes -> 5, No -> 0",
+                "weight": 5,
+                "category": "Compliance"
+            },
+
+            # ── Commitment — Schedule (4) ─────────────────────────────────────────
+            "We are currently hiring specifically for evening and weekend shifts. Is your general availability a fit for that schedule?": {
+                "rule": "Yes -> 4, No -> 0",
+                "weight": 4,
+                "category": "Commitment"
+            },
+
+            # ── Logistics — Transportation (4) ────────────────────────────────────
+            "Do you have reliable transportation to and from our store located at {address}?": {
+                "rule": "Yes -> 4, No -> 0",
+                "weight": 4,
+                "category": "Logistics"
+            },
+
+            # ── Certifications (2) — from ask_certifications node ─────────────────
+            "certifications": {
+                "rule": "ServSafe/TIPS/Food Safety cert present -> 2, None,no -> 0",
+                "weight": 2,
+                "category": "Certifications"
+            },
+        },
     },
     "team_lead": {
-        "knockout_questions": [
-            "To work here, you must be legally eligible to work in the U.S. Can you confirm that you are?",
-            "Next, You must be at least 18 years old for this role. Are you 18 or older?",
-            "We are currently hiring specifically for evening and weekend shifts. Is your general availability a fit for that schedule?",
-            "Do you have reliable transportation to and from our store located at {address}?"
-        ],
         "questions": [
             "Have you led a team in achieving performance goals?",
             "Are you skilled at providing constructive feedback?"
         ],
+        "knockout_questions": [
+            "Are you legally allowed to work in the United States?",
+            "Are you 18 or older?",
+            "We are currently hiring specifically for evening and weekend shifts.  Are you available to work that schedule?",
+            "Do you have reliable transportation to and from our location at {address}?"
+        ],
         "scoring_model": {
-            "How many years of team leadership or mentoring experience do you have?": {"rule": "Score = min(years, 5) * 5"},
-            "Have you led a team in achieving performance goals?": {"rule": "Yes -> 10, No -> 0"},
-            "Are you skilled at providing constructive feedback?": {"rule": "Yes -> 10, No -> 0"}
-        }
+            # ── Basic Requirements (5 each) ──────────────────────────────────────
+            "Are you legally allowed to work in the United States?": {
+                "rule": "Yes -> 5, No -> 0",
+                "weight": 5,
+                "category": "Basic Requirements"
+            },
+            "Are you 18 or older?": {
+                "rule": "Yes -> 5, No -> 0",
+                "weight": 5,
+                "category": "Basic Requirements"
+            },
+
+            # ── Compliance (5) ───────────────────────────────────────────────────
+            "background_check_consent": {
+                "rule": "Yes -> 5, No -> 0",
+                "weight": 5,
+                "category": "Compliance"
+            },
+
+            # ── Commitment — Schedule (4) ─────────────────────────────────────────
+            "We are currently hiring specifically for evening and weekend shifts. Is your general availability a fit for that schedule?": {
+                "rule": "Yes -> 4, No -> 0",
+                "weight": 4,
+                "category": "Commitment"
+            },
+
+            # ── Logistics — Transportation (4) ────────────────────────────────────
+            "Do you have reliable transportation to and from our store located at {address}?": {
+                "rule": "Yes -> 4, No -> 0",
+                "weight": 4,
+                "category": "Logistics"
+            },
+
+            # ── Certifications (2) — from ask_certifications node ─────────────────
+            "certifications": {
+                "rule": "ServSafe/TIPS/Food Safety cert present -> 2, None,no -> 0",
+                "weight": 2,
+                "category": "Certifications"
+            },
+        },
     },
     "team_member": {
-        "knockout_questions": [
-            "To work here, you must be legally eligible to work in the U.S. Can you confirm that you are?",
-            "Next, You must be at least 18 years old for this role. Are you 18 or older?",
-            "We are currently hiring specifically for evening and weekend shifts. Is your general availability a fit for that schedule?",
-            "Do you have reliable transportation to and from our store located at {address}?"
-        ],
         "questions": [
             "Are you a team player and willing to help where needed?",
             "Have you worked in a fast-paced service environment?"
         ],
+        "knockout_questions": [
+            "Are you legally allowed to work in the United States?",
+            "Are you 18 or older?",
+            "We are currently hiring specifically for evening and weekend shifts.  Are you available to work that schedule?",
+            "Do you have reliable transportation to and from our location at {address}?"
+        ],
         "scoring_model": {
-            "How many years of restaurant or retail experience do you have?": {"rule": "Score = min(years, 5) * 5"},
-            "Are you a team player and willing to help where needed?": {"rule": "Yes -> 10, No -> 0"},
-            "Have you worked in a fast-paced service environment?": {"rule": "Yes -> 10, No -> 0"}
-        }
+            # ── Basic Requirements (5 each) ──────────────────────────────────────
+            "Are you legally allowed to work in the United States?": {
+                "rule": "Yes -> 5, No -> 0",
+                "weight": 5,
+                "category": "Basic Requirements"
+            },
+            "Are you 18 or older?": {
+                "rule": "Yes -> 5, No -> 0",
+                "weight": 5,
+                "category": "Basic Requirements"
+            },
+
+            # ── Compliance (5) ───────────────────────────────────────────────────
+            "background_check_consent": {
+                "rule": "Yes -> 5, No -> 0",
+                "weight": 5,
+                "category": "Compliance"
+            },
+
+            # ── Commitment — Schedule (4) ─────────────────────────────────────────
+            "We are currently hiring specifically for evening and weekend shifts. Is your general availability a fit for that schedule?": {
+                "rule": "Yes -> 4, No -> 0",
+                "weight": 4,
+                "category": "Commitment"
+            },
+
+            # ── Logistics — Transportation (4) ────────────────────────────────────
+            "Do you have reliable transportation to and from our store located at {address}?": {
+                "rule": "Yes -> 4, No -> 0",
+                "weight": 4,
+                "category": "Logistics"
+            },
+
+            # ── Certifications (2) — from ask_certifications node ─────────────────
+            "certifications": {
+                "rule": "ServSafe/TIPS/Food Safety cert present -> 2, None,no -> 0",
+                "weight": 2,
+                "category": "Certifications"
+            },
+        },
     },
     "trainer": {
-        "knockout_questions": [
-            "To work here, you must be legally eligible to work in the U.S. Can you confirm that you are?",
-            "Next, You must be at least 18 years old for this role. Are you 18 or older?",
-            "We are currently hiring specifically for evening and weekend shifts. Is your general availability a fit for that schedule?",
-            "Do you have reliable transportation to and from our store located at {address}?"
-        ],
         "questions": [
             "Have you developed training materials or programs?",
             "Are you comfortable demonstrating procedures and providing feedback?"
         ],
+        "knockout_questions": [
+            "Are you legally allowed to work in the United States?",
+            "Are you 18 or older?",
+            "We are currently hiring specifically for evening and weekend shifts.  Are you available to work that schedule?",
+            "Do you have reliable transportation to and from our location at {address}?"
+        ],
         "scoring_model": {
-            "How many years of training or teaching experience do you have?": {"rule": "Score = min(years, 5) * 5"},
-            "Have you developed training materials or programs?": {"rule": "Yes -> 10, No -> 0"},
-            "Are you comfortable demonstrating procedures and providing feedback?": {"rule": "Yes -> 10, No -> 0"}
-        }
+            # ── Basic Requirements (5 each) ──────────────────────────────────────
+            "Are you legally allowed to work in the United States?": {
+                "rule": "Yes -> 5, No -> 0",
+                "weight": 5,
+                "category": "Basic Requirements"
+            },
+            "Are you 18 or older?": {
+                "rule": "Yes -> 5, No -> 0",
+                "weight": 5,
+                "category": "Basic Requirements"
+            },
+
+            # ── Compliance (5) ───────────────────────────────────────────────────
+            "background_check_consent": {
+                "rule": "Yes -> 5, No -> 0",
+                "weight": 5,
+                "category": "Compliance"
+            },
+
+            # ── Commitment — Schedule (4) ─────────────────────────────────────────
+            "We are currently hiring specifically for evening and weekend shifts. Is your general availability a fit for that schedule?": {
+                "rule": "Yes -> 4, No -> 0",
+                "weight": 4,
+                "category": "Commitment"
+            },
+
+            # ── Logistics — Transportation (4) ────────────────────────────────────
+            "Do you have reliable transportation to and from our store located at {address}?": {
+                "rule": "Yes -> 4, No -> 0",
+                "weight": 4,
+                "category": "Logistics"
+            },
+
+            # ── Certifications (2) — from ask_certifications node ─────────────────
+            "certifications": {
+                "rule": "ServSafe/TIPS/Food Safety cert present -> 2, None,no -> 0",
+                "weight": 2,
+                "category": "Certifications"
+            },
+        },
     }
 }
