@@ -3227,13 +3227,18 @@ document.head.appendChild(link);
                 const data = event.data;
                 if (!data) return;
 
+                // const isComplete = (
+                //     data === "verification_complete" ||
+                //     data?.status === "completed" ||
+                //     data?.type === "session_complete" ||
+                //     data?.event === "verification_complete" ||
+                //     data?.stepId === "kyc" ||
+
+                //     (typeof data === "string" && data.toLowerCase().includes("complet"))
+                // );
+
                 const isComplete = (
-                    data === "verification_complete" ||
-                    data?.status === "completed" ||
-                    data?.type === "session_complete" ||
-                    data?.event === "verification_complete" ||
-                    data?.stepId === "kyc" ||
-                    (typeof data === "string" && data.toLowerCase().includes("complet"))
+                    data?.type === "onComplete"
                 );
 
                 if (isComplete) {
