@@ -177,6 +177,7 @@ class PassportState(MessagesState):
     id_verified:          bool = False
     id_verify_failed:     bool = False
     show_id_verify_ui:    bool = False
+    id_verification_result:   str  = ""
 
     # ── Re-ask tracking ───────────────────────────────────────────────────────
     re_ask_attempts: Dict[str, int] = {}
@@ -1213,6 +1214,9 @@ def store_military_node(state: PassportState) -> PassportState:
 def military_router(state: PassportState) -> Literal["ask_military", "ask_id_verification", "passport_summary"]:
     if state.get("military_served") and not state.get("military_follow_up_done"):
         return "ask_military"
+    # ID verification disabled — set status here
+    if not state.get("id_verification_result"):
+        state["id_verification_result"] = "ID Verification Not Required"
     return "passport_summary"
 
 
@@ -1257,12 +1261,22 @@ def process_id_result_node(state: PassportState) -> PassportState:
     print("process_id_result_node called")
 
     if state.get("id_verified"):
+        state["id_verification_result"] = "Verification Passed"
         state["messages"].append(AIMessage(
             content="Awesome! Your identity has been verified and secured. 🛡️"
         ))
-    else:
+    elif state.get("id_verify_failed"):
+        state["id_verification_result"] = "Verification Failed"
         state["messages"].append(AIMessage(
             content="Our automated system had a brief issue confirming the verification. Don't worry — our team will review your documents and reach out if needed."
+        ))
+    else:
+        state["id_verification_result"] = "Verification Incomplete"
+        state["messages"].append(AIMessage(
+            content="It looks like the verification process didn't complete in time."
+        ))
+        state["messages"].append(AIMessage(
+            content="No worries — our team will follow up with you directly to complete this step."
         ))
 
     return state
@@ -1422,6 +1436,7 @@ def passport_summary_node(state: PassportState) -> PassportState:
         data        = {
             "score":           int(fit_score.get("total_score", 0)),
             "passport_profile": state["passport_profile"],
+            "id_verification_result":  state.get("id_verification_result", "Verification Incomplete"),
         },
         is_live = state.get("is_live", False)
     )

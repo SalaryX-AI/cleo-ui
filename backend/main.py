@@ -1249,6 +1249,7 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                 id_verified=False,
                 id_verify_failed=False,
                 show_id_verify_ui=False,
+                id_verification_result="",
                 session_id=session_id,
                 job_id=job_id,
                 company_id=company_id,
