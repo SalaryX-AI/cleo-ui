@@ -3220,7 +3220,30 @@ document.head.appendChild(link);
         openModal() {
             this.createModal();
             document.getElementById("idv-modal-overlay").classList.add("active");
-            this.startAutoClose();
+
+            // Listen for Simplici postMessage when candidate completes verification
+            this._postMessageHandler = (event) => {
+                console.log("[IDV] postMessage received:", event.data);
+                const data = event.data;
+                if (!data) return;
+
+                const isComplete = (
+                    data === "verification_complete" ||
+                    data?.status === "completed" ||
+                    data?.type === "session_complete" ||
+                    data?.event === "verification_complete" ||
+                    data?.stepId === "kyc" ||
+                    (typeof data === "string" && data.toLowerCase().includes("complet"))
+                );
+
+                if (isComplete) {
+                    console.log("[IDV] Simplici postMessage received — verification completed:", data);
+                    // Start 30s countdown from this moment
+                    this.startAutoClose();
+                }
+            };
+
+            window.addEventListener("message", this._postMessageHandler);
         },
 
         startAutoClose() {
@@ -3258,6 +3281,13 @@ document.head.appendChild(link);
 
         closeModal() {
             this.stopAutoClose();
+
+            // Remove postMessage listener
+            if (this._postMessageHandler) {
+                window.removeEventListener("message", this._postMessageHandler);
+                this._postMessageHandler = null;
+            }
+
             const overlay = document.getElementById("idv-modal-overlay");
             if (overlay) {
                 overlay.style.opacity = "0";
