@@ -397,7 +397,6 @@ document.head.appendChild(link);
                     .typing-indicator {
                         display: flex;
                         align-items: center;
-                        gap: 12px;
                         padding: 12px 16px;
                         background-color: #EFEFF0;
                         border-radius: 18px;
@@ -405,32 +404,21 @@ document.head.appendChild(link);
                         margin: 8px 0;
                     }
 
-                    .typing-message {
-                        color: #3c3f52;
-                        font-size: 0.95rem;
-                        font-weight: 600;
-                    }
-
-                    .typing-dots {
-                        display: flex;
-                        align-items: center;
-                        gap: 4px;
-                    }
-
-                    .typing-dots span {
+                    .typing-indicator span {
                         height: 8px;
                         width: 8px;
                         background-color: #999;
                         border-radius: 50%;
                         display: inline-block;
+                        margin: 0 2px;
                         animation: typing 1.2s infinite;
                     }
 
-                    .typing-dots span:nth-child(2) {
+                    .typing-indicator span:nth-child(2) {
                         animation-delay: 0.2s;
                     }
 
-                    .typing-dots span:nth-child(3) {
+                    .typing-indicator span:nth-child(3) {
                         animation-delay: 0.4s;
                     }
 
@@ -518,7 +506,7 @@ document.head.appendChild(link);
             this.isOpen = false;
         },
 
-        showTypingIndicator(message = '') {
+        showTypingIndicator() {
             const messagesDiv = document.getElementById('chatbot-messages');
             
             // Remove any existing typing indicator
@@ -530,12 +518,9 @@ document.head.appendChild(link);
             typingDiv.className = 'message-container ai';
             typingDiv.innerHTML = `
                 <div class="typing-indicator">
-                    ${message ? `<div class="typing-message">${message}</div>` : ''}
-                    <div class="typing-dots">
-                        <span></span>
-                        <span></span>
-                        <span></span>
-                    </div>
+                    <span></span>
+                    <span></span>
+                    <span></span>
                 </div>
             `;
             
@@ -673,7 +658,7 @@ document.head.appendChild(link);
             
             // Handle typing event
             if (data.type === 'typing') {
-                this.showTypingIndicator(data.message || '');
+                this.showTypingIndicator();
                 return;
             }
             
@@ -742,10 +727,9 @@ document.head.appendChild(link);
                 this.addMessage(`Error: ${data.message}`, true, 'body');
             }
             else if (data.type === 'id_verify_result') {
+                IdVerificationUI.stopAutoClose();
                 IdVerificationUI.showWebhookResult(data.verified);
-                // Auto-close modal after 1.5s so user sees the status briefly
-                IdVerificationUI.closeModal()
-                // setTimeout(() => IdVerificationUI.closeModal(), 800);
+                setTimeout(() => IdVerificationUI.closeModal(), 2000);
             }
         },
         
@@ -3236,9 +3220,44 @@ document.head.appendChild(link);
         openModal() {
             this.createModal();
             document.getElementById("idv-modal-overlay").classList.add("active");
+            this.startAutoClose();
+        },
+
+        startAutoClose() {
+            if (this._autoCloseTimer) clearTimeout(this._autoCloseTimer);
+
+            this._autoCloseTimer = setTimeout(() => {
+                const overlay = document.getElementById("idv-modal-overlay");
+                if (!overlay) return; // Already closed by webhook
+
+                const badge = document.getElementById("idv-modal-status-badge");
+                if (badge) {
+                    badge.textContent = "⚠️ Verification timed out";
+                    badge.classList.add("failed");
+                }
+
+                setTimeout(() => {
+                    this.closeModal();
+                    window.CleoChatbot.addMessage(
+                        "We weren't able to confirm your verification in time. Our team will review your documents and follow up with you directly.",
+                        true,
+                        "body"
+                    );
+                    window.CleoChatbot.enableInput();
+                }, 2000);
+
+            }, 30000); // 30 seconds
+        },
+
+        stopAutoClose() {
+            if (this._autoCloseTimer) {
+                clearTimeout(this._autoCloseTimer);
+                this._autoCloseTimer = null;
+            }
         },
 
         closeModal() {
+            this.stopAutoClose();
             const overlay = document.getElementById("idv-modal-overlay");
             if (overlay) {
                 overlay.style.opacity = "0";
