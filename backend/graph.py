@@ -132,6 +132,7 @@ class ChatbotState(MessagesState):
     id_verified: bool = False
     id_verify_failed: bool = False
     show_id_verify_ui: bool = False
+    id_verification_result: str  = ""
 
     session_id: str = ""
     job_id: str = ""
@@ -2802,20 +2803,29 @@ def process_id_result_node(state: ChatbotState) -> ChatbotState:
     print("process_id_result_node called")
 
     if state.get("id_verified"):
+        state["id_verification_result"] = "Verification Passed"
         state["messages"].append(AIMessage(
             content="Awesome news! Your identity verification is all set. 🛡️"
         ))
         state["messages"].append(AIMessage(
             content="That was the last big step. It's a huge help in getting your file ready for the store manager to review."
         ))
-    else:
-        # System flag / failure — move to manual review, don't block applicant
+    elif state.get("id_verify_failed"):
+        state["id_verification_result"] = "Verification Failed"
         state["messages"].append(AIMessage(
             content="It looks like our automated system is having a bit of trouble confirming the verification details right now."
-            
         ))
         state["messages"].append(AIMessage(
             content="Don't worry! I've flagged your application for a manual review by our hiring team. They'll take a look at the documents you provided and reach out if they need anything else."
+        ))
+    else:
+        # Timed out or Simplici system failure
+        state["id_verification_result"] = "Verification Incomplete"
+        state["messages"].append(AIMessage(
+            content="It looks like the verification process didn't complete in time."
+        ))
+        state["messages"].append(AIMessage(
+            content="No worries — our team will follow up with you directly to complete this step."
         ))
 
     return state
@@ -2833,6 +2843,14 @@ def id_verification_router(state: ChatbotState) -> Literal["score"]:
 
 def score_node(state: ChatbotState) -> ChatbotState:
     print("score_node called")
+
+    # Set ID verification result if not already set
+    if not state.get("id_verification_result"):
+        if state.get("verification_required") != "true":
+            state["id_verification_result"] = "ID Verification Not Required"
+        else:
+            # Reached score without completing ID verify — declined or timed out
+            state["id_verification_result"] = "Verification Declined"
 
     # Merge all answer sources into one dict for scoring
     answers = {}
@@ -3081,6 +3099,7 @@ def summary_node(state: ChatbotState) -> ChatbotState:
             "ProfileSummary":      json_report,
             "ConversationHistory": conversation_history,
             "email_number":        1,
+            "id_verification_result":  state.get("id_verification_result", "Verification Incomplete"),
         },
         is_live=state.get("is_live", False)
     )

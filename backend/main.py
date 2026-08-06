@@ -715,6 +715,7 @@ async def passport_websocket_endpoint(websocket: WebSocket, session_id: str):
                 id_verified                     = False,
                 id_verify_failed                = False,
                 show_id_verify_ui               = False,
+                id_verification_result          = "",
                 re_ask_attempts                 = {},
                 answer_reask_reason             = "",
                 kq_reask_reason                 = "",
