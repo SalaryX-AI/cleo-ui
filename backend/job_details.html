@@ -236,9 +236,17 @@
         function renderJobDetails(job) {
             const jobCard = document.getElementById('jobCard');
             
-            // Parse job description into bullet points
+            const convertBBCode = (text) => {
+                return text
+                    .replace(/\[b\](.*?)\[\/b\]/gi, '<strong>$1</strong>')
+                    .replace(/\[i\](.*?)\[\/i\]/gi, '<em>$1</em>')
+                    .replace(/\[u\](.*?)\[\/u\]/gi, '<u>$1</u>')
+                    .replace(/\[url=(.*?)\](.*?)\[\/url\]/gi, '<a href="$1">$2</a>');
+            };
+
+            // Split description and requirements into points
             const descriptionPoints = job.description 
-                ? job.description.split('\n').filter(line => line.trim())
+                ? job.description.split('\n').filter(line => line.trim()).map(convertBBCode)
                 : ['No description available'];
 
             const requirementsPoints = job.job_requirements 

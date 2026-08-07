@@ -820,7 +820,8 @@ def delay_messages_node(state: ChatbotState) -> ChatbotState:
 
     message_map = {
         "greeting": [
-            f"Our employees are the heart of {state.get('brand_name')} — a five-star senior living community in {state.get('job_location')}.",
+            # f"Our employees are the heart of {state.get('brand_name')} — a five-star senior living community in {state.get('job_location')}.",
+            f"Our employees are the heart of {state.get('brand_name')}.",
             "I just need to ask a few quick screening questions, it should only take a couple of minutes. Ready to start? (You can type 'Stop' anytime.)"
         ],
         "end": [
