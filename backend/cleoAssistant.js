@@ -661,6 +661,14 @@ document.head.appendChild(link);
                 this.showTypingIndicator();
                 return;
             }
+
+            if (data.type === 'show_ui') {
+                this.hideTypingIndicator();
+                if (data.show_address_ui) {
+                    AddressUI.show();
+                }
+                return;
+            }
             
             if (data.type === 'ai_message') {
                 // Hide typing indicator when message arrives
@@ -2436,7 +2444,7 @@ document.head.appendChild(link);
                             type="text"
                             id="address-input"
                             class="address-input"
-                            placeholder="Start typing your address..."
+                            placeholder="please share your home address..."
                             autocomplete="off"
                         />
                         <div class="address-suggestions" id="address-suggestions" style="display:none;"></div>

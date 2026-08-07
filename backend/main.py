@@ -627,7 +627,7 @@ NODES_WITHOUT_MESSAGES = {
     "military_router", "single_knockout_router", "post_acknowledgement_router",
     "id_verification_router",
     "send_email_otp",
-    "send_phone_otp",   
+    "send_phone_otp",  
 }
  
 
@@ -1166,7 +1166,15 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                     await log_event(session_id, thread_id, node_name, "ai_message",
                                     {"content": msg.content, "messageType": "body"})
             return
- 
+
+        # ── ask_address: send UI flag only, no message ────────────────────────
+        if node_name == "ask_address":
+            await websocket.send_json({
+                "type":            "show_ui",
+                "show_address_ui": node_data.get("show_address_ui", False),
+            })
+            return
+
         # ── All other nodes: send last message only ───────────────────────────
         msg = messages[-1]
         if not isinstance(msg, AIMessage):

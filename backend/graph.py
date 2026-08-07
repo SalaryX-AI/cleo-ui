@@ -1435,10 +1435,7 @@ def ask_address_node(state: ChatbotState) -> ChatbotState:
 
         build_json_report(state)  # Update profile_summary with latest answers
 
-    state["messages"].append(AIMessage(
-        content="Perfect. Since this role is on-site, could you please share your home address? We just want to make sure the commute will be manageable for you!"
-    ))
-    state["show_address_ui"] = True   # Signal frontend to show autocomplete UI
+    # state["show_address_ui"] = True   # Signal frontend to show autocomplete UI
 
     return state
 
@@ -3332,7 +3329,7 @@ def build_graph(checkpointer):
         
     app = workflow.compile(
         checkpointer=checkpointer,
-        interrupt_after=["delay_messages", "reask_consent","ask_knockout_question",  "ask_address", "ask_gps_verification", "ask_work_experience", "ask_education", "ask_certifications", "ask_referral", "ask_military", "ask_background_check", "ask_name", "ask_email", "ask_email_otp", "ask_phone", "ask_phone_otp", "ask_id_verification", "ask_question"],
+        interrupt_after=["delay_messages", "reask_consent","ask_knockout_question", "ask_gps_verification", "ask_work_experience", "ask_education", "ask_certifications", "ask_referral", "ask_military", "ask_background_check", "ask_name", "ask_email", "ask_email_otp", "ask_phone", "ask_phone_otp", "ask_id_verification", "ask_question"],
         interrupt_before=["collect_work_experience_data"]
     )
     
