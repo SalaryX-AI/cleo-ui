@@ -238,20 +238,76 @@
             
             const convertBBCode = (text) => {
                 return text
-                    .replace(/\[b\](.*?)\[\/b\]/gi, '<strong>$1</strong>')
-                    .replace(/\[i\](.*?)\[\/i\]/gi, '<em>$1</em>')
-                    .replace(/\[u\](.*?)\[\/u\]/gi, '<u>$1</u>')
-                    .replace(/\[url=(.*?)\](.*?)\[\/url\]/gi, '<a href="$1">$2</a>');
+                    // Basic formatting
+                    .replace(/\[b\](.*?)\[\/b\]/gis,  '<strong>$1</strong>')
+                    .replace(/\[i\](.*?)\[\/i\]/gis,  '<em>$1</em>')
+                    .replace(/\[u\](.*?)\[\/u\]/gis,  '<u>$1</u>')
+                    .replace(/\[s\](.*?)\[\/s\]/gis,  '<s>$1</s>')
+
+                    // Color
+                    .replace(/\[color=(.*?)\](.*?)\[\/color\]/gis, '<span style="color:$1">$2</span>')
+
+                    // Highlight
+                    .replace(/\[highlight=(.*?)\](.*?)\[\/highlight\]/gis, '<span style="background-color:$1">$2</span>')
+
+                    // URL
+                    .replace(/\[url=(.*?)\](.*?)\[\/url\]/gis, '<a href="$1" target="_blank" rel="noopener">$2</a>')
+                    .replace(/\[url\](.*?)\[\/url\]/gis,        '<a href="$1" target="_blank" rel="noopener">$1</a>')
+
+                    // Lists — convert [ml][ul]...[/ul][/ml] and [ml][ol]...[/ol][/ml]
+                    .replace(/\[ml\]\[ul\](.*?)\[\/ul\]\[\/ml\]/gis, '<ul>$1</ul>')
+                    .replace(/\[ml\]\[ol\](.*?)\[\/ol\]\[\/ml\]/gis, '<ol>$1</ol>')
+                    .replace(/\[ul\](.*?)\[\/ul\]/gis, '<ul>$1</ul>')
+                    .replace(/\[ol\](.*?)\[\/ol\]/gis, '<ol>$1</ol>')
+
+                    // List items — strip indent/align attributes
+                    .replace(/\[li[^\]]*\](.*?)\[\/li\]/gis, '<li>$1</li>')
+
+                    // Indent
+                    .replace(/\[indent[^\]]*\](.*?)\[\/indent\]/gis, '<div style="margin-left:20px">$1</div>')
+
+                    // Align
+                    .replace(/\[right\](.*?)\[\/right\]/gis,   '<div style="text-align:right">$1</div>')
+                    .replace(/\[center\](.*?)\[\/center\]/gis, '<div style="text-align:center">$1</div>')
+                    .replace(/\[left\](.*?)\[\/left\]/gis,     '<div style="text-align:left">$1</div>')
+
+                    // Quote
+                    .replace(/\[quote\](.*?)\[\/quote\]/gis, '<blockquote style="border-left:3px solid #ccc;padding-left:12px;margin:8px 0;color:#666;font-style:italic">$1</blockquote>')
+
+                    // Size and font (strip cleanly)
+                    .replace(/\[size=.*?\](.*?)\[\/size\]/gis, '$1')
+                    .replace(/\[font=.*?\](.*?)\[\/font\]/gis, '$1')
+
+                    // Line breaks
+                    .replace(/\[br\]/gi, '<br>')
+
+                    // Strip any remaining unknown tags
+                    .replace(/\[[^\]]*\]/g, '');
             };
 
-            // Split description and requirements into points
-            const descriptionPoints = job.description 
-                ? job.description.split('\n').filter(line => line.trim()).map(convertBBCode)
-                : ['No description available'];
+            const renderDescription = (description) => {
+                if (!description) return '<p>No description available</p>';
+                const converted = convertBBCode(description);
 
-            const requirementsPoints = job.job_requirements 
-                ? job.job_requirements.split('\n').filter(line => line.trim())
-                : ['No requirements available'];
+                // Split by newline and render each line appropriately
+                return converted
+                    .split('\n')
+                    .filter(line => line.trim())
+                    .map(line => {
+                        const trimmed = line.trim();
+                        // Block elements render as-is
+                        if (/^<(ul|ol|div|blockquote)/i.test(trimmed)) {
+                            return trimmed;
+                        }
+                        // Everything else wraps in a paragraph
+                        return `<p style="margin:4px 0">${trimmed}</p>`;
+                    })
+                    .join('');
+            };
+
+            const descriptionPoints = null; // replaced by renderDescription below
+
+            const requirementsPoints = null; // replaced by renderRequirements below
 
             jobCard.innerHTML = `
                 <div class="job-header">
@@ -286,7 +342,7 @@
                         <div class="section-content">
                             ${(job.shifts && job.shifts.length > 0)
                                 ? job.shifts.join('<br>')
-                                : ('Morning')}
+                                : (' ')}
                         </div>
                     </div>
 
@@ -297,16 +353,16 @@
 
                     <div class="job-section job-description">
                         <div class="section-title">Job Description</div>
-                        <ul>
-                            ${descriptionPoints.map(point => `<li>${point}</li>`).join('')}
-                        </ul>
+                        <div class="section-content">
+                            ${renderDescription(job.description)}
+                        </div>
                     </div>
 
                     <div class="job-section job-description">
                         <div class="section-title">Job Requirements</div>
-                        <ul>
-                            ${requirementsPoints.map(point => `<li>${point}</li>`).join('')}
-                        </ul>
+                        <div class="section-content">
+                            ${renderDescription(job.job_requirements || 'No requirements available')}
+                        </div>
                     </div>
 
                 <div class="apply-button-container">
