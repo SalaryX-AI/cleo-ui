@@ -3412,103 +3412,136 @@ attachEventListeners() {
      * 2. Calls server to validate domain and get API key
      * 3. Initializes chatbot with validated configuration
      */
+    
+    // ── Xano job API ──────────────────────────────────────────────────────────
+    const XANO_JOB_API_URL = "https://xoho-w3ng-km3o.n7e.xano.io/api:L-QNLSmb/job";
+
+    async function fetchJobFromXano(jobId) {
+        const resp = await fetch(`${XANO_JOB_API_URL}/${jobId}`);
+        if (!resp.ok) throw new Error(`Xano job fetch failed: ${resp.status}`);
+        return await resp.json();
+    }
+
     async function autoInitChatbot() {
-        
-        // Find the chatbot container element
-        const container = document.getElementById('cleo-chatbot') || 
-                         document.querySelector('[data-job-type]') || document.querySelector('[data-mode="passport"]');
+
+        // ── Find container ────────────────────────────────────────────────────
+        const container = document.getElementById('cleo-chatbot') ||
+                          document.querySelector('[data-mode="passport"]');
 
         if (!container) {
-            console.error('CleoChatbot: Container element with data-job-type attribute not found');
+            console.error('CleoChatbot: #cleo-chatbot container not found');
             return;
         }
 
-        // const jobType = container.dataset.jobType;
-    
-        // Read Values from data attribute
         const mode = container.getAttribute('data-mode') || 'job';
-        const jobLocation = container.getAttribute('data-job-location') ||'unknown';
-        const jobType = container.getAttribute('data-job-type') || 'Position';
 
-        const jobTemplateID = container.getAttribute('data-job-templates-id') || '456';
-        const jobID = container.getAttribute('data-job-id') || '123';
-        const companyID = container.getAttribute('data-company-id') || '987';
-        const isLive = container.getAttribute('data-isLive') === 'true';
-        const brandName = container.getAttribute('data-brand-name') || "";
-        const jobShift  = container.getAttribute('data-job-shift')  || "";
-        const verificationRequired = container.getAttribute('data-verification-required') || 'false';
-        const singleCompany = container.getAttribute('data-single-company') === 'true';
-       
-        console.log('CleoChatbot: jobType from data attribute:', container.getAttribute('data-job-type'));
-        console.log('CleoChatbot: jobTemplateID from data attribute:', jobTemplateID);
-        console.log('CleoChatbot: jobLocation from data attribute:', container.getAttribute('data-job-location'));
-        console.log('CleoChatbot: jobID from data attribute:', container.getAttribute('data-job-id'));
-        console.log('CleoChatbot: companyID from data attribute:', container.getAttribute('data-company-id'));
-        console.log('CleoChatbot: isLive from data attribute:', isLive);
-        console.log('CleoChatbot: jobShift from data attribute:', jobShift);
-        console.log('CleoChatbot: brandName from data attribute:', brandName);
-        console.log('CleoChatbot: verificationRequired from data attribute:', verificationRequired);
-        console.log('CleoChatbot: singleCompany from data attribute:', singleCompany);
-        if (!jobType) {
-            console.error('CleoChatbot: job_type is required to initialize the chatbot');
+        // ── Passport mode — no job fetch needed ───────────────────────────────
+        if (mode === 'passport') {
+            const domain   = window.location.hostname;
+            const domResp  = await fetch(`${CHATBOT_CONFIG.apiBaseUrl}/validate-domain?domain=${encodeURIComponent(domain)}`);
+            if (!domResp.ok) throw new Error('Domain validation failed');
+            const config   = await domResp.json();
+
+            CleoChatbot.init({
+                mode:    'passport',
+                isLive:  false,
+                apiKey:  config.apiKey,
+                apiUrl:  CHATBOT_CONFIG.apiBaseUrl,
+                wsUrl:   CHATBOT_CONFIG.wsBaseUrl,
+            });
             return;
         }
+
+        // ── Job mode — read job_id from URL ───────────────────────────────────
+        const urlParams = new URLSearchParams(window.location.search);
+        const jobId     = urlParams.get('job_id');
+
+        if (!jobId) {
+            console.error('CleoChatbot: job_id not found in URL params');
+            return;
+        }
+
+        console.log(`[CLEO] job_id from URL: ${jobId}`);
 
         try {
-            // Get current domain for validation
-            const domain = window.location.hostname;
-            console.log('CleoChatbot: Validating domain', domain, 'for job type', jobType);
+            // ── Fetch job details from Xano ───────────────────────────────────
+            const job = await fetchJobFromXano(jobId);
+            console.log('[CLEO] Job fetched from Xano:', job);
 
-            // Call server to validate domain and get API key
-            const response = await fetch(
-                `${CHATBOT_CONFIG.apiBaseUrl}/validate-domain?domain=${encodeURIComponent(domain)}`
-            );
+            // ── Extract required fields ───────────────────────────────────────
+            const jobType             = job.job.job_template                                    || '';
+            const jobLocation         = job.job.job_location                                    || 'unknown';
+            const companyID           = job.job.related_company                                 || '';
+            const brandName           = job.job._related_company?.company_name                  || '';
+            const jobShift            = job.job._shifts_of_job?.[0]?.Shift                      || '';
+            const jobTemplateID       = job.job.job_templates_id                                || '';
+            const verificationRequired = String(job.job.verificationRequired                    || 'false');
+            const singleCompany       = job.job._related_company?._related_user?.single_company === true;
+            const isLive              = true;
 
-            if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.detail || 'Failed to validate domain');
+            if (!jobType) {
+                console.error('[CLEO] job_template missing from Xano response');
+                return;
             }
 
-            const config = await response.json();
+            console.log('[CLEO] Initializing with:', { jobType, jobLocation, companyID, brandName, jobShift, jobTemplateID, verificationRequired, singleCompany, isLive });
 
-            // Initialize chatbot with validated configuration
+            // ── Validate domain and get API key ───────────────────────────────
+            const domain  = window.location.hostname;
+            const domResp = await fetch(`${CHATBOT_CONFIG.apiBaseUrl}/validate-domain?domain=${encodeURIComponent(domain)}`);
+            if (!domResp.ok) throw new Error('Domain validation failed');
+            const config  = await domResp.json();
+
+            // ── Initialize chatbot ────────────────────────────────────────────
             CleoChatbot.init({
-                mode: mode,
-                jobType: jobType,  // Use jobType from data attribute
-                jobTemplateID: jobTemplateID, // Pass jobTemplate
-                jobLocation: jobLocation,
-                jobID: jobID,
-                companyID: companyID,
-                isLive: isLive,
-                jobShift: jobShift,
-                brandName: brandName,
+                mode:                 'job',
+                jobType:              jobType,
+                jobTemplateID:        jobTemplateID,
+                jobLocation:          jobLocation,
+                jobID:                jobId,
+                companyID:            companyID,
+                isLive:               isLive,
+                jobShift:             jobShift,
+                brandName:            brandName,
                 verificationRequired: verificationRequired,
-                singleCompany: singleCompany,
-                apiKey: config.apiKey,
-                apiUrl: CHATBOT_CONFIG.apiBaseUrl,
-                wsUrl: CHATBOT_CONFIG.wsBaseUrl
+                singleCompany:        singleCompany,
+                apiKey:               config.apiKey,
+                apiUrl:               CHATBOT_CONFIG.apiBaseUrl,
+                wsUrl:                CHATBOT_CONFIG.wsBaseUrl,
             });
 
-            console.log('CleoChatbot initialized successfully for job type:', jobType);
-            console.log('CleoChatbot: jobTemplateID initialized:', jobTemplateID);
+            console.log('[CLEO] Initialized successfully for job:', jobType);
 
         } catch (error) {
-            console.error('CleoChatbot initialization failed:', error.message);
-            // Optionally show error to user
-            alert(`Failed to load chatbot: ${error.message}`);
+            console.error('[CLEO] Initialization failed:', error.message);
         }
     }
 
-    // Initialize when DOM is ready
+    // ── Initialize when DOM is ready ──────────────────────────────────────────
     function tryInit() {
-        const container = document.getElementById('cleo-chatbot') || document.querySelector('[data-job-type]' ) || document.querySelector('[data-mode="passport"]');
-        if (container && (container.getAttribute('data-job-id') || container.getAttribute('data-mode') === 'passport')) {
-            // Attributes already set — init immediately
+        const container = document.getElementById('cleo-chatbot') ||
+                          document.querySelector('[data-mode="passport"]');
+
+        if (!container) {
+            document.addEventListener('DOMContentLoaded', tryInit);
+            return;
+        }
+
+        const mode = container.getAttribute('data-mode') || 'job';
+
+        if (mode === 'passport') {
             autoInitChatbot();
-        } 
-        else {
-            // Wait for job_details.html to finish setting attributes
-            document.addEventListener('cleoJobReady', autoInitChatbot, { once: true });
+            return;
+        }
+
+        // Job mode — check job_id in URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const jobId     = urlParams.get('job_id');
+
+        if (jobId) {
+            autoInitChatbot();
+        } else {
+            console.error('[CLEO] No job_id in URL — chatbot not initialized');
         }
     }
 
