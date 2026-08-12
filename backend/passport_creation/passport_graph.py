@@ -1011,7 +1011,7 @@ def send_phone_otp_node(state: PassportState) -> PassportState:
     print("send_phone_otp_node called")
 
     phone    = state["personal_details"].get("phone", "")
-    otp_code = "123456"   # Testing mode — replace with Plivo in production
+    otp_code = "444444"   # Testing mode — replace with Plivo in production
     state["phone_otp_code"]          = otp_code
     state["phone_validation_failed"] = False
     state["phone_otp_attempts"]      = 0

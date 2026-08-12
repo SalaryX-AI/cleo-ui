@@ -2632,15 +2632,20 @@ Return ONLY valid JSON: {{"intent": "details" or "skip" or "ambiguous", "clean":
     return state
 
 
-def military_router(state: ChatbotState) -> Literal["ask_military", "ask_background_check", "score", "__end__"]:
+def military_router(state: ChatbotState) -> Literal["ask_military", "ask_background_check", "score", "__end__", "ask_id_verification"]:
+
     if state.get("generic_fail"):
         return "__end__"
+
     if "military_initial" in state.get("re_ask_attempts", {}):
         return "ask_military"
+
     if state.get("military_served") and not state.get("military_follow_up_done"):
         return "ask_military"
+
     if state.get("verification_required") == "true":
-        return "ask_background_check"
+        return "ask_id_verification"
+
     return "score"
 
 
@@ -2799,6 +2804,16 @@ def process_id_result_node(state: ChatbotState) -> ChatbotState:
     """Send success or failure message based on webhook result"""
 
     print("process_id_result_node called")
+
+    # Check if candidate skipped
+    messages     = state.get("messages", [])
+    last_human   = next((m for m in reversed(messages) if isinstance(m, HumanMessage)), None)
+    if last_human and last_human.content.strip() == "skip_id_verification":
+        state["id_verification_result"] = "Verification Declined"
+        state["messages"].append(AIMessage(
+            content="No problem! We've noted that you skipped the verification step. Our team may follow up with you to complete it later if required."
+        ))
+        return state
 
     if state.get("id_verified"):
         state["id_verification_result"] = "Verification Passed"
@@ -3304,6 +3319,7 @@ def build_graph(checkpointer):
     workflow.add_conditional_edges("store_military", military_router, {
     "ask_military": "ask_military",
     "ask_background_check": "ask_background_check",
+    "ask_id_verification": "ask_id_verification",
     "score": "score",
     "__end__": END,
     })

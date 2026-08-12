@@ -3159,8 +3159,26 @@ document.head.appendChild(link);
                         <div class="idv-step-text">2. Take a quick 3D liveness selfie</div>
                     </div>
 
-                    <button id="idv-start-btn" class="idv-btn-primary">
+<button id="idv-start-btn" class="idv-btn-primary">
                         START SECURE VERIFICATION 🔒
+                    </button>
+
+                    <button id="idv-skip-btn" style="
+                        width: 100%;
+                        padding: 10px;
+                        margin-top: 8px;
+                        background: transparent;
+                        color: #888;
+                        border: 1.5px solid #ddd;
+                        border-radius: 10px;
+                        font-size: 12px;
+                        font-weight: 500;
+                        cursor: pointer;
+                        font-family: inherit;
+                        transition: background 0.15s, color 0.15s;
+                    " onmouseover="this.style.background='#f5f5f5';this.style.color='#555'"
+                       onmouseout="this.style.background='transparent';this.style.color='#888'">
+                        Skip for now
                     </button>
 
                     <p class="idv-disclaimer">
@@ -3309,13 +3327,27 @@ document.head.appendChild(link);
             }
         },
 
-        attachEventListeners() {
+attachEventListeners() {
             const startBtn  = document.getElementById("idv-start-btn");
+            const skipBtn   = document.getElementById("idv-skip-btn");
             const refreshLk = document.getElementById("idv-refresh-link");
 
             // Open modal on START button click
             startBtn.addEventListener("click", () => {
                 this.openModal();
+            });
+
+            // Skip button — decline verification, send to backend and move on
+            skipBtn.addEventListener("click", () => {
+                this.hide();
+                window.CleoChatbot.addMessage("Skip for now", false, "body");
+                if (window.CleoChatbot && window.CleoChatbot.ws) {
+                    window.CleoChatbot.ws.send(JSON.stringify({
+                        type:    "user_message",
+                        content: "skip_id_verification"
+                    }));
+                }
+                window.CleoChatbot.enableInput();
             });
 
             // Refresh link — re-open modal
