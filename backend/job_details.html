@@ -432,19 +432,6 @@
                 const jobShift = shiftsArray.length > 1
                     ? shiftsArray.slice(0, -1).join(", ") + " and " + shiftsArray.slice(-1)
                     : shiftsArray[0] || job.shifts || "various shifts";
-               
-                // Set job_type, job_location, job_id, and company_id in the chatbot container
-                document.getElementById('cleo-chatbot').setAttribute('data-job-type', job.job_template);
-                document.getElementById('cleo-chatbot').setAttribute('data-job-location', job.job_location);
-                document.getElementById('cleo-chatbot').setAttribute('data-job-id', job.id);
-                document.getElementById('cleo-chatbot').setAttribute('data-company-id', job.related_company);
-                document.getElementById('cleo-chatbot').setAttribute('data-isLive', "true");
-
-                document.getElementById('cleo-chatbot').setAttribute('data-brand-name', companyName);
-                document.getElementById('cleo-chatbot').setAttribute('data-job-shift', jobShift);
-                document.getElementById('cleo-chatbot').setAttribute('data-verification-required', job.verificationRequired);
-                document.getElementById('cleo-chatbot').setAttribute('data-job-templates-id', job.job_templates_id);
-                document.getElementById('cleo-chatbot').setAttribute('data-single-company', singleCompany.toString());
                 
                 // Load Cleo Assistant script
                 const script = document.createElement("script"); 
