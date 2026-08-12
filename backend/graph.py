@@ -1142,30 +1142,41 @@ def evaluate_single_knockout_node(state: ChatbotState) -> ChatbotState:
 
     print(f"Final Decision: {decision}")
     
+    # Questions that are NOT hard stops — conversation continues regardless of answer
+    SOFT_KNOCKOUT_INDICES = {2, 3}  # shift availability, transportation
+
     if decision == "NO":
-        state["current_knockout_failed"] = True
+        if current_index in SOFT_KNOCKOUT_INDICES:
+            # Soft stop — append message but DO NOT fail the knockout
+            state["current_knockout_failed"] = False
+            soft_messages = [
+                "",  # index 0 — unused
+                "",  # index 1 — unused
+                "I see. We can continue the application process and the hiring manager will review to see if there may be another position available that fits your availability.",
+                "I see. Reliable transportation is crucial for this position. The hiring manager will take note of this when reviewing your application.",
+            ]
+            msg = soft_messages[current_index] if current_index < len(soft_messages) else ""
+            if msg:
+                state["messages"].append(AIMessage(content=msg))
+        else:
+            # Hard stop — end conversation
+            state["current_knockout_failed"] = True
 
-        # Clear NO answer — direct failure messages
-        failure_messages = [
-            "We are only allowed to hire applicants who are legally eligible to work in the U.S. Thank you for your time!",
-            "The minimum age for this position is 18. Thank you for your time!",
-            "I see. We can continue the application process and the hiring manager will review to see if there may be another position available that fits your availability.",
-            "I see. Reliable transportation is crucial for this position. Unfortunately, this is a requirement for the role. Thank you so much for taking the time to chat with me today!"
-        ]
+            failure_messages = [
+                "We are only allowed to hire applicants who are legally eligible to work in the U.S. Thank you for your time!",
+                "The minimum age for this position is 18. Thank you for your time!",
+            ]
 
-        # Ambiguous after 3 attempts — softer phrasing
-        ambiguous_failure_messages = [
-            "We can only move forward with applicants eligible to work in the U.S. Thank you for your time!",
-            "This role requires you to be at least 18. Thank you for your time!",
-            "We only have evening and weekend openings right now. Thank you for your time!",
-            "Reliable transportation is required for this role. Thank you for your time!"
-        ]
+            ambiguous_failure_messages = [
+                "We can only move forward with applicants eligible to work in the U.S. Thank you for your time!",
+                "This role requires you to be at least 18. Thank you for your time!",
+            ]
 
-        messages_list = ambiguous_failure_messages if state.get("kq_ambiguous_default") else failure_messages
-        failure_message = messages_list[current_index] if current_index < len(messages_list) else messages_list[-1]
+            messages_list = ambiguous_failure_messages if state.get("kq_ambiguous_default") else failure_messages
+            failure_message = messages_list[current_index] if current_index < len(messages_list) else messages_list[-1]
 
-        state["kq_ambiguous_default"] = False   # reset flag
-        state["messages"].append(AIMessage(content=failure_message))
+            state["kq_ambiguous_default"] = False
+            state["messages"].append(AIMessage(content=failure_message))
     
     else:
         state["current_knockout_failed"] = False
