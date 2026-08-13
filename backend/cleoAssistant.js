@@ -3060,6 +3060,15 @@ document.head.appendChild(link);
                         box-shadow: 0 20px 60px rgba(0,0,0,0.3);
                         animation: idvModalIn 0.25s ease-out;
                     }
+                    @media (max-height: 730px) {
+                        #idv-modal {
+                            max-height: 95vh;
+                            overflow-y: auto;
+                        }
+                        #idv-modal-iframe {
+                            min-height: 420px;
+                        }
+                    }
                     @keyframes idvModalIn {
                         from { opacity: 0; transform: scale(0.95) translateY(10px); }
                         to   { opacity: 1; transform: scale(1) translateY(0); }
