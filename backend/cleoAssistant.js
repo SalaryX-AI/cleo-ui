@@ -9,10 +9,10 @@ document.head.appendChild(link);
     
     // Configuration for the chatbot API endpoints
     const CHATBOT_CONFIG = {
-        apiBaseUrl: window.apiBaseUrl,
-        wsBaseUrl: window.wsBaseUrl
+        apiBaseUrl: window.apiBaseUrl || "https://scanandhire.com",
+        wsBaseUrl:  window.wsBaseUrl  || "wss://scanandhire.com"
     };
-    
+
     const CleoChatbot = {
         config: null,
         ws: null,

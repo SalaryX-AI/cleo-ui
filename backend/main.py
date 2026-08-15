@@ -108,7 +108,7 @@ app = FastAPI(title="Screening Chatbot API", lifespan=lifespan)
 # CORS configuration
 app.add_middleware(
     CORSMiddleware,
-   allow_origins=["https://scanandhire.com", "http://localhost:8000", "http://localhost:3000", "http://127.0.0.1:5500" ,"https://bigchicken.vercel.app", "https://burgerking-olive.vercel.app", "https://mcdonald-eta.vercel.app", "https://popeyes-ten.vercel.app", "https://starbucks-virid-three.vercel.app"],
+   allow_origins=["https://scanandhire.com", "https://app.cleohr.com", "http://localhost:8000", "http://localhost:3000", "http://127.0.0.1:5500" ,"https://bigchicken.vercel.app", "https://burgerking-olive.vercel.app", "https://mcdonald-eta.vercel.app", "https://popeyes-ten.vercel.app", "https://starbucks-virid-three.vercel.app"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -125,7 +125,8 @@ ALLOWED_DOMAINS = [
     "mcdonald-eta.vercel.app",
     "popeyes-ten.vercel.app",
     "starbucks-virid-three.vercel.app",
-    "scanandhire.com"
+    "scanandhire.com",
+    "app.cleohr.com"
 ]
 
 Brand_names = {
