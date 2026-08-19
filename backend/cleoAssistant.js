@@ -27,9 +27,10 @@ document.head.appendChild(link);
          * This is called internally after server validation
          */
         init: function(options) {
-            if (!options.jobType || !options.apiKey) {
+            if (options.mode === 'job' && (!options.jobType || !options.apiKey)) {
                 console.error('CleoChatbot: jobType and apiKey are required');
                 return;
+        
             }
             
             // Load external CSS
@@ -39,6 +40,7 @@ document.head.appendChild(link);
             this.config = {
                 mode: options.mode || 'job',
                 jobType: options.jobType,
+                candidateId: options.candidateId || '',
                 jobTemplateID: options.jobTemplateID,
                 singleCompany: options.singleCompany,
                 jobLocation: options.jobLocation,
@@ -214,7 +216,9 @@ document.head.appendChild(link);
         connectWebSocket: function() {
             const wsPath = this.config.mode === 'passport'
                 ? `${this.config.wsUrl}/passport/ws/${this.sessionId}`
-                : `${this.config.wsUrl}/ws/${this.sessionId}`;
+                : this.config.mode === 'interview'
+                    ? `${this.config.wsUrl}/interview/ws/${this.sessionId}`
+                    : `${this.config.wsUrl}/ws/${this.sessionId}`;
             this.ws = new WebSocket(wsPath);
             
             this.ws.onopen = () => {
@@ -569,6 +573,16 @@ document.head.appendChild(link);
                         body: JSON.stringify({
                             api_key: apiKey,
                             is_live: isLive,
+                        })
+                    });
+                } else if (this.config.mode === 'interview') {
+                    response = await fetch(`${this.config.apiUrl}/start-interview-session`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            api_key:      apiKey,
+                            candidate_id: this.config.candidateId,
+                            is_live:      isLive,
                         })
                     });
                 } else {
@@ -3461,6 +3475,34 @@ attachEventListeners() {
             return;
         }
 
+        // ── Interview mode — read candidate_id from URL ───────────────────────
+        if (mode === 'interview') {
+            const urlParams   = new URLSearchParams(window.location.search);
+            const candidateId = urlParams.get('candidate_id');
+
+            if (!candidateId) {
+                console.error('[CLEO] candidate_id not found in URL params');
+                return;
+            }
+
+            console.log(`[CLEO] Interview mode — candidate_id: ${candidateId}`);
+
+            const domain  = window.location.hostname;
+            const domResp = await fetch(`${CHATBOT_CONFIG.apiBaseUrl}/validate-domain?domain=${encodeURIComponent(domain)}`);
+            if (!domResp.ok) throw new Error('Domain validation failed');
+            const config  = await domResp.json();
+
+            CleoChatbot.init({
+                mode:        'interview',
+                candidateId: candidateId,
+                isLive:      false,
+                apiKey:      config.apiKey,
+                apiUrl:      CHATBOT_CONFIG.apiBaseUrl,
+                wsUrl:       CHATBOT_CONFIG.wsBaseUrl,
+            });
+            return;
+        }
+
         // ── Job mode — read job_id from URL ───────────────────────────────────
         const urlParams = new URLSearchParams(window.location.search);
         const jobId     = urlParams.get('job_id');
@@ -3526,31 +3568,36 @@ attachEventListeners() {
         }
     }
 
-    // ── Initialize when DOM is ready ──────────────────────────────────────────
+    // Initialize when DOM is ready
     function tryInit() {
         const container = document.getElementById('cleo-chatbot') ||
-                          document.querySelector('[data-mode="passport"]');
+                          document.querySelector('[data-mode="passport"]') ||
+                          document.querySelector('[data-mode="interview"]');
 
         if (!container) {
-            document.addEventListener('DOMContentLoaded', tryInit);
+            document.addEventListener('cleoJobReady', autoInitChatbot, { once: true });
             return;
         }
 
-        const mode = container.getAttribute('data-mode') || 'job';
+        const mode      = container.getAttribute('data-mode') || 'job';
+        const urlParams = new URLSearchParams(window.location.search);
 
         if (mode === 'passport') {
             autoInitChatbot();
-            return;
-        }
-
-        // Job mode — check job_id in URL
-        const urlParams = new URLSearchParams(window.location.search);
-        const jobId     = urlParams.get('job_id');
-
-        if (jobId) {
-            autoInitChatbot();
+        } else if (mode === 'interview') {
+            if (urlParams.get('candidate_id')) {
+                autoInitChatbot();
+            } else {
+                console.error('[CLEO] Interview mode requires candidate_id in URL');
+            }
         } else {
-            console.error('[CLEO] No job_id in URL — chatbot not initialized');
+            // Job mode — needs job_id in URL
+            if (urlParams.get('job_id')) {
+                autoInitChatbot();
+            } else {
+                // Wait for host page to fire cleoJobReady
+                document.addEventListener('cleoJobReady', autoInitChatbot, { once: true });
+            }
         }
     }
 
