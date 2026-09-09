@@ -204,28 +204,77 @@
             });
         }
 
-        // Fetch job details from Xano
-        async function fetchJobDetails(jobId) {
+        // ── API config ───────────────────────────────────────────────────────
+        const XANO_JOB_API_URL    = "https://xoho-w3ng-km3o.n7e.xano.io/api:L-QNLSmb/job";
+        const BUBBLE_JOB_API_URL  = "https://salaryx-98528.bubbleapps.io/version-test/api/1.1/wf/get_job";
+        const BUBBLE_BEARER_TOKEN = "5c30ffa93b0b55a986b8547e07f49e91";
+
+        // Detect api_source from domain — mirrors cleoAssistant.js's autoInitChatbot
+        async function getApiSource() {
             try {
-                const response = await fetch(`https://xoho-w3ng-km3o.n7e.xano.io/api:L-QNLSmb/job/${jobId}`, {
-                headers: {
-                    'X-Data-Source': 'live'
-                }
-            });
-                
-                if (!response.ok) {
-                    throw new Error('Failed to fetch job details');
-                }
+                const domain = window.location.hostname;
+                const resp = await fetch(
+                    `${window.apiBaseUrl}/validate-domain?domain=${encodeURIComponent(domain)}`
+                );
+                if (!resp.ok) throw new Error('Domain validation failed');
+                const config = await resp.json();
+                return config.api_source || 'xano';
+            } catch (error) {
+                console.error('[JOB DETAILS] Domain validation failed, defaulting to xano:', error);
+                return 'xano';
+            }
+        }
 
-                const data = await response.json();
-                const job = data.job;
-                return job;
-                
-                if (!job) {
-                    throw new Error('Job not found');
-                }
+        // Normalize a Bubble job response into the same shape Xano's data.job already has,
+        // so renderJobDetails()/init() below need no changes at all.
+        function normalizeBubbleJob(data, jobId) {
+            const shifts   = data.shifts || [];
+            const company  = data.Related_Company || {};
+            const location = data.Location || {};
 
-                return job;
+            return {
+                id:                   jobId,
+                job_title:            data.Title_ || '',
+                job_template:         data.Job_Role || '',
+                job_type:             data.Job_Role || '',   //
+                job_role:             data.Job_Role || '',
+                job_location:         location.location || '',
+                related_company:      company.company_id || '',
+                job_templates_id:     jobId,
+                verificationRequired: data.Verification_Required_ || false,
+                shifts:               shifts.map(s => s.Shift || ''),
+                Starting_Date:        '',   // not available from Bubble yet
+                description:          data.Job_Description || '',
+                job_requirements:     data.Job_Requirements || '',
+                _related_company: {
+                    company_name:   company.name || '',
+                    _related_user: { single_company: false },
+                },
+            };
+        }
+
+        // Fetch job details — branches to Bubble or Xano based on domain
+        async function fetchJobDetails(jobId) {
+            const apiSource = await getApiSource();
+            console.log(`[JOB DETAILS] api_source: ${apiSource}`);
+
+            try {
+                if (apiSource === 'bubble') {
+                    const response = await fetch(
+                        `${BUBBLE_JOB_API_URL}?job_id=${jobId}`,
+                        { headers: { 'Authorization': `Bearer ${BUBBLE_BEARER_TOKEN}` } }
+                    );
+                    if (!response.ok) throw new Error('Failed to fetch job details');
+                    const data = await response.json();
+                    return normalizeBubbleJob(data, jobId);
+                } else {
+                    const response = await fetch(`${XANO_JOB_API_URL}/${jobId}`, {
+                        headers: { 'X-Data-Source': 'live' }
+                    });
+                    if (!response.ok) throw new Error('Failed to fetch job details');
+                    const data = await response.json();
+                    return data.job;
+                }
             } catch (error) {
                 console.error('Error fetching job details:', error);
                 throw error;

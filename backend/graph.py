@@ -19,6 +19,8 @@ import phonenumbers
 from id_verification import create_id_verify_session, save_session_mapping
 from conversation_logger import log_id_verification_event
 
+import bubble as bubble_api
+
 from otp_verification import (
     generate_otp, 
     send_email_otp, 
@@ -203,19 +205,33 @@ class ChatbotState(MessagesState):
     answer_reask_reason: str = "gibberish"   # reason passed to ask_question_node
     job_location: str = ""                   # location for job
 
-    candidate_id: int = 0
+    candidate_id: str = ""
     profile_summary: dict = {}
+
+    api_source: str = "xano"
 
 
 # ===========================================================================================================
+
+def api_patch(state: ChatbotState, section: str, data: dict):
+    """Route PATCH to Xano or Bubble based on api_source."""
+    print(f"api_source: {state.get('api_source')}")
+    if state.get("api_source") == "bubble":
+        bubble_api.update_candidate(state.get("candidate_id", ""), section, data)
+    else:
+        xano_patch(state, section, data)
+
+
 def xano_patch(state: ChatbotState, section: str, data: dict):
     """Fire-and-forget PATCH to Xano. Logs errors, never crashes the graph."""
-    candidate_id = state.get("candidate_id", 0)
+    candidate_id = state.get("candidate_id", "")
     is_live      = state.get("is_live", False)
+
     if candidate_id:
         update_candidate_section(candidate_id, section, data, is_live)
     else:
         print(f"[XANO] Skipping PATCH '{section}' — no candidate_id yet")  
+
 
 def calculate_score(state: ChatbotState) -> ChatbotState:
     # Merge all answer sources into one dict for scoring
@@ -451,17 +467,17 @@ def build_json_report(state: ChatbotState) -> dict:
     
     
     # ── Final PATCH: score + full report + conversation history ───────────────
-    import json as _json
-    update_candidate_section(
-        candidate_id=state.get("candidate_id", 0),
+    api_patch(
+        state,
         section="final",
         data={
             "Score":               int(score),
             "Age":                 age,
             "ProfileSummary":      json_report,
             "ConversationHistory": conversation_history,
-        },
-        is_live=state.get("is_live", False)
+            "email_number":        1,
+            "id_verification_result":  state.get("id_verification_result", "Verification Incomplete"),
+        }
     )
     # ─────────────────────────────────────────────────────────────────────────
 
@@ -1421,28 +1437,26 @@ def ask_address_node(state: ChatbotState) -> ChatbotState:
 
     # ── POST: Create candidate record after KQs pass ──────────────────────────
     if not state.get("candidate_id"):
-        candidate_id = create_candidate_record(
-            name=" ",
-            email=" ",
-            phone=" ",
-            job_id=state.get("job_id", ""),
-            company_id=state.get("company_id", ""),
-            session_id=state.get("session_id", ""),
-            is_live=state.get("is_live", False),
-            single_company=state.get("single_company", False),
-        )
-        state["candidate_id"] = candidate_id
-        print(f"[CANDIDATE] Record created — ID: {candidate_id}")
+        if state.get("api_source") == "bubble":
+            candidate_id = bubble_api.create_candidate(
+                name="", email="", phone="",
+                job_id=state.get("job_id", ""),
+                company_id=state.get("company_id", ""),
+                session_id=state.get("session_id", ""),
+                single_company=state.get("single_company", False),
+            )
+        else:
+            candidate_id = create_candidate_record(
+                name="", email="", phone="",
+                job_id=state.get("job_id", ""),
+                company_id=state.get("company_id", ""),
+                session_id=state.get("session_id", ""),
+                is_live=state.get("is_live", False),
+                single_company=state.get("single_company", False),
+            )
+        state["candidate_id"] = str(candidate_id) if candidate_id else ""
 
-        # # ── Build profile_summary and PATCH ──────────────────────────────────
-        # state["profile_summary"].update({
-        #     "knockout_answers": state.get("knockout_answers", {}),
-        #     "screening_answers": state.get("answers", {}),
-        #     "manager_flags": state.get("manager_flags", []),
-        # })
-        # xano_patch(state, "screening_complete", {
-        #     "ProfileSummary": state["profile_summary"]
-        # })
+        print(f"[CANDIDATE] Record created — ID: {candidate_id}")
 
         build_json_report(state)  # Update profile_summary with latest answers
 
@@ -2143,7 +2157,7 @@ def verify_phone_otp_node(state: ChatbotState) -> ChatbotState:
             state["acknowledgement_type"] = "questions"
 
             # ── PATCH: name, email, phone now verified ────────────────────────
-            xano_patch(state, "contact_details", {
+            api_patch(state, "contact_details", {
                 "Name":  state["personal_details"].get("name", ""),
                 "Email": state["personal_details"].get("email", ""),
                 "Phone": state["personal_details"].get("phone", ""),
@@ -3113,9 +3127,8 @@ def summary_node(state: ChatbotState) -> ChatbotState:
     
     
     # ── Final PATCH: score + full report + conversation history ───────────────
-    import json as _json
-    update_candidate_section(
-        candidate_id=state.get("candidate_id", 0),
+    api_patch(
+        state,
         section="final",
         data={
             "Score":               int(score),
@@ -3124,8 +3137,7 @@ def summary_node(state: ChatbotState) -> ChatbotState:
             "ConversationHistory": conversation_history,
             "email_number":        1,
             "id_verification_result":  state.get("id_verification_result", "Verification Incomplete"),
-        },
-        is_live=state.get("is_live", False)
+        }
     )
     # ─────────────────────────────────────────────────────────────────────────
     

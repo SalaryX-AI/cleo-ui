@@ -39,8 +39,10 @@ document.head.appendChild(link);
             // Store configuration
             this.config = {
                 mode: options.mode || 'job',
+                apiSource:   options.apiSource || 'xano',
                 jobType: options.jobType,
                 candidateId: options.candidateId || '',
+                bubbleQuestions: options.bubbleQuestions || [],
                 jobTemplateID: options.jobTemplateID,
                 singleCompany: options.singleCompany,
                 jobLocation: options.jobLocation,
@@ -573,6 +575,7 @@ document.head.appendChild(link);
                         body: JSON.stringify({
                             api_key: apiKey,
                             is_live: isLive,
+                            api_source: this.config.apiSource,
                         })
                     });
                 } else if (this.config.mode === 'interview') {
@@ -583,9 +586,13 @@ document.head.appendChild(link);
                             api_key:      apiKey,
                             candidate_id: this.config.candidateId,
                             is_live:      isLive,
+                            api_source:   this.config.apiSource,
                         })
                     });
                 } else {
+                    console.log('[DEBUG] Calling start-session at:', `${this.config.apiUrl}/start-session`);
+                    console.log('[DEBUG] apiSource:', this.config.apiSource);
+                    console.log('[DEBUG] mode:', this.config.mode);
                     response = await fetch(`${this.config.apiUrl}/start-session`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -600,13 +607,16 @@ document.head.appendChild(link);
                             is_live:    isLive,
                             job_shift:  jobShift,
                             brand_name: brandName,
-                            single_company: singleCompany
+                            single_company: singleCompany,
+                            api_source: this.config.apiSource,
+                            bubble_questions: this.config.bubbleQuestions,
                         })
                     });
                 }
                 
                 if (!response.ok) {
-                    throw new Error('Failed to start session');
+                    const errData = await response.json().catch(() => ({}));
+                    throw new Error(errData.detail || 'Failed to start session');
                 }
                 
                 const data = await response.json();
@@ -652,9 +662,10 @@ document.head.appendChild(link);
                 };
                 
             } catch (error) {
-                this.hideTypingIndicator();  // Hide on error
+                this.hideTypingIndicator();
                 this.updateStatus('Failed to connect', 'disconnected');
                 console.error('Connection error:', error);
+                this.addMessage(`Unable to start session: ${error.message}`, true, 'body');
             }
         },
         
@@ -3435,9 +3446,11 @@ attachEventListeners() {
      * 2. Calls server to validate domain and get API key
      * 3. Initializes chatbot with validated configuration
      */
-    
-    // ── Xano job API ──────────────────────────────────────────────────────────
-    const XANO_JOB_API_URL = "https://xoho-w3ng-km3o.n7e.xano.io/api:L-QNLSmb/job";
+
+    // ── Job API URLs ──────────────────────────────────────────────────────────
+    const XANO_JOB_API_URL   = "https://xoho-w3ng-km3o.n7e.xano.io/api:L-QNLSmb/job";
+    const BUBBLE_JOB_API_URL = "https://salaryx-98528.bubbleapps.io/version-test/api/1.1/wf/get_job";
+    const BUBBLE_BEARER_TOKEN = "5c30ffa93b0b55a986b8547e07f49e91";
 
     async function fetchJobFromXano(jobId) {
         const resp = await fetch(`${XANO_JOB_API_URL}/${jobId}`);
@@ -3445,107 +3458,141 @@ attachEventListeners() {
         return await resp.json();
     }
 
+    async function fetchJobFromBubble(jobId) {
+        const resp = await fetch(
+            `${BUBBLE_JOB_API_URL}?job_id=${jobId}`,
+            { headers: { 'Authorization': `Bearer ${BUBBLE_BEARER_TOKEN}` } }
+        );
+        if (!resp.ok) throw new Error(`Bubble job fetch failed: ${resp.status}`);
+        return await resp.json();
+    }
+
     async function autoInitChatbot() {
 
         // ── Find container ────────────────────────────────────────────────────
-        const container = document.getElementById('cleo-chatbot') ||
-                          document.querySelector('[data-mode="passport"]');
+        const container = document.getElementById('cleo-chatbot')               ||
+                          document.querySelector('[data-mode="passport"]')       ||
+                          document.querySelector('[data-mode="interview"]');
 
         if (!container) {
-            console.error('CleoChatbot: #cleo-chatbot container not found');
+            console.error('[CLEO] #cleo-chatbot container not found');
             return;
         }
 
         const mode = container.getAttribute('data-mode') || 'job';
 
-        // ── Passport mode — no job fetch needed ───────────────────────────────
-        if (mode === 'passport') {
-            const domain   = window.location.hostname;
-            const domResp  = await fetch(`${CHATBOT_CONFIG.apiBaseUrl}/validate-domain?domain=${encodeURIComponent(domain)}`);
+        try {
+            // ── Validate domain and get api_source + apiKey ───────────────────
+            const domain  = window.location.hostname;
+            const domResp = await fetch(
+                `${CHATBOT_CONFIG.apiBaseUrl}/validate-domain?domain=${encodeURIComponent(domain)}`
+            );
             if (!domResp.ok) throw new Error('Domain validation failed');
-            const config   = await domResp.json();
+            const config    = await domResp.json();
+            const apiSource = config.api_source || 'xano';
+            const apiKey    = config.apiKey;
 
-            CleoChatbot.init({
-                mode:    'passport',
-                isLive:  false,
-                apiKey:  config.apiKey,
-                apiUrl:  CHATBOT_CONFIG.apiBaseUrl,
-                wsUrl:   CHATBOT_CONFIG.wsBaseUrl,
-            });
-            return;
-        }
+            console.log(`[CLEO] Domain: ${domain} | api_source: ${apiSource}`);
 
-        // ── Interview mode — read candidate_id from URL ───────────────────────
-        if (mode === 'interview') {
-            const urlParams   = new URLSearchParams(window.location.search);
-            const candidateId = urlParams.get('candidate_id');
-
-            if (!candidateId) {
-                console.error('[CLEO] candidate_id not found in URL params');
+            // ── Passport mode ─────────────────────────────────────────────────
+            if (mode === 'passport') {
+                CleoChatbot.init({
+                    mode:      'passport',
+                    apiSource: apiSource,
+                    isLive:    false,
+                    apiKey:    apiKey,
+                    apiUrl:    CHATBOT_CONFIG.apiBaseUrl,
+                    wsUrl:     CHATBOT_CONFIG.wsBaseUrl,
+                });
                 return;
             }
 
-            console.log(`[CLEO] Interview mode — candidate_id: ${candidateId}`);
+            // ── Interview mode ────────────────────────────────────────────────
+            if (mode === 'interview') {
+                const urlParams   = new URLSearchParams(window.location.search);
+                const candidateId = urlParams.get('candidate_id');
+                if (!candidateId) {
+                    console.error('[CLEO] Interview mode requires candidate_id in URL');
+                    return;
+                }
+                CleoChatbot.init({
+                    mode:        'interview',
+                    apiSource:   apiSource,
+                    candidateId: candidateId,
+                    isLive:      false,
+                    apiKey:      apiKey,
+                    apiUrl:      CHATBOT_CONFIG.apiBaseUrl,
+                    wsUrl:       CHATBOT_CONFIG.wsBaseUrl,
+                });
+                return;
+            }
 
-            const domain  = window.location.hostname;
-            const domResp = await fetch(`${CHATBOT_CONFIG.apiBaseUrl}/validate-domain?domain=${encodeURIComponent(domain)}`);
-            if (!domResp.ok) throw new Error('Domain validation failed');
-            const config  = await domResp.json();
+            // ── Job mode — read job_id from URL ───────────────────────────────
+            const urlParams = new URLSearchParams(window.location.search);
+            const jobId     = urlParams.get('job_id');
+            if (!jobId) {
+                console.error('[CLEO] job_id not found in URL params');
+                return;
+            }
 
-            CleoChatbot.init({
-                mode:        'interview',
-                candidateId: candidateId,
-                isLive:      false,
-                apiKey:      config.apiKey,
-                apiUrl:      CHATBOT_CONFIG.apiBaseUrl,
-                wsUrl:       CHATBOT_CONFIG.wsBaseUrl,
-            });
-            return;
-        }
+            console.log(`[CLEO] Fetching job ${jobId} from ${apiSource}`);
 
-        // ── Job mode — read job_id from URL ───────────────────────────────────
-        const urlParams = new URLSearchParams(window.location.search);
-        const jobId     = urlParams.get('job_id');
+            // ── Fetch job details ─────────────────────────────────────────────
+            const job = apiSource === 'bubble'
+                ? await fetchJobFromBubble(jobId)
+                : await fetchJobFromXano(jobId);
 
-        if (!jobId) {
-            console.error('CleoChatbot: job_id not found in URL params');
-            return;
-        }
+            if (!job) {
+                console.error('[CLEO] Failed to fetch job details');
+                return;
+            }
 
-        console.log(`[CLEO] job_id from URL: ${jobId}`);
+            console.log('[CLEO] Job fetched:', job);
 
-        try {
-            // ── Fetch job details from Xano ───────────────────────────────────
-            const job = await fetchJobFromXano(jobId);
-            console.log('[CLEO] Job fetched from Xano:', job);
+            // ── Extract Bubble questions for backend ──────────────────────────
+            const bubbleQuestions = apiSource === 'bubble'
+                ? (job.Job_Template?.Questions || [])
+                : [];
 
-            // ── Extract required fields ───────────────────────────────────────
-            const jobType             = job.job.job_template                                    || '';
-            const jobLocation         = job.job.job_location                                    || 'unknown';
-            const companyID           = job.job.related_company                                 || '';
-            const brandName           = job.job._related_company?.company_name                  || '';
-            const jobShift            = job.job._shifts_of_job?.[0]?.Shift                      || '';
-            const jobTemplateID       = job.job.job_templates_id                                || '';
-            const verificationRequired = String(job.job.verificationRequired                    || 'false');
-            const singleCompany       = job.job._related_company?._related_user?.single_company === true;
-            const isLive              = true;
+            // ── Extract fields (branch on api_source) ─────────────────────────
+            let jobType, jobLocation, companyID, brandName, jobShift,
+                jobTemplateID, verificationRequired, singleCompany, isLive;
+
+            if (apiSource === 'bubble') {
+                jobType              = job.Job_Role                                                                     || '';
+                jobLocation          = job.Location ? (job.Location.location || '')                                     : '';
+                companyID            = job.Related_Company ? (job.Related_Company.company_id || '')                     : '';
+                brandName            = job.Related_Company ? (job.Related_Company.name || '')                           : '';
+                jobShift             = job.shifts && job.shifts[0] ? (job.shifts[0].Shift || '')                        : '';
+                jobTemplateID        = jobId;
+                verificationRequired = String(job.Verification_Required_ !== undefined ? job.Verification_Required_ : false);
+                singleCompany        = job.Related_Company ? (job.Related_Company.single_company === true)              : false;
+                isLive               = false;
+            } else {
+                jobType              = job.job ? (job.job.job_template || '')                                           : '';
+                jobLocation          = job.job ? (job.job.job_location || 'unknown')                                    : 'unknown';
+                companyID            = job.job ? (job.job.related_company || '')                                        : '';
+                brandName            = job.job && job.job._related_company ? (job.job._related_company.company_name || '') : '';
+                jobShift             = job.job && job.job._shifts_of_job && job.job._shifts_of_job[0] ? (job.job._shifts_of_job[0].Shift || '') : '';
+                jobTemplateID        = job.job ? (job.job.job_templates_id || '')                                       : '';
+                verificationRequired = job.job ? String(job.job.verificationRequired || 'false')                        : 'false';
+                singleCompany        = job.job && job.job._related_company && job.job._related_company._related_user
+                                        ? (job.job._related_company._related_user.single_company === true)
+                                        : false;
+                isLive                = false;
+            }
 
             if (!jobType) {
-                console.error('[CLEO] job_template missing from Xano response');
+                console.error('[CLEO] jobType missing from job response');
                 return;
             }
 
-            console.log('[CLEO] Initializing with:', { jobType, jobLocation, companyID, brandName, jobShift, jobTemplateID, verificationRequired, singleCompany, isLive });
+            console.log('[CLEO] Initializing with:', { jobType, jobLocation, companyID, brandName, jobShift, jobTemplateID, verificationRequired, singleCompany, apiSource });
 
-            // ── Validate domain and get API key ───────────────────────────────
-            const domain  = window.location.hostname;
-            const domResp = await fetch(`${CHATBOT_CONFIG.apiBaseUrl}/validate-domain?domain=${encodeURIComponent(domain)}`);
-            if (!domResp.ok) throw new Error('Domain validation failed');
-            const config  = await domResp.json();
-
-            // ── Initialize chatbot ────────────────────────────────────────────
             CleoChatbot.init({
                 mode:                 'job',
+                apiSource:            apiSource,
+                bubbleQuestions:      bubbleQuestions,
                 jobType:              jobType,
                 jobTemplateID:        jobTemplateID,
                 jobLocation:          jobLocation,
@@ -3556,7 +3603,7 @@ attachEventListeners() {
                 brandName:            brandName,
                 verificationRequired: verificationRequired,
                 singleCompany:        singleCompany,
-                apiKey:               config.apiKey,
+                apiKey:               apiKey,
                 apiUrl:               CHATBOT_CONFIG.apiBaseUrl,
                 wsUrl:                CHATBOT_CONFIG.wsBaseUrl,
             });
@@ -3568,14 +3615,14 @@ attachEventListeners() {
         }
     }
 
-    // Initialize when DOM is ready
+    // ── Initialize when DOM is ready ──────────────────────────────────────────
     function tryInit() {
-        const container = document.getElementById('cleo-chatbot') ||
-                          document.querySelector('[data-mode="passport"]') ||
+        const container = document.getElementById('cleo-chatbot')          ||
+                          document.querySelector('[data-mode="passport"]')  ||
                           document.querySelector('[data-mode="interview"]');
 
         if (!container) {
-            document.addEventListener('cleoJobReady', autoInitChatbot, { once: true });
+            document.addEventListener('DOMContentLoaded', tryInit);
             return;
         }
 
@@ -3591,15 +3638,14 @@ attachEventListeners() {
                 console.error('[CLEO] Interview mode requires candidate_id in URL');
             }
         } else {
-            // Job mode — needs job_id in URL
             if (urlParams.get('job_id')) {
                 autoInitChatbot();
             } else {
-                // Wait for host page to fire cleoJobReady
                 document.addEventListener('cleoJobReady', autoInitChatbot, { once: true });
             }
         }
     }
+
 
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', tryInit);

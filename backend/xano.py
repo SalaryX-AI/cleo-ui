@@ -86,7 +86,7 @@ def create_candidate_record(
 
 
 def update_candidate_section(
-    candidate_id: int,
+    candidate_id,
     section: str,
     data: dict,
     is_live: bool
@@ -99,7 +99,9 @@ def update_candidate_section(
         print(f"[XANO] PATCH skipped — no candidate_id")
         return False
 
-    url = XANO_PATCH_URL.format(candidate_id=candidate_id)
+    # Xano requires integer candidate_id
+    xano_id = int(candidate_id) if str(candidate_id).isdigit() else candidate_id
+    url = XANO_PATCH_URL.format(candidate_id=xano_id)
 
     # Serialize any dict/list values to JSON strings for form data
     serialized = {}
@@ -109,7 +111,7 @@ def update_candidate_section(
         else:
             serialized[k] = v
 
-    payload = {"candidate_id": candidate_id, "email_number": serialized.pop("email_number", 0), **serialized}
+    payload = {"candidate_id": xano_id, "email_number": serialized.pop("email_number", 0), **serialized}
 
     try:
         response = requests.patch(

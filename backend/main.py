@@ -16,12 +16,12 @@ import uuid
 
 from requests import session
 from xano_jobs import fetch_job_specific_qualifiers
-from graph import build_graph, ChatbotState
+
 from graph import build_graph, ChatbotState
 from passport_creation.passport_graph import build_passport_graph, PassportState
 from passport_creation.passport_configs import PASSPORT_CONFIG
+from interviewScheduling.interview_graph import build_interview_graph, InterviewState
 from job_configs import JOB_CONFIGS
-# from xano_jobs import read_job_config_from_db
 
 from contextlib import asynccontextmanager
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
@@ -58,11 +58,11 @@ current_session_id = ""
 # Initialize graph at startup
 graph_app = None
 passport_graph_app = None
+interview_graph_app = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global graph_app
-    global passport_graph_app
+    global graph_app, passport_graph_app, interview_graph_app
     
     # Get connection string
     connection_string = os.getenv("POSTGRES_CONNECTION_STRING")
@@ -88,7 +88,8 @@ async def lifespan(app: FastAPI):
     # Build graph with checkpointer
     graph_app = build_graph(checkpointer)
     passport_graph_app = build_passport_graph(checkpointer)
-    print("Job graph and Passport graph initialized with AsyncPostgresSaver")
+    interview_graph_app = build_interview_graph(checkpointer)
+    print("Job graph, Passport graph, Interview graph initialized with AsyncPostgresSaver")
 
     # START CLEANUP TASK
     cleanup_task = asyncio.create_task(cleanup_inactive_sessions())
@@ -101,7 +102,7 @@ async def lifespan(app: FastAPI):
     # Cleanup
     await conn.close()
     print("Connection closed")
-
+    
 # Update FastAPI initialization
 app = FastAPI(title="Screening Chatbot API", lifespan=lifespan)
 
@@ -166,6 +167,11 @@ async def job_details():
 async def create_passport():
     """Serve passport creation page"""
     return FileResponse("passport_creation/create_profile.html", media_type="text/html")
+
+@app.get("/interview-scheduling")
+async def interview_scheduling():
+    """Serve interview scheduling page"""
+    return FileResponse("interview_scheduling/interview_scheduling.html", media_type="text/html")
 
 @app.get("/job-details-test")
 async def job_details_test():
@@ -253,9 +259,22 @@ async def validate_domain(
     else:
         brand_name = Brand_names.get(domain, "")
 
-    # Return API key if validation passes
+    # Determine api_source from domain
+    BUBBLE_DOMAINS = {"salaryx-98528.bubbleapps.io"}
+    XANO_DOMAINS   = {"app.cleohr.com", "scanandhire.com"}
+    LOCAL_DOMAINS  = {"localhost", "127.0.0.1"}
+
+    if domain in BUBBLE_DOMAINS:
+        api_source = "bubble"
+    elif domain in LOCAL_DOMAINS:
+        api_source = "bubble"   # default to bubble for local testing
+    else:
+        api_source = "xano"
+
+    # Return API key and api_source
     return {
-        "apiKey": API_KEY
+        "apiKey":     API_KEY,
+        "api_source": api_source,
     }
 
 
@@ -263,6 +282,7 @@ async def validate_domain(
 async def start_passport_session(
     api_key:  str  = Body(...),
     is_live:  bool = Body(default=False),
+    api_source: str  = Body(default="xano"),
 ):
     
 
@@ -287,11 +307,51 @@ async def start_passport_session(
         "single_company":        False,
         "verification_required": False,
         "job_template_id":       "",
+        "api_source":            api_source,
     }
 
     return {
         "session_id": session_id,
         "mode":       "passport",
+    }
+
+
+@app.post("/start-interview-session")
+async def start_interview_session(
+    candidate_id: str  = Body(...),
+    is_live:      bool = Body(default=False),
+    api_key:      str  = Body(...),
+    api_source:   str  = Body(default="xano"),
+):
+    if api_key != API_KEY:
+        raise HTTPException(status_code=403, detail="Invalid API key")
+
+    session_id = str(uuid.uuid4())
+    thread_id  = f"thread_interview_{session_id}"
+
+    sessions[session_id] = {
+        "thread_id":    thread_id,
+        "job_type":     "interview",
+        "candidate_id": candidate_id,
+        "is_live":      is_live,
+        "active":       True,
+        "created_at":   time.time(),
+        "last_activity": time.time(),
+        # Filler fields expected by session cleanup
+        "job_id":                "",
+        "company_id":            "",
+        "location":              "",
+        "job_shift":             "",
+        "brand_name":            "",
+        "single_company":        False,
+        "verification_required": False,
+        "job_template_id":       "",
+        "api_source":            api_source,
+    }
+
+    return {
+        "session_id": session_id,
+        "mode":       "interview",
     }
 
 @app.post("/start-session")
@@ -310,7 +370,8 @@ async def start_session(request: Request):
     verification_required = data.get("verification_required", False)
     single_company = data.get("single_company", False)
     template_id = data.get("job_template_id", "default_template")
-
+    api_source  = data.get("api_source", "xano")
+    bubble_questions = data.get("bubble_questions", [])
 
     print(f"Starting session for job_type: {job_type} at location: {location}")
 
@@ -346,7 +407,9 @@ async def start_session(request: Request):
         "job_shift":  job_shift,
         "verification_required": verification_required,
         "single_company": single_company,
-        "job_template_id": template_id
+        "job_template_id": template_id,
+        "api_source": api_source,
+        "bubble_questions": bubble_questions,
     }
 
     # Log new run
@@ -723,6 +786,7 @@ async def passport_websocket_endpoint(websocket: WebSocket, session_id: str):
                 show_privacy_consent_ui         = False,
                 passport_address_mode           = False,
                 professional_summary           = "",
+                api_source=session.get("api_source", "xano"),
             )
 
             # Stream initial graph run (greeting bubbles)
@@ -1064,6 +1128,181 @@ async def passport_websocket_endpoint(websocket: WebSocket, session_id: str):
             heartbeat_task.cancel()
 
 
+@app.websocket("/interview/ws/{session_id}")
+async def interview_websocket_endpoint(websocket: WebSocket, session_id: str):
+    global interview_graph_app
+    await websocket.accept()
+
+    if session_id not in sessions:
+        await websocket.send_json({"type": "error", "message": "Invalid session ID"})
+        await websocket.close()
+        return
+
+    heartbeat_task = asyncio.create_task(websocket_heartbeat(websocket))
+
+    session      = sessions[session_id]
+    sessions[session_id]["websocket"] = websocket
+    thread_id    = session["thread_id"]
+    is_live      = session["is_live"]
+    candidate_id = session["candidate_id"]
+
+    config = {"configurable": {"thread_id": thread_id}}
+
+    # Nodes that produce no new messages — skip streaming them
+    SKIP_NODES = {
+        "date_router", "slot_router", "confirmation_router",
+        "post_schedule", "send_email", "store_slot",
+    }
+
+    try:
+        # ── Reconnection check ────────────────────────────────────────────────
+        existing_state = await interview_graph_app.aget_state(config)
+
+        if existing_state.values and existing_state.values.get("messages"):
+            print(f"[INTERVIEW RECONNECT] Existing state for {session_id}")
+        else:
+            # ── New session ───────────────────────────────────────────────────
+            print(f"[INTERVIEW NEW SESSION] Starting for {session_id}")
+
+            initial_state = InterviewState(
+                messages            = [],
+                session_id          = session_id,
+                is_live             = is_live,
+                candidate_id        = candidate_id,
+                candidate_name      = "",
+                candidate_email     = "",
+                candidate_phone     = "",
+                candidate_state     = "",
+                interview_dates     = [],
+                interview_duration  = 30,
+                availability        = [],
+                google_auth_token   = "",
+                hiring_manager_id   = "",
+                hiring_manager      = "",
+                timezone            = "America/New_York",
+                booked_slots        = [],
+                selected_date       = "",
+                available_slots     = [],
+                selected_slot       = "",
+                confirmed           = False,
+                reselecting_slot    = False,
+                event_id            = "",
+                email_sent          = False,
+                completed           = False,
+                re_ask_attempts     = {},
+                api_source=session.get("api_source", "xano"),
+            )
+
+            async for event in interview_graph_app.astream(initial_state, config=config, stream_mode="updates"):
+                for node_name, node_data in event.items():
+                    print(f"[INTERVIEW NODE] {node_name}")
+
+                    if node_name in SKIP_NODES:
+                        continue
+
+                    if node_data and "messages" in node_data:
+                       messages = node_data["messages"]
+                       msg = messages[-1]
+                       if isinstance(msg, AIMessage):
+                            await websocket.send_json({"type": "typing"})
+                            await asyncio.sleep(0.8)
+                            await asyncio.sleep(0.7)
+                            await websocket.send_json({
+                                "type":        "ai_message",
+                                "content":     msg.content,
+                                "messageType": "body",
+                            })
+
+        # ── Main message loop ─────────────────────────────────────────────────
+        while True:
+
+            snapshot = await interview_graph_app.aget_state(config)
+            if not snapshot.next or snapshot.values.get("completed"):
+                await websocket.send_json({"type": "workflow_complete"})
+                break
+
+            data         = await websocket.receive_text()
+            message_data = json.loads(data)
+
+            if session_id in sessions:
+                sessions[session_id]["last_activity"] = time.time()
+
+            print(f"[INTERVIEW WS] Received: {message_data}")
+
+            # ── Heartbeat ─────────────────────────────────────────────────────
+            if message_data.get("type") == "pong":
+                continue
+            if message_data.get("type") == "ping":
+                await websocket.send_json({"type": "pong"})
+                continue
+
+            # ── Sync state ────────────────────────────────────────────────────
+            if message_data.get("type") == "sync_state":
+                snapshot   = await interview_graph_app.aget_state(config)
+                next_nodes = snapshot.next if snapshot else []
+                await websocket.send_json({
+                    "type":       "state_synced",
+                    "message":    "Connection restored. You can continue where you left off.",
+                    "next_nodes": next_nodes,
+                })
+                continue
+
+            # ── Skip non-user messages ────────────────────────────────────────
+            if message_data.get("type") != "user_message":
+                print(f"[INTERVIEW WS] Skipping: {message_data.get('type')}")
+                continue
+
+            user_input = str(message_data.get("content") or "").strip()
+            if not user_input:
+                continue
+
+            current_state    = await interview_graph_app.aget_state(config)
+            current_messages = current_state.values.get("messages", [])
+
+            await interview_graph_app.aupdate_state(
+                config,
+                {"messages": current_messages + [HumanMessage(content=user_input)]}
+            )
+
+            print(f"[INTERVIEW WS] Resuming workflow")
+
+            async for event in interview_graph_app.astream(None, config=config, stream_mode="updates"):
+                for node_name, node_data in event.items():
+                    print(f"[INTERVIEW NODE] {node_name}")
+
+                    if node_name in SKIP_NODES:
+                        continue
+
+                    if node_data and "messages" in node_data:
+                        messages     = node_data["messages"]
+                        msg = messages[-1]
+                        if isinstance(msg, AIMessage):
+                                await websocket.send_json({"type": "typing"})
+                                await asyncio.sleep(0.7)
+                                await websocket.send_json({
+                                    "type":        "ai_message",
+                                    "content":     msg.content,
+                                    "messageType": "body",
+                                })
+
+    except WebSocketDisconnect:
+        print(f"[INTERVIEW WS] Client disconnected: {session_id}")
+        sessions[session_id]["active"] = False
+        heartbeat_task.cancel()
+
+    except Exception as e:
+        import traceback
+        print(f"[INTERVIEW WS] Error: {e}")
+        print(traceback.format_exc())
+        heartbeat_task.cancel()
+        await websocket.send_json({"type": "error", "message": str(e)})
+        await websocket.close()
+
+    finally:
+        if not heartbeat_task.done():
+            heartbeat_task.cancel()
+
+
 @app.websocket("/ws/{session_id}")
 async def websocket_endpoint(websocket: WebSocket, session_id: str):
     """WebSocket connection for chat"""
@@ -1088,6 +1327,10 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
     job_shift  = session["job_shift"]
     template_id = session["job_template_id"]
     single_company = session["single_company"]
+    api_source       = session.get("api_source", "xano")
+    bubble_questions = session.get("bubble_questions", [])
+
+    print(f"[DEBUG] api_source from session: {session.get('api_source', 'NOT FOUND')}")
  
     job_config = JOB_CONFIGS[job_type]
     job        = set_job_address(job_config, location)
@@ -1213,7 +1456,12 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
             # ── NEW SESSION — start fresh workflow ────────────────────────────
             print(f"[NEW SESSION] No existing state, starting new workflow for {session_id}")
 
-            qualifiers = await fetch_job_specific_qualifiers(template_id)
+            if api_source == "bubble" and bubble_questions:
+                from xano_jobs import parse_job_specific_qualifiers
+                qualifiers = parse_job_specific_qualifiers(bubble_questions)
+                print(f"[BUBBLE] Built qualifiers from {len(bubble_questions)} questions")
+            else:
+                qualifiers = await fetch_job_specific_qualifiers(template_id)
  
             initial_state = ChatbotState(
                 messages=[],
@@ -1304,8 +1552,9 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                 kq_reask_reason="",
                 answer_reask_reason="",
                 job_location=location,
-                candidate_id= 0,
-                profile_summary={}
+                candidate_id= "",
+                profile_summary={},
+                api_source=session.get("api_source", "xano"),
             )
  
             async for event in graph_app.astream(initial_state, config=config, stream_mode="updates"):

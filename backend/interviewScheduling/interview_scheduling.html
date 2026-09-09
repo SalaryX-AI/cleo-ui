@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Schedule Your Interview — Cleo HR</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+
+    <style>
+        :root {
+            --ink:         #0f0f11;
+            --ink-soft:    #4a4a55;
+            --surface:     #f4f4f7;
+            --white:       #ffffff;
+            --accent:      #5b4cf5;
+            --accent-2:    #9b88ff;
+            --green:       #22c55e;
+            --radius-lg:   18px;
+            --radius-sm:   10px;
+            --shadow:      0 4px 32px rgba(91,76,245,.10);
+        }
+
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        html { scroll-behavior: smooth; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--surface);
+            color: var(--ink);
+            min-height: 100vh;
+        }
+
+        /* ── NAV ──────────────────────────────────────────────────────────── */
+        nav {
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            z-index: 100;
+            background: rgba(244,244,247,.9);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(91,76,245,.08);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 32px;
+            height: 60px;
+        }
+
+        .nav-logo {
+            font-family: 'Syne', sans-serif;
+            font-weight: 800;
+            font-size: 1.1rem;
+            color: var(--accent);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .nav-logo span {
+            background: var(--accent);
+            color: #fff;
+            border-radius: 6px;
+            padding: 2px 7px;
+            font-size: .7rem;
+            font-weight: 700;
+            letter-spacing: .04em;
+        }
+
+        .nav-tag {
+            font-size: .75rem;
+            color: var(--ink-soft);
+            font-weight: 500;
+        }
+
+        /* ── HERO ─────────────────────────────────────────────────────────── */
+        .hero {
+            padding: 100px 32px 60px;
+            max-width: 1100px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 64px;
+            align-items: center;
+        }
+
+        .hero-left h1 {
+            font-family: 'Syne', sans-serif;
+            font-size: clamp(2rem, 3.5vw, 3rem);
+            font-weight: 800;
+            line-height: 1.12;
+            letter-spacing: -0.03em;
+            color: var(--ink);
+            margin-bottom: 18px;
+        }
+
+        .hero-left h1 em {
+            font-style: normal;
+            color: var(--accent);
+        }
+
+        .hero-left p {
+            font-size: 1rem;
+            line-height: 1.7;
+            color: var(--ink-soft);
+            max-width: 400px;
+            margin-bottom: 32px;
+        }
+
+        /* ── Steps card ───────────────────────────────────────────────────── */
+        .steps-card {
+            background: var(--white);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow);
+            padding: 32px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .steps-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, var(--accent), var(--accent-2), var(--green));
+        }
+
+        .steps-card-title {
+            font-family: 'Syne', sans-serif;
+            font-size: .65rem;
+            font-weight: 700;
+            letter-spacing: .12em;
+            text-transform: uppercase;
+            color: var(--ink-soft);
+            margin-bottom: 20px;
+        }
+
+        .step-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 14px;
+            margin-bottom: 20px;
+        }
+
+        .step-row:last-child { margin-bottom: 0; }
+
+        .step-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            background: rgba(91,76,245,.08);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+            flex-shrink: 0;
+        }
+
+        .step-text h4 {
+            font-family: 'Syne', sans-serif;
+            font-size: .85rem;
+            font-weight: 700;
+            margin-bottom: 3px;
+        }
+
+        .step-text p {
+            font-size: .78rem;
+            color: var(--ink-soft);
+            line-height: 1.5;
+        }
+
+        .status-row {
+            margin-top: 22px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: .78rem;
+            color: var(--ink-soft);
+        }
+
+        .status-dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            background: var(--green);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50%       { opacity: 0.4; }
+        }
+
+        /* ── INFO SECTION ─────────────────────────────────────────────────── */
+        .info-section {
+            background: var(--white);
+            padding: 64px 32px;
+        }
+
+        .info-inner {
+            max-width: 880px;
+            margin: 0 auto;
+        }
+
+        .section-label {
+            font-family: 'Syne', sans-serif;
+            font-size: .7rem;
+            font-weight: 700;
+            letter-spacing: .14em;
+            text-transform: uppercase;
+            color: var(--accent);
+            margin-bottom: 10px;
+        }
+
+        .section-title {
+            font-family: 'Syne', sans-serif;
+            font-size: clamp(1.4rem, 2.2vw, 1.9rem);
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            margin-bottom: 40px;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 24px;
+        }
+
+        .info-card {
+            background: var(--surface);
+            border-radius: var(--radius-lg);
+            padding: 24px;
+            border: 1px solid rgba(91,76,245,.07);
+        }
+
+        .info-card-icon {
+            font-size: 1.6rem;
+            margin-bottom: 14px;
+        }
+
+        .info-card h3 {
+            font-family: 'Syne', sans-serif;
+            font-size: .9rem;
+            font-weight: 700;
+            margin-bottom: 6px;
+        }
+
+        .info-card p {
+            font-size: .8rem;
+            color: var(--ink-soft);
+            line-height: 1.6;
+        }
+
+        /* ── TRUST ────────────────────────────────────────────────────────── */
+        .trust-bar {
+            padding: 36px 32px;
+            max-width: 880px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 36px;
+            flex-wrap: wrap;
+        }
+
+        .trust-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: .8rem;
+            color: var(--ink-soft);
+            font-weight: 500;
+        }
+
+        .trust-item svg { color: var(--accent); flex-shrink: 0; }
+
+        /* ── FOOTER ───────────────────────────────────────────────────────── */
+        footer {
+            text-align: center;
+            padding: 28px;
+            font-size: .75rem;
+            color: var(--ink-soft);
+            border-top: 1px solid rgba(91,76,245,.07);
+        }
+
+        /* ── RESPONSIVE ───────────────────────────────────────────────────── */
+        @media (max-width: 768px) {
+            nav { padding: 0 20px; }
+            .hero {
+                grid-template-columns: 1fr;
+                padding: 90px 20px 48px;
+                gap: 36px;
+            }
+            .hero-left p { max-width: 100%; }
+            .info-grid { grid-template-columns: 1fr; gap: 16px; }
+            .trust-bar { gap: 20px; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+    <a class="nav-logo" href="#">
+        Cleo <span>HR</span>
+    </a>
+    <span class="nav-tag">Interview Scheduling</span>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+    <div class="hero-left">
+        <h1>Lock in your<br/><em>interview slot.</em></h1>
+        <p>
+            Chat with Cleo to pick a date and time that works for you.
+            Takes less than 2 minutes — no forms, no phone calls.
+        </p>
+    </div>
+
+    <div class="steps-card">
+        <div class="steps-card-title">How it works</div>
+
+        <div class="step-row">
+            <div class="step-icon">📅</div>
+            <div class="step-text">
+                <h4>Pick a date</h4>
+                <p>Cleo shows you all available interview dates and you choose what works.</p>
+            </div>
+        </div>
+
+        <div class="step-row">
+            <div class="step-icon">⏰</div>
+            <div class="step-text">
+                <h4>Choose a time slot</h4>
+                <p>Available slots are generated based on the hiring manager's calendar.</p>
+            </div>
+        </div>
+
+        <div class="step-row">
+            <div class="step-icon">✅</div>
+            <div class="step-text">
+                <h4>Confirm and you're done</h4>
+                <p>The interview is added to the calendar and a confirmation email is sent to you.</p>
+            </div>
+        </div>
+
+        <div class="status-row">
+            <div class="status-dot"></div>
+            <span>Cleo is ready to schedule your interview</span>
+        </div>
+    </div>
+</section>
+
+<!-- INFO SECTION -->
+<section class="info-section">
+    <div class="info-inner">
+        <div class="section-label">What to expect</div>
+        <h2 class="section-title">Simple, fast, and fully automated</h2>
+
+        <div class="info-grid">
+            <div class="info-card">
+                <div class="info-card-icon">💬</div>
+                <h3>Chat-based scheduling</h3>
+                <p>No forms or dropdowns — just tell Cleo what date and time you prefer in plain text.</p>
+            </div>
+            <div class="info-card">
+                <div class="info-card-icon">📧</div>
+                <h3>Instant confirmation</h3>
+                <p>Once confirmed, a summary email with all interview details is sent to your inbox right away.</p>
+            </div>
+            <div class="info-card">
+                <div class="info-card-icon">🔒</div>
+                <h3>Secure & private</h3>
+                <p>Your information is only used to schedule your interview and is never shared beyond the hiring team.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- TRUST BAR -->
+<div class="trust-bar">
+    <div class="trust-item">
+        <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        Takes under 2 minutes
+    </div>
+    <div class="trust-item">
+        <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+        </svg>
+        Confirmation email sent instantly
+    </div>
+    <div class="trust-item">
+        <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+        </svg>
+        Secured by Cleo HR
+    </div>
+</div>
+
+<footer>
+    © 2026 ScanAndHire · Powered by Cleo HR · <a href="#" style="color:var(--accent);text-decoration:none;">Privacy Policy</a>
+</footer>
+
+<!-- ── Widget config ──────────────────────────────────────────────────────── -->
+<script src="../config.js"></script>
+<script>
+    window.CLEO_MODE = "interview";
+</script>
+
+<div id="cleo-chatbot" data-mode="interview"></div>
+
+<script>
+    const s  = document.createElement('script');
+    s.src    = window.apiBaseUrl + '/cleoAssistant.js';
+    s.id     = 'cleo-assistant-script';
+    document.head.appendChild(s);
+</script>
+
+</body>
+</html>

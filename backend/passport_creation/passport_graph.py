@@ -65,6 +65,8 @@ from passport_creation.passport_prompts import (
 from passport_creation.xano_passport import create_candidate_account, create_passport_record, update_passport_section
 from graph import interpret_response, generate_reask_message
 
+import bubble as bubble_api
+
 load_dotenv()
 
 # ── LLM setup ─────────────────────────────────────────────────────────────────
@@ -187,19 +189,25 @@ class PassportState(MessagesState):
     passport_address_mode: bool = False
     professional_summary:  str  = ""
 
+    api_source: str = "xano"
+
 
 # ==================== XANO PATCH HELPER ====================
 
 def passport_patch(state: PassportState, section: str, data: dict):
-    """Fire-and-forget PATCH to Xano passport table. Never crashes the graph."""
-    passport_id = state.get("passport_id", 0)
+    """Route PATCH to Xano or Bubble based on api_source."""
+    passport_id = state.get("passport_id", "")
     is_live     = state.get("is_live", False)
-
-    print(f"[PASSPORT] PATCH '{section}': {data}")
-    if passport_id:
-        update_passport_section(passport_id, section, data, is_live)
+    if state.get("api_source") == "bubble":
+        if passport_id:
+            bubble_api.update_passport(passport_id, section, data)
+        else:
+            print(f"[BUBBLE] Skipping passport PATCH '{section}' — no passport_id")
     else:
-        print(f"[PASSPORT] Skipping PATCH '{section}' — no passport_id yet")
+        if passport_id:
+            update_passport_section(passport_id, section, data, is_live)
+        else:
+            print(f"[PASSPORT] Skipping PATCH '{section}' — no passport_id")
 
 
 # ==================== GREETING ====================
@@ -512,10 +520,15 @@ def ask_address_node(state: PassportState) -> PassportState:
 
     # ── POST: Create passport record now ────────────────────────────────────
     if not state.get("passport_id"):
-        passport_id = create_passport_record(
-            session_id=state.get("session_id", ""),
-            is_live=state.get("is_live", False),
-        )
+        if state.get("api_source") == "bubble":
+            passport_id = bubble_api.create_passport(
+                session_id=state.get("session_id", ""),
+            )
+        else:
+            passport_id = create_passport_record(
+                session_id=state.get("session_id", ""),
+                is_live=state.get("is_live", False),
+            )
         state["passport_id"] = passport_id
         print(f"[PASSPORT] Record created — ID: {passport_id}")
     # ─────────────────────────────────────────────────────────────────────────
@@ -567,12 +580,12 @@ If commute is unclear use "not specified"."""
         # ── PATCH: KQ answers + shift preferences + location ─────────────────
         state["passport_profile"].update({
                     "eligibility":     {q: a for q, a in state.get("knockout_answers", {}).items()},
-                    "shift_prefrence": state.get("shift_preferences", []),
+                    "shift_preference": state.get("shift_preferences", []),
                     "location":        state["address"],
                     "commute_method":  state["commute_method"],
         })
         passport_patch(state, "location_complete", {
-                    "shift_prefrence":  state["shift_preferences"],
+                    "shift_preference":  state["shift_preferences"],
                     "location":         state["address"],
                     "passport_profile": state["passport_profile"],
         })
@@ -1418,28 +1431,27 @@ def passport_summary_node(state: PassportState) -> PassportState:
     # ─────────────────────────────────────────────────────────────────────────
 
     # ── Create candidate auth account ─────────────────────────────────────────
-    auth_response = create_candidate_account(
-        name    = name,
-        email   = email,
-        is_live = state.get("is_live", False),
-    )
-    # Extract onboard ID from response — share the log to confirm the exact key
-    onboard_id   = auth_response.get("user", {}).get("id", "")
-    passport_url = f"https://app.cleohr.com/onboard/{onboard_id}" if onboard_id else "https://app.cleohr.com/auth"
+    if state.get("api_source") == "bubble":
+        user_id      = bubble_api.create_user(name=name, email=email)
+        passport_url = f"https://salaryx-98528.bubbleapps.io/version-test/onboard/{user_id}" if user_id else "https://app.cleohr.com/auth"
+    else:
+        auth_response = create_candidate_account(
+            name    = name,
+            email   = email,
+            is_live = state.get("is_live", False),
+        )
+        onboard_id   = auth_response.get("user", {}).get("id", "")
+        passport_url = f"https://app.cleohr.com/onboard/{onboard_id}" if onboard_id else "https://app.cleohr.com/auth"
     print(f"[PASSPORT] Onboard URL: {passport_url}")
     # ─────────────────────────────────────────────────────────────────────────
 
+
     # ── Final PATCH ───────────────────────────────────────────────────────────
-    update_passport_section(
-        passport_id = state.get("passport_id", ""),
-        section     = "final",
-        data        = {
-            "score":           int(fit_score.get("total_score", 0)),
-            "passport_profile": state["passport_profile"],
-            "id_verification_result":  state.get("id_verification_result", "Verification Incomplete"),
-        },
-        is_live = state.get("is_live", False)
-    )
+    passport_patch(state, "final", {
+        "score":           int(fit_score.get("total_score", 0)),
+        "passport_profile": state["passport_profile"],
+        "id_verification_result":  state.get("id_verification_result", "Verification Incomplete"),
+    })
     # ─────────────────────────────────────────────────────────────────────────
 
     wrap_w2 = (
