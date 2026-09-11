@@ -830,6 +830,8 @@ async def passport_websocket_endpoint(websocket: WebSocket, session_id: str):
             snapshot = await passport_graph_app.aget_state(config)
             if not snapshot.next:
                 await websocket.send_json({"type": "workflow_complete"})
+                await websocket.send_json({"type": "conversation_ended"})  # ← tells frontend not to reconnect
+                await websocket.close()
                 break
 
             data         = await websocket.receive_text()
@@ -1219,6 +1221,8 @@ async def interview_websocket_endpoint(websocket: WebSocket, session_id: str):
             snapshot = await interview_graph_app.aget_state(config)
             if not snapshot.next or snapshot.values.get("completed"):
                 await websocket.send_json({"type": "workflow_complete"})
+                await websocket.send_json({"type": "conversation_ended"})  # ← tells frontend not to reconnect
+                await websocket.close()
                 break
 
             data         = await websocket.receive_text()

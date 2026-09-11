@@ -701,16 +701,19 @@ document.head.appendChild(link);
                 
                 const messageType = data.messageType || 'body';
                 this.addMessage(data.content, true, messageType);
-                
+
+
                 // Check if we should show work experience UI
                 if (data.show_work_experience_ui) 
                 {
                     WorkExperienceUI.show();
+                    this.disableInput();
                 }
                 // Check if we should show education UI
                 else if (data.show_education_ui) 
                 {
                     EducationUI.show();
+                    this.disableInput();
                 }
                 // Show address autocomplete UI
                 else if (data.show_address_ui) 
@@ -720,27 +723,32 @@ document.head.appendChild(link);
                     } else {
                         AddressUI.show();
                     }
+                    this.disableInput();
                 }
                 // Show shift preference checkboxes (passport mode only)
                 else if (data.show_shift_ui)
                 {
                     ShiftPreferenceUI.show();
+                    this.disableInput();
                 }
                 else if (data.show_privacy_consent_ui)
                 {
                     PrivacyConsentUI.show();
-                }
-                // Disable input during greeting bubbles
-                if (data.disable_input) {
-                    window.CleoChatbot.disableInput();
+                    this.disableInput();
                 }
                 // Show GPS verification button
                 else if (data.show_gps_ui) 
                 {
                     LocationVerificationUI.show();
+                    this.disableInput();
                 }  
                 else if (data.show_id_verify_ui) {
                     IdVerificationUI.show(data.id_verify_link || "");
+                    this.disableInput();
+                }
+                // Disable input during greeting bubbles
+                else if (data.disable_input) {
+                    window.CleoChatbot.disableInput();
                 }
                 else 
                 {
