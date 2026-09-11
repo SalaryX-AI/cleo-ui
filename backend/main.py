@@ -171,7 +171,7 @@ async def create_passport():
 @app.get("/interview-scheduling")
 async def interview_scheduling():
     """Serve interview scheduling page"""
-    return FileResponse("interview_scheduling/interview_scheduling.html", media_type="text/html")
+    return FileResponse("interviewScheduling/interview_scheduling.html", media_type="text/html")
 
 @app.get("/job-details-test")
 async def job_details_test():
