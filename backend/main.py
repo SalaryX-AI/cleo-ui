@@ -109,7 +109,7 @@ app = FastAPI(title="Screening Chatbot API", lifespan=lifespan)
 # CORS configuration
 app.add_middleware(
     CORSMiddleware,
-   allow_origins=["https://scanandhire.com", "https://app.cleohr.com", "http://localhost:8000", "http://localhost:3000", "http://127.0.0.1:5500" ,"https://bigchicken.vercel.app", "https://burgerking-olive.vercel.app", "https://mcdonald-eta.vercel.app", "https://popeyes-ten.vercel.app", "https://starbucks-virid-three.vercel.app"],
+   allow_origins=["https://scanandhire.com", "https://app.cleohr.com", "http://localhost:8000", "http://localhost:3000", "http://127.0.0.1:5500" ,"https://bigchicken.vercel.app", "https://burgerking-olive.vercel.app", "https://mcdonald-eta.vercel.app", "https://popeyes-ten.vercel.app", "https://starbucks-virid-three.vercel.app", "https://salaryx-98528.bubbleapps.io"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -127,15 +127,16 @@ ALLOWED_DOMAINS = [
     "popeyes-ten.vercel.app",
     "starbucks-virid-three.vercel.app",
     "scanandhire.com",
-    "app.cleohr.com"
+    "app.cleohr.com",
+    "salaryx-98528.bubbleapps.io"
 ]
 
 Brand_names = {
     "bigchicken.vercel.app": "Big Chicken",
     "burgerking-olive.vercel.app": "Burger King",
-    "mcdonald.vercel.app": "McDonald's",
-    "popeyes.vercel.app": "Popeyes",
-    "starbucks.vercel.app": "Starbucks",
+    "mcdonald-eta.vercel.app": "McDonald's",
+    "popeyes-ten.vercel.app": "Popeyes",
+    "starbucks-virid-three.vercel.app": "Starbucks",
     "127.0.0.1": "Big Chicken",
     "scanandhire.com": "Big Chicken",
     "localhost": "Big Chicken"
