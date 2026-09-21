@@ -30,7 +30,7 @@ def parse_job_specific_qualifiers(items: list) -> dict:
         return text.strip()
 
     # Sort by order
-    items.sort(key=lambda x: x.get("order", 999))
+    items.sort(key=lambda x: x.get("order") if x.get("order") is not None else 999)
 
     questions                 = []
     required_questions        = {}
@@ -128,7 +128,10 @@ def parse_template(items: list) -> dict:
         return text.strip()
 
     # ── Sort by order first, then created_at as tiebreaker ───────────────────
-    items.sort(key=lambda x: (x.get("order", 999), x.get("created_at", 0)))
+    items.sort(key=lambda x: (
+        x.get("order") if x.get("order") is not None else 999,
+        x.get("created_at") if x.get("created_at") is not None else 0,
+    ))
 
     greeting_bubbles          = []
     greeting_ready_question   = {}
