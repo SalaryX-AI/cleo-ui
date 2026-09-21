@@ -265,7 +265,10 @@
                         { headers: { 'Authorization': `Bearer ${BUBBLE_BEARER_TOKEN}` } }
                     );
                     if (!response.ok) throw new Error('Failed to fetch job details');
-                    const data = await response.json();
+
+                    const rawText   = await response.text();
+                    const sanitized = rawText.replace(/"([^"]+)":\s*([,}])/g, '"$1": null$2');
+                    const data      = JSON.parse(sanitized);
                     return normalizeBubbleJob(data, jobId);
                 } else {
                     const response = await fetch(`${XANO_JOB_API_URL}/${jobId}`, {

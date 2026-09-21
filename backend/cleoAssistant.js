@@ -3472,7 +3472,21 @@ attachEventListeners() {
             { headers: { 'Authorization': `Bearer ${BUBBLE_BEARER_TOKEN}` } }
         );
         if (!resp.ok) throw new Error(`Bubble job fetch failed: ${resp.status}`);
-        return await resp.json();
+
+        const rawText = await resp.text();
+        // Bubble sometimes serializes an unset number field as `"field": ,`
+        // instead of `"field": null,` (seen on blank "order" values inside
+        // question lists) — that's invalid JSON on its own. Patch any bare
+        // empty value before parsing, rather than trust every job/template
+        // to always have every number field filled in.
+        const sanitized = rawText.replace(/"([^"]+)":\s*([,}])/g, '"$1": null$2');
+
+        try {
+            return JSON.parse(sanitized);
+        } catch (e) {
+            console.error('[CLEO] Bubble job response still invalid after sanitizing:', e, rawText);
+            throw e;
+        }
     }
 
     async function autoInitChatbot() {
