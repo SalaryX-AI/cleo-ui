@@ -28,7 +28,7 @@ XANO_PATCH_URL  = "https://xoho-w3ng-km3o.n7e.xano.io/api:6skoiMBa/candidate/{ca
 def get_xano_headers(is_live: bool) -> dict:
     return {
         "x-api-key":     "sk_test_51QxA9F7C2E8B4D1A6F9C3E7B2A",
-        "X-Data-Source": "live" if is_live else "test"
+        "X-Data-Source": "live"
     }
 
 
@@ -68,7 +68,7 @@ def create_candidate_record(
             headers={
                 "Content-Type":  "application/json",
                 "x-api-key":     "sk_test_51QxA9F7C2E8B4D1A6F9C3E7B2A",
-                "X-Data-Source": "live" if is_live else "test",
+                "X-Data-Source": "live",
             }
         )
         print(f"[XANO] POST response: {response.status_code} — {response.text}")
@@ -120,7 +120,7 @@ def update_candidate_section(
             headers={
                 "Content-Type":  "application/json",
                 "x-api-key":     "sk_test_51QxA9F7C2E8B4D1A6F9C3E7B2A",
-                "X-Data-Source": "live" if is_live else "test",
+                "X-Data-Source": "live",
             }
         )
         if response.status_code == 200:
